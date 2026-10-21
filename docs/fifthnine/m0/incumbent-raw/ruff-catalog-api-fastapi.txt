@@ -1,0 +1,3 @@
+app/clients/pricing.py:7:16: S113 Probable use of `requests` call without timeout
+app/clients/recommendations.py:6:68: S113 Probable use of `httpx` call with timeout set to `None`
+Found 2 errors.

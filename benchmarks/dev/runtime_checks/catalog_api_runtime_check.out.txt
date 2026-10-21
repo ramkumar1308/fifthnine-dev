@@ -1,0 +1,10 @@
+# Recorded 2026-10-21, Python 3.13.16, httpx 0.28.1, tenacity 9.2.1, Linux
+FN-RES-002: outer timeout after 4.0s, attempts started=2 of 3 configured (worst-case window 3x2s + 2x1s = 8s)
+FN-RES-004: after 12s still retrying=True, attempts so far=4
+FN-RES-001: timeout=None call still waiting at 10.0s (cut by harness)
+
+# Probe route check (fastapi 0.159.1 TestClient)
+/healthz 200
+/ready 200
+/readyz 404
+# gunicorn 26.2.0 --check-config on the k8s args: OK

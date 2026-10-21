@@ -1,0 +1,103 @@
+[SIMULATED OUTPUT (M0, schema rev 2). Facts written by hand from the dev answer key; verdicts computed by derive_verdict(). No scanner exists yet.]
+
+FifthNine Scan 0.1.0-simulated   .   report mode   profile: prod (k8s/deployment.yaml:33)
+Stack: spring-boot 3.4.13 [tested], spring-framework 6.2.15 [tested], java 21 [tested], kubernetes-api apps/v1, autoscaling/v2, policy/v1 [tested]
+Status: FAIL_VERIFIED   6 violation  2 conditional  0 unknown  3 satisfied   would block in gate mode (>= high): 0
+Note: Projection: assumes M2/M3 runtime fixtures pass for the detected versions, so they are reported as 'tested'. Today no version is tested (see the *.today-untested.* file).
+
+VIOLATION   high    FN-CAP-002a  HPA cannot scale on cpu: container has no cpu request
+                                at k8s/hpa.yaml:16, k8s/deployment.yaml:40
+                                HPA orders-service targets 70% cpu utilization, but container orders-service declares no cpu request. Utilization is undefined, so the HPA takes no action for this metric.
+                                relies on team declaration: no namespace LimitRange or webhook injects a default cpu request at admission (.fifthnine.yml:25)
+                                fix: Add resources.requests.cpu to every container in the pod template, or switch the HPA target to AverageValue.
+                                gate: not blocking (rule not yet promoted to blocking: needs runtime and boundary-case tests (D5))
+
+VIOLATION   high    FN-DEP-002   Readiness probe targets a port where actuator is not served
+                                at k8s/deployment.yaml:44, src/main/resources/application.yml:16
+                                management.server.port is 8081, so /actuator/** is served only on 8081. The readiness probe calls 8080/actuator/health/readiness and will get 404.
+                                computed: ManagementPortType: management 8081 != server 8080 -> DIFFERENT. Expected 8081/actuator/health/readiness; probe 8080/actuator/health/readiness.
+                                relies on team declaration: out-of-repo environment sources do not override these values (.fifthnine.yml:23)
+                                fix: Point the probe at port: management (8081), as the livenessProbe does, or enable add-additional-paths and probe 8080/readyz.
+                                gate: not blocking (rule not yet promoted to blocking: needs runtime and boundary-case tests (D5))
+
+VIOLATION   high    FN-RES-001   PaymentClient can wait forever on the payment service
+                                at src/main/java/com/acme/orders/client/PaymentClient.java:12
+                                `new RestTemplate()` uses SimpleClientHttpRequestFactory with no connect or read timeout. spring.http.client.* does not apply to a RestTemplate constructed directly.
+                                fix: Inject RestTemplateBuilder (or RestClient.Builder) so spring.http.client.* apply, or set a factory with explicit timeouts.
+                                gate: not blocking (rule not yet promoted to blocking: needs runtime and boundary-case tests (D5))
+
+VIOLATION   medium  FN-CFG-001   Production profile exposes all actuator endpoints
+                                at src/main/resources/application-prod.yml:7, k8s/deployment.yaml:32
+                                SPRING_PROFILES_ACTIVE=prod activates application-prod.yml, which sets exposure.include to "*" (heapdump, env, configprops, loggers). The comment says this was temporary (INC-2291).
+                                relies on team declaration: out-of-repo environment sources do not override these values (.fifthnine.yml:23)
+                                fix: Remove the override from application-prod.yml; the base file exposes health,info,prometheus.
+                                gate: not blocking (rule not yet promoted to blocking: needs runtime and boundary-case tests (D5))
+
+VIOLATION   medium  FN-DEP-001   Rollout can drop below the PDB minAvailable floor
+                                at k8s/deployment.yaml:13, k8s/pdb.yaml:7, k8s/hpa.yaml:11
+                                PDB orders-service requires 75% of pods available, but the rolling update allows 50% unavailable. PDBs do not limit rolling updates.
+                                computed: n=4: 4-2=2 < 3; n=6: 6-3=3 < 5; n=10: 10-5=5 < 8. Violated for every n in 4..10.
+                                fix: Set maxUnavailable to 25% or lower, or lower minAvailable if 75% was not a real floor.
+                                gate: not blocking (rule not yet promoted to blocking: needs runtime and boundary-case tests (D5))
+
+VIOLATION   medium  FN-DEP-003   Shutdown budget 55s exceeds pod grace period 30s
+                                at src/main/resources/application.yml:5, k8s/deployment.yaml:57
+                                preStop sleeps 10s, then Spring waits up to 45s per shutdown phase for in-flight requests. Kubernetes sends SIGKILL at 30s.
+                                computed: 10s preStop + 45s timeout-per-shutdown-phase = 55s > 30s terminationGracePeriodSeconds (field absent, Kubernetes default)
+                                relies on team declaration: out-of-repo environment sources do not override these values (.fifthnine.yml:23)
+                                fix: Set terminationGracePeriodSeconds to at least 60, or lower timeout-per-shutdown-phase to 20s or less.
+                                gate: not blocking (rule not yet promoted to blocking: needs runtime and boundary-case tests (D5))
+
+CONDITIONAL medium  FN-RES-001   ShippingQuoteClient likely has no read timeout
+                                at src/main/java/com/acme/orders/client/ShippingQuoteClient.java:13
+                                Static RestClient.builder() ignores spring.http.client.* and picks a factory by classpath. With the declared dependencies that is the JDK client, which has no read timeout by default.
+                                from repository evidence: VIOLATION if the assumptions below hold
+                                open assumption: no transitive dependency adds Apache HttpClient 5, Jetty or Reactor Netty (any of them changes the factory)
+                                fix: Inject RestClient.Builder instead of calling RestClient.builder().
+                                gate: not blocking (verdict is CONDITIONAL; rule not yet promoted to blocking: needs runtime and boundary-case tests (D5))
+
+CONDITIONAL low     FN-CAP-002b  Deployment sets spec.replicas while an HPA manages it
+                                at k8s/deployment.yaml:9
+                                Each kubectl apply resets replicas to 4, undoing the HPA until it reconciles.
+                                from repository evidence: VIOLATION if the assumptions below hold
+                                open assumption: the deploy tool applies spec.replicas (Argo CD and Flux can be set to ignore it)
+                                fix: Remove spec.replicas from the manifest.
+                                gate: not blocking (verdict is CONDITIONAL; rule not yet promoted to blocking: needs runtime and boundary-case tests (D5))
+
+SATISFIED           FN-DEP-002   Liveness probe matches management endpoint
+                                at k8s/deployment.yaml:50
+                                assumes (declared_by_team): out-of-repo environment sources do not override these values
+
+SATISFIED           FN-NET-001   Management port not reachable from outside the cluster
+                                at k8s/service.yaml:15, k8s/ingress.yaml:12
+                                assumes (declared_by_team): out-of-repo environment sources do not override these values
+                                assumes (open): no Ingress or Gateway outside this repository routes to port 8081
+
+SATISFIED           FN-RES-001   InventoryClient read timeout 2s
+                                at src/main/java/com/acme/orders/client/InventoryClient.java:15, src/main/resources/application.yml:9
+                                assumes (declared_by_team): out-of-repo environment sources do not override these values
+
+Service linkage
+  L1 declared: k8s:Deployment/commerce/orders-service/orders-service -> source:. (Maven orders-service) via Dockerfile
+     declared at .fifthnine.yml:6 by links-accept on 2026-10-21; evidence digest unchanged
+     - single Dockerfile; runtime stage copies target/orders-service-*.jar (Dockerfile:10)
+     - image repository basename 'orders-service' equals Maven artifactId (pom.xml:15)
+     - Dockerfile EXPOSE 8080 8081 equals containerPorts 8080, 8081 and server/management ports
+
+Coverage and limits
+  COV-TEAM-DECLARATION .fifthnine.yml:23-26
+                       Findings below rely on team declarations: external_overrides mode none (orders-service) and platform.admission_defaults none. If either is wrong, those VIOLATIONs are not established.
+  FN-OPS-002           pom.xml
+                       Transitive Maven dependencies not resolved (no network, no build).
+  COV-DELEGATED        repository
+                       Kubernetes security posture, probe presence and generic resource requests/limits are left to existing scanners.
+  FN-OPS-001           repository
+                       Data and migration compatibility is not assessed in v0.1.
+  COV-OBSERVATION      src/main/java/com/acme/orders/client/PaymentClient.java:20
+                       POST /v1/charges is retried up to 4 times; no idempotency evidence found. Not judged in v0.1 (FN-RES-003 candidate).
+
+Assessment limits: linkages declared=1 inferred/stale=0; conditional because of linkage=0, external config=0, untested version=0
+
+FifthNine reports evidence about specific, documented reliability checks on the files it could read. It does not certify production readiness and does not prevent outages. A scan with no findings is not a statement that the system is production ready.
+
+[SIMULATED OUTPUT (M0, schema rev 2). Facts written by hand from the dev answer key; verdicts computed by derive_verdict(). No scanner exists yet.]

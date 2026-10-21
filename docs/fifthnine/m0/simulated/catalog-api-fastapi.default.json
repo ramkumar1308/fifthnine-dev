@@ -1,0 +1,1102 @@
+{
+  "schema": "fifthnine.result/v1",
+  "simulated": true,
+  "tool": {
+    "name": "fifthnine",
+    "version": "0.1.0-simulated",
+    "rule_pack_versions": {
+      "fifthnine-core": "0.1.0"
+    }
+  },
+  "scan": {
+    "root": ".",
+    "mode": "full",
+    "base_ref": null,
+    "profile": null,
+    "profile_source": "none",
+    "config_file": null,
+    "policy_mode": "report",
+    "fail_on": "high",
+    "network_used": false,
+    "code_executed": false
+  },
+  "status": "FAIL_VERIFIED",
+  "status_reason": "2 VIOLATION finding(s) with established evidence. [Projection: assumes M2/M3 runtime fixtures pass for the detected versions, so they are reported as 'tested'. Today no version is tested (see the *.today-untested.* file).]",
+  "disclaimer": "FifthNine reports evidence about specific, documented reliability checks on the files it could read. It does not certify production readiness and does not prevent outages. A scan with no findings is not a statement that the system is production ready.",
+  "inventory": {
+    "files_considered": 19,
+    "files_parsed": 17,
+    "skipped": [],
+    "detected_stacks": [
+      {
+        "component": "python",
+        "version": "3.12",
+        "version_source": {
+          "path": "Dockerfile",
+          "line_start": 1,
+          "line_end": 1,
+          "column": null,
+          "excerpt": null
+        },
+        "support": "tested",
+        "tested_versions": [
+          "3.12"
+        ],
+        "matrix_entry": "python"
+      },
+      {
+        "component": "fastapi",
+        "version": "0.159.1",
+        "version_source": {
+          "path": "pyproject.toml",
+          "line_start": 7,
+          "line_end": 7,
+          "column": null,
+          "excerpt": null
+        },
+        "support": "tested",
+        "tested_versions": [
+          "0.159.1"
+        ],
+        "matrix_entry": "fastapi"
+      },
+      {
+        "component": "tenacity",
+        "version": "9.2.1",
+        "version_source": {
+          "path": "pyproject.toml",
+          "line_start": 13,
+          "line_end": 13,
+          "column": null,
+          "excerpt": null
+        },
+        "support": "tested",
+        "tested_versions": [
+          "9.2.1"
+        ],
+        "matrix_entry": "tenacity"
+      },
+      {
+        "component": "httpx",
+        "version": "0.28.1",
+        "version_source": {
+          "path": "pyproject.toml",
+          "line_start": 11,
+          "line_end": 11,
+          "column": null,
+          "excerpt": null
+        },
+        "support": "tested",
+        "tested_versions": [
+          "0.28.1"
+        ],
+        "matrix_entry": "httpx"
+      },
+      {
+        "component": "gunicorn",
+        "version": "26.2.0",
+        "version_source": {
+          "path": "pyproject.toml",
+          "line_start": 10,
+          "line_end": 10,
+          "column": null,
+          "excerpt": null
+        },
+        "support": "tested",
+        "tested_versions": [
+          "26.2.0"
+        ],
+        "matrix_entry": "gunicorn"
+      },
+      {
+        "component": "kubernetes-api",
+        "version": "apps/v1, autoscaling/v2, policy/v1",
+        "version_source": null,
+        "support": "tested",
+        "tested_versions": [
+          "apps/v1, autoscaling/v2, policy/v1"
+        ],
+        "matrix_entry": "kubernetes-api"
+      }
+    ]
+  },
+  "linkages": [
+    {
+      "link_id": "L1",
+      "kind": "workload_container_to_source_root",
+      "status": "inferred",
+      "from_ref": "k8s:Deployment/default/catalog-api/api",
+      "to_ref": "source:. (python catalog-api, module app.main:app)",
+      "evidence": [
+        "Deployment command names app.main:app; app/main.py defines app = FastAPI(...)",
+        "single Dockerfile copies ./app",
+        "image basename catalog-api equals pyproject name catalog-api"
+      ],
+      "accept_command": "fifthnine links accept",
+      "declared_in": null,
+      "accepted_by": null,
+      "accepted_on": null,
+      "evidence_digest": null,
+      "current_digest": "sha256:5d0c39a1f0b7e2c84a6f1e9b3d7c2a18"
+    }
+  ],
+  "findings": [
+    {
+      "fingerprint": "sha256:75b1b64497ce87984192c48c36f16819",
+      "rule_id": "FN-RES-004",
+      "rule_version": "0.1.0",
+      "domain": "resilience",
+      "verdict": "VIOLATION",
+      "severity": "high",
+      "title": "fetch_warehouses retries forever",
+      "message": "@retry has no stop=, so tenacity uses stop_never. It is called from GET /v1/products/{sku}/availability: during an inventory outage each request retries indefinitely.",
+      "subject": {
+        "kind": "retry_policy",
+        "key": "py:app.clients.inventory.fetch_warehouses",
+        "display": "inventory.fetch_warehouses"
+      },
+      "locations": [
+        {
+          "path": "app/clients/inventory.py",
+          "line_start": 21,
+          "line_end": 25,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "app/routes/products.py",
+          "line_start": 22,
+          "line_end": 22,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-retry-wh"
+      ],
+      "requirement": "Retries on a request path must be bounded by attempts or time.",
+      "computation": null,
+      "assumptions": [],
+      "verdict_if_assumptions_hold": null,
+      "conditional_reasons": [],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "tenacity",
+          "version": "9.2.1",
+          "version_source": {
+            "path": "pyproject.toml",
+            "line_start": 13,
+            "line_end": 13,
+            "column": null,
+            "excerpt": null
+          },
+          "support": "tested",
+          "tested_versions": [
+            "9.2.1"
+          ],
+          "matrix_entry": "tenacity"
+        }
+      ],
+      "remediation": {
+        "summary": "Add stop=stop_after_attempt(3) or stop=stop_before_delay(<budget>).",
+        "references": [
+          {
+            "title": "tenacity default stop",
+            "url": null,
+            "source_path": "tenacity==9.2.1:tenacity/__init__.py:262"
+          }
+        ]
+      },
+      "references": [],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [
+        "rule not yet promoted to blocking: needs runtime and boundary-case tests (D5)"
+      ],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:37cf765acf60795e4dffcb8628d56b08",
+      "rule_id": "FN-DEP-003",
+      "rule_version": "0.1.0",
+      "domain": "deployment_safety",
+      "verdict": "VIOLATION",
+      "severity": "medium",
+      "title": "gunicorn graceful timeout 60s exceeds pod grace period 30s",
+      "message": "gunicorn waits up to 60s for workers to finish on SIGTERM, but the pod is killed at 30s.",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/default/catalog-api/api",
+        "display": "catalog-api/api"
+      },
+      "locations": [
+        {
+          "path": "k8s/deployment.yaml",
+          "line_start": 27,
+          "line_end": 27,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "k8s/deployment.yaml",
+          "line_start": 17,
+          "line_end": 17,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-graceful",
+        "f-grace"
+      ],
+      "requirement": "Drain budget must fit inside terminationGracePeriodSeconds.",
+      "computation": "60s graceful-timeout > 30s terminationGracePeriodSeconds; no preStop. CLI flag is applied after GUNICORN_CMD_ARGS, so the out-of-repo Secret cannot override it.",
+      "assumptions": [],
+      "verdict_if_assumptions_hold": null,
+      "conditional_reasons": [],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "gunicorn",
+          "version": "26.2.0",
+          "version_source": {
+            "path": "pyproject.toml",
+            "line_start": 10,
+            "line_end": 10,
+            "column": null,
+            "excerpt": null
+          },
+          "support": "tested",
+          "tested_versions": [
+            "26.2.0"
+          ],
+          "matrix_entry": "gunicorn"
+        },
+        {
+          "component": "kubernetes-api",
+          "version": "apps/v1, autoscaling/v2, policy/v1",
+          "version_source": null,
+          "support": "tested",
+          "tested_versions": [
+            "apps/v1, autoscaling/v2, policy/v1"
+          ],
+          "matrix_entry": "kubernetes-api"
+        }
+      ],
+      "remediation": {
+        "summary": "Raise terminationGracePeriodSeconds to 70 or lower --graceful-timeout to 25.",
+        "references": [
+          {
+            "title": "Kubernetes: Pod termination",
+            "url": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/",
+            "source_path": null
+          }
+        ]
+      },
+      "references": [
+        {
+          "title": "Kubernetes: Pod termination",
+          "url": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/",
+          "source_path": null
+        }
+      ],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [
+        "rule not yet promoted to blocking: needs runtime and boundary-case tests (D5)"
+      ],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:f70da730213a1d76f1ad5abf66b3e477",
+      "rule_id": "FN-DEP-002",
+      "rule_version": "0.1.0",
+      "domain": "deployment_safety",
+      "verdict": "CONDITIONAL",
+      "severity": "high",
+      "title": "Readiness probe path /readyz is not served by the app",
+      "message": "The probe calls /readyz; app.main:app registers /healthz and /ready.",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/default/catalog-api/api#readiness",
+        "display": "catalog-api readinessProbe"
+      },
+      "locations": [
+        {
+          "path": "k8s/deployment.yaml",
+          "line_start": 40,
+          "line_end": 43,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "app/routes/health.py",
+          "line_start": 11,
+          "line_end": 11,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-readiness",
+        "f-routes"
+      ],
+      "requirement": "httpGet probe path must match a route registered by the effective application.",
+      "computation": null,
+      "assumptions": [
+        {
+          "kind": "linkage_inferred",
+          "statement": "linkage L1 is correct",
+          "material": true,
+          "state": "open",
+          "fact_ids": [],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": "VIOLATION",
+      "conditional_reasons": [
+        "linkage L1 is correct (run `fifthnine links accept`)"
+      ],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "fastapi",
+          "version": "0.159.1",
+          "version_source": {
+            "path": "pyproject.toml",
+            "line_start": 7,
+            "line_end": 7,
+            "column": null,
+            "excerpt": null
+          },
+          "support": "tested",
+          "tested_versions": [
+            "0.159.1"
+          ],
+          "matrix_entry": "fastapi"
+        }
+      ],
+      "remediation": {
+        "summary": "Change the probe path to /ready, or add a /readyz route.",
+        "references": []
+      },
+      "references": [],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [
+        "verdict is CONDITIONAL",
+        "rule not yet promoted to blocking: needs runtime and boundary-case tests (D5)",
+        "linkage L1 is inferred"
+      ],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:bbc8449c960bd0ef9bc63ef68cb3a85a",
+      "rule_id": "FN-RES-002",
+      "rule_version": "0.1.0",
+      "domain": "resilience",
+      "verdict": "CONDITIONAL",
+      "severity": "medium",
+      "title": "fetch_stock retry policy cannot finish inside the 4s page budget",
+      "message": "product_page wraps fetch_stock in asyncio.timeout(4.0). fetch_stock can take 3 attempts x 2s + 2 x 1s = 8s, so the deadline cancels it during the second attempt.",
+      "subject": {
+        "kind": "route",
+        "key": "py:app.routes.products.product_page#fetch_stock",
+        "display": "GET /v1/products/{sku} -> fetch_stock"
+      },
+      "locations": [
+        {
+          "path": "app/routes/products.py",
+          "line_start": 13,
+          "line_end": 14,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "app/clients/inventory.py",
+          "line_start": 9,
+          "line_end": 15,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "app/settings.py",
+          "line_start": 8,
+          "line_end": 8,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-retry-stock",
+        "f-inv-timeout",
+        "f-deadline"
+      ],
+      "requirement": "Worst-case retry window must fit inside the explicit outer deadline.",
+      "computation": "3 x 2.0s timeout + 2 x 1.0s wait = 8.0s > 4.0s (deadline from the Settings default)",
+      "assumptions": [
+        {
+          "kind": "external_override_env",
+          "statement": "out-of-repo environment sources do not override these values",
+          "material": true,
+          "state": "open",
+          "fact_ids": [
+            "f-deadline"
+          ],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": "VIOLATION",
+      "conditional_reasons": [
+        "out-of-repo environment sources do not override these values (declare external_overrides in .fifthnine.yml if true)"
+      ],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "tenacity",
+          "version": "9.2.1",
+          "version_source": {
+            "path": "pyproject.toml",
+            "line_start": 13,
+            "line_end": 13,
+            "column": null,
+            "excerpt": null
+          },
+          "support": "tested",
+          "tested_versions": [
+            "9.2.1"
+          ],
+          "matrix_entry": "tenacity"
+        },
+        {
+          "component": "httpx",
+          "version": "0.28.1",
+          "version_source": {
+            "path": "pyproject.toml",
+            "line_start": 11,
+            "line_end": 11,
+            "column": null,
+            "excerpt": null
+          },
+          "support": "tested",
+          "tested_versions": [
+            "0.28.1"
+          ],
+          "matrix_entry": "httpx"
+        }
+      ],
+      "remediation": {
+        "summary": "Use stop=stop_before_delay(3) with a 1s per-attempt timeout, or 2 attempts with 1.5s timeout and 0.5s wait.",
+        "references": []
+      },
+      "references": [],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [
+        "verdict is CONDITIONAL",
+        "rule not yet promoted to blocking: needs runtime and boundary-case tests (D5)"
+      ],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:2efe2a97727a21ce626d66b97acd235b",
+      "rule_id": "FN-CAP-002b",
+      "rule_version": "0.1.0",
+      "domain": "capacity",
+      "verdict": "CONDITIONAL",
+      "severity": "low",
+      "title": "Deployment sets spec.replicas while an HPA manages it",
+      "message": "Each kubectl apply resets replicas to 3.",
+      "subject": {
+        "kind": "k8s.deployment",
+        "key": "k8s:Deployment/default/catalog-api",
+        "display": "deploy/catalog-api"
+      },
+      "locations": [
+        {
+          "path": "k8s/deployment.yaml",
+          "line_start": 8,
+          "line_end": 8,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [],
+      "requirement": "Kubernetes recommends removing spec.replicas when an HPA is enabled.",
+      "computation": null,
+      "assumptions": [
+        {
+          "kind": "platform_behavior",
+          "statement": "the deploy tool applies spec.replicas (Argo CD and Flux can be set to ignore it)",
+          "material": true,
+          "state": "open",
+          "fact_ids": [],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": "VIOLATION",
+      "conditional_reasons": [
+        "the deploy tool applies spec.replicas (Argo CD and Flux can be set to ignore it)"
+      ],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "kubernetes-api",
+          "version": "apps/v1, autoscaling/v2, policy/v1",
+          "version_source": null,
+          "support": "tested",
+          "tested_versions": [
+            "apps/v1, autoscaling/v2, policy/v1"
+          ],
+          "matrix_entry": "kubernetes-api"
+        }
+      ],
+      "remediation": null,
+      "references": [],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [
+        "verdict is CONDITIONAL",
+        "rule not yet promoted to blocking: needs runtime and boundary-case tests (D5)"
+      ],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:2fea2a5fc6d008b385bdbfa17236c09f",
+      "rule_id": "FN-CFG-001",
+      "rule_version": "0.1.0",
+      "domain": "production_config",
+      "verdict": "SATISFIED",
+      "severity": null,
+      "title": "Effective container command has no reload or debug mode",
+      "message": "The Deployment command (gunicorn) replaces the Dockerfile CMD, so the image's uvicorn --reload never runs in the cluster. FastAPI(debug=...) is not set.",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/default/catalog-api/api#command",
+        "display": "catalog-api effective command"
+      },
+      "locations": [
+        {
+          "path": "k8s/deployment.yaml",
+          "line_start": 21,
+          "line_end": 28,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "Dockerfile",
+          "line_start": 11,
+          "line_end": 11,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-command",
+        "f-routes"
+      ],
+      "requirement": "Production command must not enable auto-reload or debug.",
+      "computation": null,
+      "assumptions": [
+        {
+          "kind": "linkage_inferred",
+          "statement": "linkage L1 is correct",
+          "material": true,
+          "state": "open",
+          "fact_ids": [],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": null,
+      "conditional_reasons": [],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "fastapi",
+          "version": "0.159.1",
+          "version_source": {
+            "path": "pyproject.toml",
+            "line_start": 7,
+            "line_end": 7,
+            "column": null,
+            "excerpt": null
+          },
+          "support": "tested",
+          "tested_versions": [
+            "0.159.1"
+          ],
+          "matrix_entry": "fastapi"
+        },
+        {
+          "component": "gunicorn",
+          "version": "26.2.0",
+          "version_source": {
+            "path": "pyproject.toml",
+            "line_start": 10,
+            "line_end": 10,
+            "column": null,
+            "excerpt": null
+          },
+          "support": "tested",
+          "tested_versions": [
+            "26.2.0"
+          ],
+          "matrix_entry": "gunicorn"
+        }
+      ],
+      "remediation": null,
+      "references": [],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:03276c62ebcb8d0d026e974025fea5ab",
+      "rule_id": "FN-DEP-002",
+      "rule_version": "0.1.0",
+      "domain": "deployment_safety",
+      "verdict": "SATISFIED",
+      "severity": null,
+      "title": "Liveness probe /healthz matches a registered route",
+      "message": "GET /healthz is registered by app.routes.health.",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/default/catalog-api/api#liveness",
+        "display": "catalog-api livenessProbe"
+      },
+      "locations": [
+        {
+          "path": "k8s/deployment.yaml",
+          "line_start": 45,
+          "line_end": 48,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "app/routes/health.py",
+          "line_start": 6,
+          "line_end": 6,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-liveness",
+        "f-routes"
+      ],
+      "requirement": "Probe path must match a registered route.",
+      "computation": null,
+      "assumptions": [
+        {
+          "kind": "linkage_inferred",
+          "statement": "linkage L1 is correct",
+          "material": true,
+          "state": "open",
+          "fact_ids": [],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": null,
+      "conditional_reasons": [],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "fastapi",
+          "version": "0.159.1",
+          "version_source": {
+            "path": "pyproject.toml",
+            "line_start": 7,
+            "line_end": 7,
+            "column": null,
+            "excerpt": null
+          },
+          "support": "tested",
+          "tested_versions": [
+            "0.159.1"
+          ],
+          "matrix_entry": "fastapi"
+        }
+      ],
+      "remediation": null,
+      "references": [],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [],
+      "baseline_status": "new",
+      "suppression": null
+    }
+  ],
+  "coverage": [
+    {
+      "code": "FN-OPS-002",
+      "domain": null,
+      "scope": "k8s/deployment.yaml",
+      "message": "Service linkage L1 inferred from 3 signals. Run `fifthnine links accept` to review and declare it.",
+      "affects_rules": [
+        "FN-DEP-002",
+        "FN-CFG-001"
+      ],
+      "blocks_assessment": false,
+      "delegated_to": []
+    },
+    {
+      "code": "COV-DELEGATED",
+      "domain": "resilience",
+      "scope": "app/clients/pricing.py:7, app/clients/recommendations.py:6",
+      "message": "Python HTTP calls without a bounded timeout were detected and are left to existing scanners: requests.get without timeout (pricing.py:7), httpx client with timeout=None (recommendations.py:6). Run `ruff check --select S113`.",
+      "affects_rules": [],
+      "blocks_assessment": false,
+      "delegated_to": [
+        "ruff:S113",
+        "bandit:B113"
+      ]
+    },
+    {
+      "code": "FN-OPS-002",
+      "domain": null,
+      "scope": "k8s/deployment.yaml:33",
+      "message": "Secret catalog-api-env is referenced by envFrom but not stored in the repository. Findings that depend on pydantic-settings fields it could override stay CONDITIONAL; the computation is kept.",
+      "affects_rules": [
+        "FN-RES-002"
+      ],
+      "blocks_assessment": false,
+      "delegated_to": []
+    },
+    {
+      "code": "COV-RULE-SCOPE",
+      "domain": "deployment_safety",
+      "scope": "k8s/pdb.yaml",
+      "message": "PDB uses maxUnavailable; FN-DEP-001 only treats minAvailable as a declared capacity floor, so rollout capacity was not compared.",
+      "affects_rules": [],
+      "blocks_assessment": false,
+      "delegated_to": []
+    },
+    {
+      "code": "FN-OPS-001",
+      "domain": "data_compatibility",
+      "scope": "repository",
+      "message": "Data and migration compatibility is not assessed in v0.1.",
+      "affects_rules": [],
+      "blocks_assessment": false,
+      "delegated_to": [
+        "squawk",
+        "atlas"
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fact_id": "f-graceful",
+      "kind": "process.graceful_timeout_seconds",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/default/catalog-api/api",
+        "display": "catalog-api/api"
+      },
+      "value": 60,
+      "unit": "s",
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 27,
+        "line_end": 27,
+        "column": null,
+        "excerpt": "- \"--graceful-timeout=60\""
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "gunicorn-cli-v1"
+    },
+    {
+      "fact_id": "f-grace",
+      "kind": "k8s.pod.termination_grace_seconds",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/default/catalog-api/api",
+        "display": "catalog-api/api"
+      },
+      "value": 30,
+      "unit": "s",
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 17,
+        "line_end": 17,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "k8s-v1"
+    },
+    {
+      "fact_id": "f-retry-wh",
+      "kind": "retry_policy",
+      "subject": {
+        "kind": "retry_policy",
+        "key": "py:app.clients.inventory.fetch_warehouses",
+        "display": "inventory.fetch_warehouses"
+      },
+      "value": {
+        "library": "tenacity",
+        "stop": "stop_never (default)",
+        "wait": "wait_exponential(multiplier=0.5, max=10)"
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "app/clients/inventory.py",
+        "line_start": 21,
+        "line_end": 24,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "python-tenacity-v1"
+    },
+    {
+      "fact_id": "f-retry-stock",
+      "kind": "retry_policy",
+      "subject": {
+        "kind": "retry_policy",
+        "key": "py:app.clients.inventory.fetch_stock",
+        "display": "inventory.fetch_stock"
+      },
+      "value": {
+        "library": "tenacity",
+        "stop": "stop_after_attempt(3)",
+        "wait": "wait_fixed(1)"
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "app/clients/inventory.py",
+        "line_start": 9,
+        "line_end": 14,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "python-tenacity-v1"
+    },
+    {
+      "fact_id": "f-inv-timeout",
+      "kind": "http_client.read_timeout",
+      "subject": {
+        "kind": "http_client",
+        "key": "py:app.clients.inventory._client",
+        "display": "inventory._client"
+      },
+      "value": 2.0,
+      "unit": "s",
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "app/clients/inventory.py",
+        "line_start": 6,
+        "line_end": 6,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "python-http-clients-v1"
+    },
+    {
+      "fact_id": "f-deadline",
+      "kind": "python.outer_deadline",
+      "subject": {
+        "kind": "route",
+        "key": "py:app.routes.products.product_page",
+        "display": "GET /v1/products/{sku}"
+      },
+      "value": 4.0,
+      "unit": "s",
+      "status": "declared",
+      "override_exposure": "env_possible",
+      "scope": {},
+      "source": {
+        "path": "app/settings.py",
+        "line_start": 8,
+        "line_end": 8,
+        "column": null,
+        "excerpt": "product_page_budget_seconds: float = 4.0"
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "python-asyncio-deadline-v1"
+    },
+    {
+      "fact_id": "f-readiness",
+      "kind": "k8s.probe.readiness",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/default/catalog-api/api",
+        "display": "catalog-api/api"
+      },
+      "value": {
+        "type": "httpGet",
+        "port": "http(8000)",
+        "path": "/readyz"
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 40,
+        "line_end": 43,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "k8s-v1"
+    },
+    {
+      "fact_id": "f-liveness",
+      "kind": "k8s.probe.liveness",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/default/catalog-api/api",
+        "display": "catalog-api/api"
+      },
+      "value": {
+        "type": "httpGet",
+        "port": "http(8000)",
+        "path": "/healthz"
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 45,
+        "line_end": 48,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "k8s-v1"
+    },
+    {
+      "fact_id": "f-routes",
+      "kind": "fastapi.routes",
+      "subject": {
+        "kind": "fastapi.app",
+        "key": "py:app.main:app",
+        "display": "app.main:app"
+      },
+      "value": [
+        "GET /healthz",
+        "GET /ready",
+        "GET /v1/products/{sku}",
+        "GET /v1/products/{sku}/availability"
+      ],
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "app/main.py",
+        "line_start": 5,
+        "line_end": 7,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "python-fastapi-routes-v1"
+    },
+    {
+      "fact_id": "f-command",
+      "kind": "k8s.container.command",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/default/catalog-api/api",
+        "display": "catalog-api/api"
+      },
+      "value": [
+        "gunicorn",
+        "app.main:app",
+        "--worker-class=uvicorn_worker.UvicornWorker",
+        "..."
+      ],
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 21,
+        "line_end": 28,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "k8s-v1"
+    }
+  ],
+  "summary": {
+    "by_verdict": {
+      "VIOLATION": 2,
+      "CONDITIONAL": 3,
+      "UNKNOWN": 0,
+      "SATISFIED": 2
+    },
+    "by_severity": {
+      "info": 0,
+      "low": 1,
+      "medium": 2,
+      "high": 2,
+      "critical": 0
+    },
+    "blocking": 0,
+    "new": 7,
+    "suppressed": 0,
+    "rules_evaluated": 7,
+    "rules_not_applicable": 3,
+    "assessment_limits": {
+      "linkages_declared": 0,
+      "linkages_inferred": 1,
+      "linkages_unresolved": 0,
+      "findings_capped_by_linkage": 1,
+      "findings_with_override_assumption": 1,
+      "findings_conditional_on_external_config": 1,
+      "findings_conditional_on_untested_version": 0,
+      "results_unknown_unsupported_config": 0,
+      "results_unknown_unresolved_value": 0,
+      "rules_not_assessable": 0
+    }
+  },
+  "advisory": {
+    "enabled": false,
+    "items": []
+  }
+}

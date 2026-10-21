@@ -1,0 +1,41 @@
+Run started:2026-10-21 21:30:22.447496+00:00
+
+Test results:
+>> Issue: [B113:request_without_timeout] Call to requests without timeout
+   Severity: Medium   Confidence: Low
+   CWE: CWE-400 (https://cwe.mitre.org/data/definitions/400.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b113_request_without_timeout.html
+   Location: app/clients/pricing.py:7:15
+6	def get_price(sku: str) -> dict:
+7	    response = requests.get(f"{settings.pricing_url}/prices/{sku}")
+8	    response.raise_for_status()
+
+--------------------------------------------------
+>> Issue: [B113:request_without_timeout] Call to httpx with timeout set to None
+   Severity: Medium   Confidence: Low
+   CWE: CWE-400 (https://cwe.mitre.org/data/definitions/400.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b113_request_without_timeout.html
+   Location: app/clients/recommendations.py:6:10
+5	# Recommendation model calls can be slow under load; don't cut them off.
+6	_client = httpx.AsyncClient(base_url=settings.recommendations_url, timeout=None)
+7	
+
+--------------------------------------------------
+
+Code scanned:
+	Total lines of code: 78
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 0
+		Medium: 2
+		High: 0
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 2
+		Medium: 0
+		High: 0
+Files skipped (0):

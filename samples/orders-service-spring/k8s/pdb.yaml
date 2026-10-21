@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: orders-service
+  namespace: commerce
+spec:
+  minAvailable: 75%
+  selector:
+    matchLabels:
+      app: orders-service

@@ -1,0 +1,4512 @@
+[
+    {
+        "check_type": "kubernetes",
+        "results": {
+            "failed_checks": [
+                {
+                    "check_id": "CKV_K8S_10",
+                    "bc_check_id": null,
+                    "check_name": "CPU requests should be set",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": [
+                            "spec/template/spec/containers/[0]/resources/requests/cpu"
+                        ]
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.CPURequests",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_11",
+                    "bc_check_id": null,
+                    "check_name": "CPU limits should be set",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": [
+                            "spec/template/spec/containers/[0]/resources/limits/cpu"
+                        ]
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.CPULimits",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_43",
+                    "bc_check_id": null,
+                    "check_name": "Image should use digest",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": [
+                            "spec/template/spec/containers/[0]/image"
+                        ]
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.ImageDigest",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_37",
+                    "bc_check_id": null,
+                    "check_name": "Minimize the admission of containers with capabilities assigned",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": [
+                            "spec/template/spec/containers/[0]/securityContext/capabilities/drop"
+                        ]
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.MinimizeCapabilities",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_28",
+                    "bc_check_id": null,
+                    "check_name": "Minimize the admission of containers with the NET_RAW capability",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": [
+                            "spec/template/spec/containers/[0]/securityContext/capabilities/drop"
+                        ]
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.DropCapabilities",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_23",
+                    "bc_check_id": null,
+                    "check_name": "Minimize the admission of root containers",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": []
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.RootContainers",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_38",
+                    "bc_check_id": null,
+                    "check_name": "Ensure that Service Account Tokens are only mounted where necessary",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": []
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.ServiceAccountTokens",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_35",
+                    "bc_check_id": null,
+                    "check_name": "Prefer using secrets as files over secrets as environment variables",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": [
+                            "spec/template/spec/containers/[0]/envFrom/[1]/secretRef"
+                        ]
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.Secrets",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_15",
+                    "bc_check_id": null,
+                    "check_name": "Image Pull Policy should be Always",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": [
+                            "spec/template/spec/containers/[0]/image",
+                            "spec/template/spec/containers/[0]/imagePullPolicy"
+                        ]
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.ImagePullPolicyAlways",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_40",
+                    "bc_check_id": null,
+                    "check_name": "Containers should run as a high UID to avoid host conflict",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": []
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.RootContainersHighUID",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_29",
+                    "bc_check_id": null,
+                    "check_name": "Apply security context to your pods and containers",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": []
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.PodSecurityContext",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_20",
+                    "bc_check_id": null,
+                    "check_name": "Containers should not run with allowPrivilegeEscalation",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": [
+                            "spec/template/spec/containers/[0]/securityContext/allowPrivilegeEscalation"
+                        ]
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.AllowPrivilegeEscalation",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_30",
+                    "bc_check_id": null,
+                    "check_name": "Apply security context to your containers",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": [
+                            "spec/template/spec/containers/[0]/securityContext"
+                        ]
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.ContainerSecurityContext",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_22",
+                    "bc_check_id": null,
+                    "check_name": "Use read-only filesystem for containers where possible",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": [
+                            "spec/template/spec/containers/[0]/securityContext/readOnlyRootFilesystem"
+                        ]
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.ReadOnlyFilesystem",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV_K8S_31",
+                    "bc_check_id": null,
+                    "check_name": "Ensure that the seccomp profile is set to docker/default or runtime/default",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": []
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Deployment.commerce.orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.kubernetes.checks.resource.k8s.Seccomp",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                },
+                {
+                    "check_id": "CKV2_K8S_6",
+                    "bc_check_id": null,
+                    "check_name": "Minimize the admission of pods which lack an associated NetworkPolicy",
+                    "check_result": {
+                        "result": "FAILED",
+                        "evaluated_keys": [
+                            "resource_type"
+                        ]
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "apiVersion: apps/v1\n"
+                        ],
+                        [
+                            2,
+                            "kind: Deployment\n"
+                        ],
+                        [
+                            3,
+                            "metadata:\n"
+                        ],
+                        [
+                            4,
+                            "  name: orders-service\n"
+                        ],
+                        [
+                            5,
+                            "  namespace: commerce\n"
+                        ],
+                        [
+                            6,
+                            "  labels:\n"
+                        ],
+                        [
+                            7,
+                            "    app: orders-service\n"
+                        ],
+                        [
+                            8,
+                            "spec:\n"
+                        ],
+                        [
+                            9,
+                            "  replicas: 4\n"
+                        ],
+                        [
+                            10,
+                            "  strategy:\n"
+                        ],
+                        [
+                            11,
+                            "    type: RollingUpdate\n"
+                        ],
+                        [
+                            12,
+                            "    rollingUpdate:\n"
+                        ],
+                        [
+                            13,
+                            "      maxUnavailable: 50%\n"
+                        ],
+                        [
+                            14,
+                            "      maxSurge: 25%\n"
+                        ],
+                        [
+                            15,
+                            "  selector:\n"
+                        ],
+                        [
+                            16,
+                            "    matchLabels:\n"
+                        ],
+                        [
+                            17,
+                            "      app: orders-service\n"
+                        ],
+                        [
+                            18,
+                            "  template:\n"
+                        ],
+                        [
+                            19,
+                            "    metadata:\n"
+                        ],
+                        [
+                            20,
+                            "      labels:\n"
+                        ],
+                        [
+                            21,
+                            "        app: orders-service\n"
+                        ],
+                        [
+                            22,
+                            "    spec:\n"
+                        ],
+                        [
+                            23,
+                            "      containers:\n"
+                        ],
+                        [
+                            24,
+                            "        - name: orders-service\n"
+                        ],
+                        [
+                            25,
+                            "          image: ghcr.io/acme/orders-service:1.8.0\n"
+                        ],
+                        [
+                            26,
+                            "          ports:\n"
+                        ],
+                        [
+                            27,
+                            "            - name: http\n"
+                        ],
+                        [
+                            28,
+                            "              containerPort: 8080\n"
+                        ],
+                        [
+                            29,
+                            "            - name: management\n"
+                        ],
+                        [
+                            30,
+                            "              containerPort: 8081\n"
+                        ],
+                        [
+                            31,
+                            "          env:\n"
+                        ],
+                        [
+                            32,
+                            "            - name: SPRING_PROFILES_ACTIVE\n"
+                        ],
+                        [
+                            33,
+                            "              value: prod\n"
+                        ],
+                        [
+                            34,
+                            "          envFrom:\n"
+                        ],
+                        [
+                            35,
+                            "            - configMapRef:\n"
+                        ],
+                        [
+                            36,
+                            "                name: orders-service-endpoints\n"
+                        ],
+                        [
+                            37,
+                            "            - secretRef:\n"
+                        ],
+                        [
+                            38,
+                            "                name: orders-service-secrets\n"
+                        ],
+                        [
+                            39,
+                            "          resources:\n"
+                        ],
+                        [
+                            40,
+                            "            requests:\n"
+                        ],
+                        [
+                            41,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            42,
+                            "            limits:\n"
+                        ],
+                        [
+                            43,
+                            "              memory: 768Mi\n"
+                        ],
+                        [
+                            44,
+                            "          readinessProbe:\n"
+                        ],
+                        [
+                            45,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            46,
+                            "              path: /actuator/health/readiness\n"
+                        ],
+                        [
+                            47,
+                            "              port: 8080\n"
+                        ],
+                        [
+                            48,
+                            "            periodSeconds: 5\n"
+                        ],
+                        [
+                            49,
+                            "            failureThreshold: 3\n"
+                        ],
+                        [
+                            50,
+                            "          livenessProbe:\n"
+                        ],
+                        [
+                            51,
+                            "            httpGet:\n"
+                        ],
+                        [
+                            52,
+                            "              path: /actuator/health/liveness\n"
+                        ],
+                        [
+                            53,
+                            "              port: management\n"
+                        ],
+                        [
+                            54,
+                            "            initialDelaySeconds: 20\n"
+                        ],
+                        [
+                            55,
+                            "            periodSeconds: 10\n"
+                        ],
+                        [
+                            56,
+                            "          lifecycle:\n"
+                        ],
+                        [
+                            57,
+                            "            preStop:\n"
+                        ],
+                        [
+                            58,
+                            "              exec:\n"
+                        ],
+                        [
+                            59,
+                            "                command: [\"sh\", \"-c\", \"sleep 10\"]\n"
+                        ]
+                    ],
+                    "file_path": "/k8s/deployment.yaml",
+                    "file_abs_path": "samples/orders-service-spring/k8s/deployment.yaml",
+                    "repo_file_path": "/k8s/deployment.yaml",
+                    "file_line_range": [
+                        1,
+                        59
+                    ],
+                    "resource": "Pod.commerce.orders-service.app-orders-service",
+                    "evaluations": {},
+                    "check_class": "checkov.common.graph.checks_infra.base_check",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                }
+            ]
+        },
+        "summary": {
+            "passed": 80,
+            "failed": 16,
+            "skipped": 0,
+            "parsing_errors": 0,
+            "resource_count": 8,
+            "checkov_version": "3.3.30"
+        }
+    },
+    {
+        "check_type": "dockerfile",
+        "results": {
+            "failed_checks": [
+                {
+                    "check_id": "CKV_DOCKER_2",
+                    "bc_check_id": null,
+                    "check_name": "Ensure that HEALTHCHECK instructions have been added to container images",
+                    "check_result": {
+                        "result": "FAILED",
+                        "results_configuration": null
+                    },
+                    "code_block": [
+                        [
+                            1,
+                            "FROM maven:3.9-eclipse-temurin-21 AS build\n"
+                        ],
+                        [
+                            2,
+                            "WORKDIR /src\n"
+                        ],
+                        [
+                            3,
+                            "COPY pom.xml .\n"
+                        ],
+                        [
+                            4,
+                            "RUN mvn -q -B dependency:go-offline\n"
+                        ],
+                        [
+                            5,
+                            "COPY src ./src\n"
+                        ],
+                        [
+                            6,
+                            "RUN mvn -q -B -DskipTests package\n"
+                        ],
+                        [
+                            7,
+                            "\n"
+                        ],
+                        [
+                            8,
+                            "FROM eclipse-temurin:21-jre\n"
+                        ],
+                        [
+                            9,
+                            "WORKDIR /app\n"
+                        ],
+                        [
+                            10,
+                            "COPY --from=build /src/target/orders-service-*.jar /app/app.jar\n"
+                        ],
+                        [
+                            11,
+                            "USER 10001\n"
+                        ],
+                        [
+                            12,
+                            "EXPOSE 8080 8081\n"
+                        ],
+                        [
+                            13,
+                            "ENTRYPOINT [\"java\", \"-XX:MaxRAMPercentage=75\", \"-jar\", \"/app/app.jar\"]"
+                        ]
+                    ],
+                    "file_path": "/Dockerfile",
+                    "file_abs_path": "samples/orders-service-spring/Dockerfile",
+                    "repo_file_path": "/Dockerfile",
+                    "file_line_range": [
+                        1,
+                        13
+                    ],
+                    "resource": "/Dockerfile.",
+                    "evaluations": null,
+                    "check_class": "checkov.dockerfile.checks.HealthcheckExists",
+                    "fixed_definition": null,
+                    "entity_tags": null,
+                    "caller_file_path": null,
+                    "caller_file_line_range": null,
+                    "resource_address": null,
+                    "severity": null,
+                    "bc_category": null,
+                    "benchmarks": null,
+                    "description": null,
+                    "short_description": null,
+                    "vulnerability_details": null,
+                    "connected_node": null,
+                    "guideline": null,
+                    "details": [],
+                    "check_len": null,
+                    "definition_context_file_path": null
+                }
+            ]
+        },
+        "summary": {
+            "passed": 42,
+            "failed": 1,
+            "skipped": 0,
+            "parsing_errors": 0,
+            "resource_count": 1,
+            "checkov_version": "3.3.30"
+        }
+    }
+]

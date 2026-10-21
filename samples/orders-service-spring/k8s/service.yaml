@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-service
+  namespace: commerce
+spec:
+  type: ClusterIP
+  selector:
+    app: orders-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-service-metrics
+  namespace: commerce
+  labels:
+    monitoring: prometheus
+spec:
+  type: ClusterIP
+  selector:
+    app: orders-service
+  ports:
+    - name: management
+      port: 8081
+      targetPort: management

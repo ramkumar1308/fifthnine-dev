@@ -1,0 +1,13 @@
+KubeLinter 0.8.3
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) object has 4 replicas but does not specify inter pod anti-affinity (check: no-anti-affinity, remediation: Specify anti-affinity in your pod specification to ensure that the orchestrator attempts to schedule replicas on different nodes. Using podAntiAffinity, specify a labelSelector that matches pods for the deployment, and set the topologyKey to kubernetes.io/hostname. Refer to https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity for details.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) container "orders-service" does not have a read-only root file system (check: no-read-only-root-fs, remediation: Set readOnlyRootFilesystem to true in the container securityContext.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) container "orders-service" is not set to runAsNonRoot (check: run-as-non-root, remediation: Set runAsUser to a non-zero number and runAsNonRoot to true in your pod or container securityContext. Refer to https://kubernetes.io/docs/tasks/configure-pod-container/security-context/ for details.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) container "orders-service" has cpu request 0 (check: unset-cpu-requirements, remediation: Set CPU requests for your container based on its requirements. Refer to https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits for details.)
+
+samples/orders-service-spring/k8s/pdb.yaml: (object: commerce/orders-service policy/v1, Kind=PodDisruptionBudget) unhealthyPodEvictionPolicy is not explicitly set (check: pdb-unhealthy-pod-eviction-policy, remediation: Set unhealthyPodEvictionPolicy to AlwaysAllow. Refer to https://kubernetes.io/docs/tasks/run-application/configure-pdb/#unhealthy-pod-eviction-policy for more information.)
+
+Error: found 5 lint errors

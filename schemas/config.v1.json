@@ -1,0 +1,371 @@
+{
+  "$defs": {
+    "ExternalOverrides": {
+      "additionalProperties": false,
+      "description": "Lets a team state what out-of-repo config sources may change (D2).\n\nmode 'unknown' (default): findings that depend on env-bindable values of this service carry an open\nexternal_override_env assumption and are at most CONDITIONAL. 'none': the team declares out-of-repo\nsources do not override application settings; the assumption becomes declared_by_team and is cited.\n'keys': only the listed keys may be overridden; findings depending on them stay CONDITIONAL.",
+      "properties": {
+        "keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Keys",
+          "type": "array"
+        },
+        "mode": {
+          "default": "unknown",
+          "enum": [
+            "unknown",
+            "none",
+            "keys"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "title": "ExternalOverrides",
+      "type": "object"
+    },
+    "PlatformDecl": {
+      "additionalProperties": false,
+      "description": "Cluster-side facts the repository cannot show. 'unknown' keeps the matching assumption open.",
+      "properties": {
+        "admission_defaults": {
+          "default": "unknown",
+          "description": "'none': no LimitRange or webhook injects resource requests for these workloads",
+          "enum": [
+            "unknown",
+            "none"
+          ],
+          "title": "Admission Defaults",
+          "type": "string"
+        }
+      },
+      "title": "PlatformDecl",
+      "type": "object"
+    },
+    "Policy": {
+      "additionalProperties": false,
+      "properties": {
+        "fail_on": {
+          "$ref": "#/$defs/Severity",
+          "default": "high"
+        },
+        "mode": {
+          "default": "report",
+          "enum": [
+            "report",
+            "gate"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "title": "Policy",
+      "type": "object"
+    },
+    "RuleConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "disable": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Disable",
+          "type": "array"
+        },
+        "enable": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Enable",
+          "type": "array"
+        },
+        "paths": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "rule id -> path globs it is limited to",
+          "title": "Paths",
+          "type": "object"
+        }
+      },
+      "title": "RuleConfig",
+      "type": "object"
+    },
+    "ServiceDecl": {
+      "additionalProperties": false,
+      "properties": {
+        "accepted_by": {
+          "default": "user",
+          "enum": [
+            "user",
+            "links-accept"
+          ],
+          "title": "Accepted By",
+          "type": "string"
+        },
+        "accepted_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ISO date; required for links-accept",
+          "title": "Accepted On"
+        },
+        "dockerfile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dockerfile"
+        },
+        "evidence": {
+          "description": "Human-readable evidence shown at acceptance",
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "evidence_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 over the normalized evidence the link was accepted on (Dockerfile, workload container image/command/args/ports, build descriptor identity). A changed digest makes the link stale (D3).",
+          "title": "Evidence Digest"
+        },
+        "external_overrides": {
+          "$ref": "#/$defs/ExternalOverrides"
+        },
+        "framework": {
+          "anyOf": [
+            {
+              "enum": [
+                "spring-boot",
+                "fastapi"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Framework"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "source_root": {
+          "default": ".",
+          "title": "Source Root",
+          "type": "string"
+        },
+        "workload": {
+          "$ref": "#/$defs/WorkloadRef"
+        }
+      },
+      "required": [
+        "name",
+        "workload"
+      ],
+      "title": "ServiceDecl",
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "SuppressionDecl": {
+      "additionalProperties": false,
+      "properties": {
+        "expires": {
+          "description": "ISO date, required. Expired entries are reported and re-activated.",
+          "title": "Expires",
+          "type": "string"
+        },
+        "fingerprint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fingerprint"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "reason": {
+          "minLength": 10,
+          "title": "Reason",
+          "type": "string"
+        },
+        "rule": {
+          "title": "Rule",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule",
+        "reason",
+        "expires"
+      ],
+      "title": "SuppressionDecl",
+      "type": "object"
+    },
+    "WorkloadRef": {
+      "additionalProperties": false,
+      "properties": {
+        "container": {
+          "title": "Container",
+          "type": "string"
+        },
+        "kind": {
+          "const": "Deployment",
+          "default": "Deployment",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Namespace"
+        }
+      },
+      "required": [
+        "name",
+        "container"
+      ],
+      "title": "WorkloadRef",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "ignore_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Ignore Paths",
+      "type": "array"
+    },
+    "integrations": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "description": "Reserved for SARIF import (E8 stretch). Ignored in v0.1 with a notice.",
+      "title": "Integrations",
+      "type": "object"
+    },
+    "platform": {
+      "$ref": "#/$defs/PlatformDecl"
+    },
+    "policy": {
+      "$ref": "#/$defs/Policy"
+    },
+    "profile": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Profile"
+    },
+    "rules": {
+      "$ref": "#/$defs/RuleConfig"
+    },
+    "services": {
+      "items": {
+        "$ref": "#/$defs/ServiceDecl"
+      },
+      "title": "Services",
+      "type": "array"
+    },
+    "suppressions": {
+      "items": {
+        "$ref": "#/$defs/SuppressionDecl"
+      },
+      "title": "Suppressions",
+      "type": "array"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "title": "FifthNineConfig",
+  "type": "object"
+}

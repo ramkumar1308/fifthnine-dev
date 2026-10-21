@@ -1,0 +1,128 @@
+{
+  "$defs": {
+    "ComponentEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "approved_range": {
+          "description": "CEO-approved range (E5) or the range FifthNine intends to test",
+          "title": "Approved Range",
+          "type": "string"
+        },
+        "component": {
+          "title": "Component",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "limits": {
+          "description": "Known applicability limits",
+          "items": {
+            "type": "string"
+          },
+          "title": "Limits",
+          "type": "array"
+        },
+        "other_evidence": {
+          "description": "Source review and spot checks; never makes a version tested",
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Other Evidence",
+          "type": "array"
+        },
+        "tested_versions": {
+          "description": "Only runtime_fixtures evidence for every dependent rule qualifies a version as tested",
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Tested Versions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "component",
+        "approved_range"
+      ],
+      "title": "ComponentEntry",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "runtime_fixtures",
+            "source_review",
+            "runtime_spot_check"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "recorded": {
+          "description": "ISO date",
+          "title": "Recorded",
+          "type": "string"
+        },
+        "rules": {
+          "description": "Rules whose semantics this evidence covers",
+          "items": {
+            "type": "string"
+          },
+          "title": "Rules",
+          "type": "array"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "kind",
+        "detail",
+        "recorded"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "as_of": {
+      "title": "As Of",
+      "type": "string"
+    },
+    "components": {
+      "items": {
+        "$ref": "#/$defs/ComponentEntry"
+      },
+      "title": "Components",
+      "type": "array"
+    },
+    "tested_definition": {
+      "title": "Tested Definition",
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "as_of",
+    "tested_definition",
+    "components"
+  ],
+  "title": "SupportMatrix",
+  "type": "object"
+}

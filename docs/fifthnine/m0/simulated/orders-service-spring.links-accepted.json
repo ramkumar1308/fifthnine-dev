@@ -1,0 +1,1666 @@
+{
+  "schema": "fifthnine.result/v1",
+  "simulated": true,
+  "tool": {
+    "name": "fifthnine",
+    "version": "0.1.0-simulated",
+    "rule_pack_versions": {
+      "fifthnine-core": "0.1.0"
+    }
+  },
+  "scan": {
+    "root": ".",
+    "mode": "full",
+    "base_ref": null,
+    "profile": "prod",
+    "profile_source": "k8s-env:k8s/deployment.yaml:33",
+    "config_file": ".fifthnine.yml",
+    "policy_mode": "report",
+    "fail_on": "high",
+    "network_used": false,
+    "code_executed": false
+  },
+  "status": "FAIL_VERIFIED",
+  "status_reason": "2 VIOLATION finding(s) with established evidence. [Projection: assumes M2/M3 runtime fixtures pass for the detected versions, so they are reported as 'tested'. Today no version is tested (see the *.today-untested.* file).]",
+  "disclaimer": "FifthNine reports evidence about specific, documented reliability checks on the files it could read. It does not certify production readiness and does not prevent outages. A scan with no findings is not a statement that the system is production ready.",
+  "inventory": {
+    "files_considered": 20,
+    "files_parsed": 18,
+    "skipped": [],
+    "detected_stacks": [
+      {
+        "component": "spring-boot",
+        "version": "3.4.13",
+        "version_source": {
+          "path": "pom.xml",
+          "line_start": 10,
+          "line_end": 10,
+          "column": null,
+          "excerpt": "<version>3.4.13</version>"
+        },
+        "support": "tested",
+        "tested_versions": [
+          "3.4.13"
+        ],
+        "matrix_entry": "spring-boot"
+      },
+      {
+        "component": "spring-framework",
+        "version": "6.2.15",
+        "version_source": {
+          "path": "pom.xml",
+          "line_start": 10,
+          "line_end": 10,
+          "column": null,
+          "excerpt": "<version>3.4.13</version>"
+        },
+        "support": "tested",
+        "tested_versions": [
+          "6.2.15"
+        ],
+        "matrix_entry": "spring-framework"
+      },
+      {
+        "component": "java",
+        "version": "21",
+        "version_source": {
+          "path": "pom.xml",
+          "line_start": 20,
+          "line_end": 20,
+          "column": null,
+          "excerpt": null
+        },
+        "support": "tested",
+        "tested_versions": [
+          "21"
+        ],
+        "matrix_entry": "java"
+      },
+      {
+        "component": "kubernetes-api",
+        "version": "apps/v1, autoscaling/v2, policy/v1",
+        "version_source": null,
+        "support": "tested",
+        "tested_versions": [
+          "apps/v1, autoscaling/v2, policy/v1"
+        ],
+        "matrix_entry": "kubernetes-api"
+      }
+    ]
+  },
+  "linkages": [
+    {
+      "link_id": "L1",
+      "kind": "workload_container_to_source_root",
+      "status": "declared",
+      "from_ref": "k8s:Deployment/commerce/orders-service/orders-service",
+      "to_ref": "source:. (Maven orders-service) via Dockerfile",
+      "evidence": [
+        "single Dockerfile; runtime stage copies target/orders-service-*.jar (Dockerfile:10)",
+        "image repository basename 'orders-service' equals Maven artifactId (pom.xml:15)",
+        "Dockerfile EXPOSE 8080 8081 equals containerPorts 8080, 8081 and server/management ports"
+      ],
+      "accept_command": null,
+      "declared_in": {
+        "path": ".fifthnine.yml",
+        "line_start": 6,
+        "line_end": 21,
+        "column": null,
+        "excerpt": null
+      },
+      "accepted_by": "links-accept",
+      "accepted_on": "2026-10-21",
+      "evidence_digest": "sha256:11ecbffae90f37ebec63f2d982acb1e2",
+      "current_digest": "sha256:11ecbffae90f37ebec63f2d982acb1e2"
+    }
+  ],
+  "findings": [
+    {
+      "fingerprint": "sha256:961072451647800f716b31b4eef77feb",
+      "rule_id": "FN-RES-001",
+      "rule_version": "0.1.0",
+      "domain": "resilience",
+      "verdict": "VIOLATION",
+      "severity": "high",
+      "title": "PaymentClient can wait forever on the payment service",
+      "message": "`new RestTemplate()` uses SimpleClientHttpRequestFactory with no connect or read timeout. spring.http.client.* does not apply to a RestTemplate constructed directly.",
+      "subject": {
+        "kind": "http_client",
+        "key": "java:com.acme.orders.client.PaymentClient#restTemplate",
+        "display": "PaymentClient.restTemplate"
+      },
+      "locations": [
+        {
+          "path": "src/main/java/com/acme/orders/client/PaymentClient.java",
+          "line_start": 12,
+          "line_end": 12,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-resttemplate"
+      ],
+      "requirement": "Outbound HTTP calls on a request path need a bounded connect and read timeout.",
+      "computation": null,
+      "assumptions": [],
+      "verdict_if_assumptions_hold": null,
+      "conditional_reasons": [],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "spring-framework",
+          "version": "6.2.15",
+          "version_source": {
+            "path": "pom.xml",
+            "line_start": 10,
+            "line_end": 10,
+            "column": null,
+            "excerpt": "<version>3.4.13</version>"
+          },
+          "support": "tested",
+          "tested_versions": [
+            "6.2.15"
+          ],
+          "matrix_entry": "spring-framework"
+        }
+      ],
+      "remediation": {
+        "summary": "Inject RestTemplateBuilder (or RestClient.Builder) so spring.http.client.* apply, or set a factory with explicit timeouts.",
+        "references": [
+          {
+            "title": "HttpAccessor default request factory",
+            "url": null,
+            "source_path": "spring-framework@v6.2.15:spring-web/.../support/HttpAccessor.java:56"
+          }
+        ]
+      },
+      "references": [],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [
+        "rule not yet promoted to blocking: needs runtime and boundary-case tests (D5)"
+      ],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:c9d802a0ee5bb6a7b0ec7b13b32b7b37",
+      "rule_id": "FN-DEP-001",
+      "rule_version": "0.1.0",
+      "domain": "deployment_safety",
+      "verdict": "VIOLATION",
+      "severity": "medium",
+      "title": "Rollout can drop below the PDB minAvailable floor",
+      "message": "PDB orders-service requires 75% of pods available, but the rolling update allows 50% unavailable. PDBs do not limit rolling updates.",
+      "subject": {
+        "kind": "k8s.deployment",
+        "key": "k8s:Deployment/commerce/orders-service",
+        "display": "deploy/orders-service"
+      },
+      "locations": [
+        {
+          "path": "k8s/deployment.yaml",
+          "line_start": 13,
+          "line_end": 13,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "k8s/pdb.yaml",
+          "line_start": 7,
+          "line_end": 7,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "k8s/hpa.yaml",
+          "line_start": 11,
+          "line_end": 12,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-rollout",
+        "f-pdb",
+        "f-hpa"
+      ],
+      "requirement": "Ready pods during rollout (n - floor(maxUnavailable)) should not fall below ceil(minAvailable) for any replica count the HPA allows.",
+      "computation": "n=4: 4-2=2 < 3; n=6: 6-3=3 < 5; n=10: 10-5=5 < 8. Violated for every n in 4..10.",
+      "assumptions": [],
+      "verdict_if_assumptions_hold": null,
+      "conditional_reasons": [],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "kubernetes-api",
+          "version": "apps/v1, autoscaling/v2, policy/v1",
+          "version_source": null,
+          "support": "tested",
+          "tested_versions": [
+            "apps/v1, autoscaling/v2, policy/v1"
+          ],
+          "matrix_entry": "kubernetes-api"
+        }
+      ],
+      "remediation": {
+        "summary": "Set maxUnavailable to 25% or lower, or lower minAvailable if 75% was not a real floor.",
+        "references": [
+          {
+            "title": "Kubernetes: Deployments, rolling update",
+            "url": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/",
+            "source_path": null
+          },
+          {
+            "title": "Kubernetes: Disruptions",
+            "url": "https://kubernetes.io/docs/concepts/workloads/pods/disruptions/",
+            "source_path": null
+          }
+        ]
+      },
+      "references": [
+        {
+          "title": "Kubernetes: Disruptions",
+          "url": "https://kubernetes.io/docs/concepts/workloads/pods/disruptions/",
+          "source_path": null
+        },
+        {
+          "title": "Kubernetes: Deployments, rolling update",
+          "url": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/",
+          "source_path": null
+        }
+      ],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [
+        "rule not yet promoted to blocking: needs runtime and boundary-case tests (D5)"
+      ],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:9f4b28a52354d81f7988e26256218dfc",
+      "rule_id": "FN-CAP-002a",
+      "rule_version": "0.1.0",
+      "domain": "capacity",
+      "verdict": "CONDITIONAL",
+      "severity": "high",
+      "title": "HPA cannot scale on cpu: container has no cpu request",
+      "message": "HPA orders-service targets 70% cpu utilization, but container orders-service declares no cpu request. Utilization is undefined, so the HPA takes no action for this metric.",
+      "subject": {
+        "kind": "k8s.hpa",
+        "key": "k8s:HorizontalPodAutoscaler/commerce/orders-service",
+        "display": "hpa/orders-service"
+      },
+      "locations": [
+        {
+          "path": "k8s/hpa.yaml",
+          "line_start": 16,
+          "line_end": 19,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "k8s/deployment.yaml",
+          "line_start": 40,
+          "line_end": 41,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-hpa",
+        "f-requests"
+      ],
+      "requirement": "Resource metrics with target type Utilization require a request for that resource on every container in the pod.",
+      "computation": null,
+      "assumptions": [
+        {
+          "kind": "cluster_admission_default",
+          "statement": "no namespace LimitRange or webhook injects a default cpu request at admission",
+          "material": true,
+          "state": "open",
+          "fact_ids": [],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": "VIOLATION",
+      "conditional_reasons": [
+        "no namespace LimitRange or webhook injects a default cpu request at admission (declare platform.admission_defaults if true)"
+      ],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "kubernetes-api",
+          "version": "apps/v1, autoscaling/v2, policy/v1",
+          "version_source": null,
+          "support": "tested",
+          "tested_versions": [
+            "apps/v1, autoscaling/v2, policy/v1"
+          ],
+          "matrix_entry": "kubernetes-api"
+        }
+      ],
+      "remediation": {
+        "summary": "Add resources.requests.cpu to every container in the pod template, or switch the HPA target to AverageValue.",
+        "references": [
+          {
+            "title": "Kubernetes: Horizontal Pod Autoscaling",
+            "url": "https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/",
+            "source_path": null
+          }
+        ]
+      },
+      "references": [
+        {
+          "title": "Kubernetes: Horizontal Pod Autoscaling",
+          "url": "https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/",
+          "source_path": null
+        }
+      ],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [
+        "verdict is CONDITIONAL",
+        "rule not yet promoted to blocking: needs runtime and boundary-case tests (D5)"
+      ],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:89749c15df51247ec5583eaa3fee9aed",
+      "rule_id": "FN-DEP-002",
+      "rule_version": "0.1.0",
+      "domain": "deployment_safety",
+      "verdict": "CONDITIONAL",
+      "severity": "high",
+      "title": "Readiness probe targets a port where actuator is not served",
+      "message": "management.server.port is 8081, so /actuator/** is served only on 8081. The readiness probe calls 8080/actuator/health/readiness and will get 404.",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/commerce/orders-service/orders-service#readiness",
+        "display": "orders-service readinessProbe"
+      },
+      "locations": [
+        {
+          "path": "k8s/deployment.yaml",
+          "line_start": 44,
+          "line_end": 47,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "src/main/resources/application.yml",
+          "line_start": 16,
+          "line_end": 16,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-readiness",
+        "f-server-port",
+        "f-mgmt-port"
+      ],
+      "requirement": "With a DIFFERENT management port, probe groups are served at management.server.port + management.server.base-path + /actuator/health/<group>.",
+      "computation": "ManagementPortType: management 8081 != server 8080 -> DIFFERENT. Expected 8081/actuator/health/readiness; probe 8080/actuator/health/readiness.",
+      "assumptions": [
+        {
+          "kind": "external_override_env",
+          "statement": "out-of-repo environment sources do not override these values",
+          "material": true,
+          "state": "open",
+          "fact_ids": [
+            "f-server-port",
+            "f-mgmt-port"
+          ],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": "VIOLATION",
+      "conditional_reasons": [
+        "out-of-repo environment sources do not override these values (declare external_overrides in .fifthnine.yml if true)"
+      ],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "spring-boot",
+          "version": "3.4.13",
+          "version_source": {
+            "path": "pom.xml",
+            "line_start": 10,
+            "line_end": 10,
+            "column": null,
+            "excerpt": "<version>3.4.13</version>"
+          },
+          "support": "tested",
+          "tested_versions": [
+            "3.4.13"
+          ],
+          "matrix_entry": "spring-boot"
+        }
+      ],
+      "remediation": {
+        "summary": "Point the probe at port: management (8081), as the livenessProbe does, or enable add-additional-paths and probe 8080/readyz.",
+        "references": [
+          {
+            "title": "Spring Boot: Actuator monitoring paths",
+            "url": "https://docs.spring.io/spring-boot/reference/actuator/monitoring.html",
+            "source_path": null
+          }
+        ]
+      },
+      "references": [
+        {
+          "title": "Spring Boot: Actuator monitoring paths",
+          "url": "https://docs.spring.io/spring-boot/reference/actuator/monitoring.html",
+          "source_path": null
+        }
+      ],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [
+        "verdict is CONDITIONAL",
+        "rule not yet promoted to blocking: needs runtime and boundary-case tests (D5)"
+      ],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:4bdae596fd9226bad2302602e06d1eea",
+      "rule_id": "FN-CFG-001",
+      "rule_version": "0.1.0",
+      "domain": "production_config",
+      "verdict": "CONDITIONAL",
+      "severity": "medium",
+      "title": "Production profile exposes all actuator endpoints",
+      "message": "SPRING_PROFILES_ACTIVE=prod activates application-prod.yml, which sets exposure.include to \"*\" (heapdump, env, configprops, loggers). The comment says this was temporary (INC-2291).",
+      "subject": {
+        "kind": "spring.application",
+        "key": "spring:orders-service#actuator-exposure",
+        "display": "orders-service actuator exposure"
+      },
+      "locations": [
+        {
+          "path": "src/main/resources/application-prod.yml",
+          "line_start": 7,
+          "line_end": 7,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "k8s/deployment.yaml",
+          "line_start": 32,
+          "line_end": 33,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-profile",
+        "f-exposure"
+      ],
+      "requirement": "The effective production profile should expose only the endpoints operations needs.",
+      "computation": null,
+      "assumptions": [
+        {
+          "kind": "external_override_env",
+          "statement": "out-of-repo environment sources do not override these values",
+          "material": true,
+          "state": "open",
+          "fact_ids": [
+            "f-exposure"
+          ],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": "VIOLATION",
+      "conditional_reasons": [
+        "out-of-repo environment sources do not override these values (declare external_overrides in .fifthnine.yml if true)"
+      ],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "spring-boot",
+          "version": "3.4.13",
+          "version_source": {
+            "path": "pom.xml",
+            "line_start": 10,
+            "line_end": 10,
+            "column": null,
+            "excerpt": "<version>3.4.13</version>"
+          },
+          "support": "tested",
+          "tested_versions": [
+            "3.4.13"
+          ],
+          "matrix_entry": "spring-boot"
+        }
+      ],
+      "remediation": {
+        "summary": "Remove the override from application-prod.yml; the base file exposes health,info,prometheus.",
+        "references": []
+      },
+      "references": [
+        {
+          "title": "Spring Boot: Actuator monitoring paths",
+          "url": "https://docs.spring.io/spring-boot/reference/actuator/monitoring.html",
+          "source_path": null
+        }
+      ],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [
+        "verdict is CONDITIONAL",
+        "rule not yet promoted to blocking: needs runtime and boundary-case tests (D5)"
+      ],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:c9c482d4ade0242e0744d2b83b7f4033",
+      "rule_id": "FN-DEP-003",
+      "rule_version": "0.1.0",
+      "domain": "deployment_safety",
+      "verdict": "CONDITIONAL",
+      "severity": "medium",
+      "title": "Shutdown budget 55s exceeds pod grace period 30s",
+      "message": "preStop sleeps 10s, then Spring waits up to 45s per shutdown phase for in-flight requests. Kubernetes sends SIGKILL at 30s.",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/commerce/orders-service/orders-service",
+        "display": "orders-service/orders-service"
+      },
+      "locations": [
+        {
+          "path": "src/main/resources/application.yml",
+          "line_start": 5,
+          "line_end": 5,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "k8s/deployment.yaml",
+          "line_start": 57,
+          "line_end": 59,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-boot",
+        "f-shutdown-mode",
+        "f-phase-timeout",
+        "f-prestop",
+        "f-grace"
+      ],
+      "requirement": "preStop duration plus graceful drain budget must fit inside terminationGracePeriodSeconds.",
+      "computation": "10s preStop + 45s timeout-per-shutdown-phase = 55s > 30s terminationGracePeriodSeconds (field absent, Kubernetes default)",
+      "assumptions": [
+        {
+          "kind": "external_override_env",
+          "statement": "out-of-repo environment sources do not override these values",
+          "material": true,
+          "state": "open",
+          "fact_ids": [
+            "f-shutdown-mode",
+            "f-phase-timeout"
+          ],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": "VIOLATION",
+      "conditional_reasons": [
+        "out-of-repo environment sources do not override these values (declare external_overrides in .fifthnine.yml if true)"
+      ],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "spring-boot",
+          "version": "3.4.13",
+          "version_source": {
+            "path": "pom.xml",
+            "line_start": 10,
+            "line_end": 10,
+            "column": null,
+            "excerpt": "<version>3.4.13</version>"
+          },
+          "support": "tested",
+          "tested_versions": [
+            "3.4.13"
+          ],
+          "matrix_entry": "spring-boot"
+        },
+        {
+          "component": "kubernetes-api",
+          "version": "apps/v1, autoscaling/v2, policy/v1",
+          "version_source": null,
+          "support": "tested",
+          "tested_versions": [
+            "apps/v1, autoscaling/v2, policy/v1"
+          ],
+          "matrix_entry": "kubernetes-api"
+        }
+      ],
+      "remediation": {
+        "summary": "Set terminationGracePeriodSeconds to at least 60, or lower timeout-per-shutdown-phase to 20s or less.",
+        "references": [
+          {
+            "title": "Spring Boot: Kubernetes container lifecycle",
+            "url": "https://docs.spring.io/spring-boot/how-to/deployment/cloud.html",
+            "source_path": null
+          },
+          {
+            "title": "Kubernetes: Pod termination",
+            "url": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/",
+            "source_path": null
+          }
+        ]
+      },
+      "references": [
+        {
+          "title": "Spring Boot: Kubernetes container lifecycle",
+          "url": "https://docs.spring.io/spring-boot/how-to/deployment/cloud.html",
+          "source_path": null
+        },
+        {
+          "title": "Kubernetes: Pod termination",
+          "url": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/",
+          "source_path": null
+        }
+      ],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [
+        "verdict is CONDITIONAL",
+        "rule not yet promoted to blocking: needs runtime and boundary-case tests (D5)"
+      ],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:3d00bfa6384ad83356cde4586f65a245",
+      "rule_id": "FN-RES-001",
+      "rule_version": "0.1.0",
+      "domain": "resilience",
+      "verdict": "CONDITIONAL",
+      "severity": "medium",
+      "title": "ShippingQuoteClient likely has no read timeout",
+      "message": "Static RestClient.builder() ignores spring.http.client.* and picks a factory by classpath. With the declared dependencies that is the JDK client, which has no read timeout by default.",
+      "subject": {
+        "kind": "http_client",
+        "key": "java:com.acme.orders.client.ShippingQuoteClient#restClient",
+        "display": "ShippingQuoteClient.restClient"
+      },
+      "locations": [
+        {
+          "path": "src/main/java/com/acme/orders/client/ShippingQuoteClient.java",
+          "line_start": 13,
+          "line_end": 13,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-restclient-static"
+      ],
+      "requirement": "Outbound HTTP calls on a request path need a bounded read timeout.",
+      "computation": null,
+      "assumptions": [
+        {
+          "kind": "classpath_unresolved",
+          "statement": "no transitive dependency adds Apache HttpClient 5, Jetty or Reactor Netty (any of them changes the factory)",
+          "material": true,
+          "state": "open",
+          "fact_ids": [],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": "VIOLATION",
+      "conditional_reasons": [
+        "no transitive dependency adds Apache HttpClient 5, Jetty or Reactor Netty (any of them changes the factory)"
+      ],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "spring-framework",
+          "version": "6.2.15",
+          "version_source": {
+            "path": "pom.xml",
+            "line_start": 10,
+            "line_end": 10,
+            "column": null,
+            "excerpt": "<version>3.4.13</version>"
+          },
+          "support": "tested",
+          "tested_versions": [
+            "6.2.15"
+          ],
+          "matrix_entry": "spring-framework"
+        }
+      ],
+      "remediation": {
+        "summary": "Inject RestClient.Builder instead of calling RestClient.builder().",
+        "references": []
+      },
+      "references": [],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [
+        "verdict is CONDITIONAL",
+        "rule not yet promoted to blocking: needs runtime and boundary-case tests (D5)"
+      ],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:588261bea092d53119bc34a1c7ec19ba",
+      "rule_id": "FN-CAP-002b",
+      "rule_version": "0.1.0",
+      "domain": "capacity",
+      "verdict": "CONDITIONAL",
+      "severity": "low",
+      "title": "Deployment sets spec.replicas while an HPA manages it",
+      "message": "Each kubectl apply resets replicas to 4, undoing the HPA until it reconciles.",
+      "subject": {
+        "kind": "k8s.deployment",
+        "key": "k8s:Deployment/commerce/orders-service",
+        "display": "deploy/orders-service"
+      },
+      "locations": [
+        {
+          "path": "k8s/deployment.yaml",
+          "line_start": 9,
+          "line_end": 9,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-rollout",
+        "f-hpa"
+      ],
+      "requirement": "Kubernetes recommends removing spec.replicas when an HPA is enabled.",
+      "computation": null,
+      "assumptions": [
+        {
+          "kind": "platform_behavior",
+          "statement": "the deploy tool applies spec.replicas (Argo CD and Flux can be set to ignore it)",
+          "material": true,
+          "state": "open",
+          "fact_ids": [],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": "VIOLATION",
+      "conditional_reasons": [
+        "the deploy tool applies spec.replicas (Argo CD and Flux can be set to ignore it)"
+      ],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "kubernetes-api",
+          "version": "apps/v1, autoscaling/v2, policy/v1",
+          "version_source": null,
+          "support": "tested",
+          "tested_versions": [
+            "apps/v1, autoscaling/v2, policy/v1"
+          ],
+          "matrix_entry": "kubernetes-api"
+        }
+      ],
+      "remediation": {
+        "summary": "Remove spec.replicas from the manifest.",
+        "references": [
+          {
+            "title": "Kubernetes: Horizontal Pod Autoscaling",
+            "url": "https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/",
+            "source_path": null
+          }
+        ]
+      },
+      "references": [],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [
+        "verdict is CONDITIONAL",
+        "rule not yet promoted to blocking: needs runtime and boundary-case tests (D5)"
+      ],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:a2f51689d43f11ff465f9fb9fb0639ad",
+      "rule_id": "FN-DEP-002",
+      "rule_version": "0.1.0",
+      "domain": "deployment_safety",
+      "verdict": "SATISFIED",
+      "severity": null,
+      "title": "Liveness probe matches management endpoint",
+      "message": "port: management resolves to 8081; /actuator/health/liveness exists because probe groups are auto-enabled on Kubernetes.",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/commerce/orders-service/orders-service#liveness",
+        "display": "orders-service livenessProbe"
+      },
+      "locations": [
+        {
+          "path": "k8s/deployment.yaml",
+          "line_start": 50,
+          "line_end": 53,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-liveness",
+        "f-mgmt-port"
+      ],
+      "requirement": "Probe must target the resolved health group URL.",
+      "computation": null,
+      "assumptions": [
+        {
+          "kind": "external_override_env",
+          "statement": "out-of-repo environment sources do not override these values",
+          "material": true,
+          "state": "open",
+          "fact_ids": [
+            "f-mgmt-port"
+          ],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": null,
+      "conditional_reasons": [],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "spring-boot",
+          "version": "3.4.13",
+          "version_source": {
+            "path": "pom.xml",
+            "line_start": 10,
+            "line_end": 10,
+            "column": null,
+            "excerpt": "<version>3.4.13</version>"
+          },
+          "support": "tested",
+          "tested_versions": [
+            "3.4.13"
+          ],
+          "matrix_entry": "spring-boot"
+        }
+      ],
+      "remediation": null,
+      "references": [],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:fcbff639dc0ad1c4496506aa6c0d3904",
+      "rule_id": "FN-NET-001",
+      "rule_version": "0.1.0",
+      "domain": "network_exposure",
+      "verdict": "SATISFIED",
+      "severity": null,
+      "title": "Management port not reachable from outside the cluster",
+      "message": "8081 is only behind ClusterIP Service orders-service-metrics. The Ingress routes /orders to port http (8080), where actuator is not served.",
+      "subject": {
+        "kind": "spring.application",
+        "key": "spring:orders-service#management",
+        "display": "orders-service management surface"
+      },
+      "locations": [
+        {
+          "path": "k8s/service.yaml",
+          "line_start": 15,
+          "line_end": 29,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "k8s/ingress.yaml",
+          "line_start": 12,
+          "line_end": 18,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-mgmt-port"
+      ],
+      "requirement": "Management endpoints should not be reachable through LoadBalancer, NodePort or Ingress.",
+      "computation": null,
+      "assumptions": [
+        {
+          "kind": "external_override_env",
+          "statement": "out-of-repo environment sources do not override these values",
+          "material": true,
+          "state": "open",
+          "fact_ids": [
+            "f-mgmt-port"
+          ],
+          "declared_in": null
+        },
+        {
+          "kind": "out_of_repo_routing",
+          "statement": "no Ingress or Gateway outside this repository routes to port 8081",
+          "material": true,
+          "state": "open",
+          "fact_ids": [],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": null,
+      "conditional_reasons": [],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "spring-boot",
+          "version": "3.4.13",
+          "version_source": {
+            "path": "pom.xml",
+            "line_start": 10,
+            "line_end": 10,
+            "column": null,
+            "excerpt": "<version>3.4.13</version>"
+          },
+          "support": "tested",
+          "tested_versions": [
+            "3.4.13"
+          ],
+          "matrix_entry": "spring-boot"
+        },
+        {
+          "component": "kubernetes-api",
+          "version": "apps/v1, autoscaling/v2, policy/v1",
+          "version_source": null,
+          "support": "tested",
+          "tested_versions": [
+            "apps/v1, autoscaling/v2, policy/v1"
+          ],
+          "matrix_entry": "kubernetes-api"
+        }
+      ],
+      "remediation": null,
+      "references": [],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [],
+      "baseline_status": "new",
+      "suppression": null
+    },
+    {
+      "fingerprint": "sha256:bf67c51d4dd4b52959ced463e0a78197",
+      "rule_id": "FN-RES-001",
+      "rule_version": "0.1.0",
+      "domain": "resilience",
+      "verdict": "SATISFIED",
+      "severity": null,
+      "title": "InventoryClient read timeout 2s",
+      "message": "Injected RestClient.Builder applies spring.http.client.read-timeout=2s (Boot 3.4+).",
+      "subject": {
+        "kind": "http_client",
+        "key": "java:com.acme.orders.client.InventoryClient#restClient",
+        "display": "InventoryClient.restClient"
+      },
+      "locations": [
+        {
+          "path": "src/main/java/com/acme/orders/client/InventoryClient.java",
+          "line_start": 15,
+          "line_end": 15,
+          "column": null,
+          "excerpt": null
+        },
+        {
+          "path": "src/main/resources/application.yml",
+          "line_start": 9,
+          "line_end": 9,
+          "column": null,
+          "excerpt": null
+        }
+      ],
+      "fact_ids": [
+        "f-read-timeout"
+      ],
+      "requirement": "Outbound HTTP calls on a request path need a bounded read timeout.",
+      "computation": null,
+      "assumptions": [
+        {
+          "kind": "external_override_env",
+          "statement": "out-of-repo environment sources do not override these values",
+          "material": true,
+          "state": "open",
+          "fact_ids": [
+            "f-read-timeout"
+          ],
+          "declared_in": null
+        }
+      ],
+      "verdict_if_assumptions_hold": null,
+      "conditional_reasons": [],
+      "unknown_reason": null,
+      "applicability": [
+        {
+          "component": "spring-boot",
+          "version": "3.4.13",
+          "version_source": {
+            "path": "pom.xml",
+            "line_start": 10,
+            "line_end": 10,
+            "column": null,
+            "excerpt": "<version>3.4.13</version>"
+          },
+          "support": "tested",
+          "tested_versions": [
+            "3.4.13"
+          ],
+          "matrix_entry": "spring-boot"
+        }
+      ],
+      "remediation": null,
+      "references": [],
+      "blocking_eligible": false,
+      "blocking_ineligible_reasons": [],
+      "baseline_status": "new",
+      "suppression": null
+    }
+  ],
+  "coverage": [
+    {
+      "code": "FN-OPS-002",
+      "domain": null,
+      "scope": "k8s/deployment.yaml:37",
+      "message": "Secret orders-service-secrets is referenced by envFrom but not stored in the repository. Findings that depend on Spring settings it could override stay CONDITIONAL; the repository-derived computation is kept. Declare external_overrides in .fifthnine.yml if out-of-repo sources do not override them.",
+      "affects_rules": [
+        "FN-DEP-003",
+        "FN-DEP-002",
+        "FN-CFG-001",
+        "FN-RES-001"
+      ],
+      "blocks_assessment": false,
+      "delegated_to": []
+    },
+    {
+      "code": "FN-OPS-002",
+      "domain": null,
+      "scope": "pom.xml",
+      "message": "Transitive Maven dependencies not resolved (no network, no build).",
+      "affects_rules": [
+        "FN-RES-001"
+      ],
+      "blocks_assessment": false,
+      "delegated_to": []
+    },
+    {
+      "code": "COV-DELEGATED",
+      "domain": null,
+      "scope": "repository",
+      "message": "Kubernetes security posture, probe presence and generic resource requests/limits are left to existing scanners.",
+      "affects_rules": [],
+      "blocks_assessment": false,
+      "delegated_to": [
+        "kube-linter",
+        "checkov"
+      ]
+    },
+    {
+      "code": "FN-OPS-001",
+      "domain": "data_compatibility",
+      "scope": "repository",
+      "message": "Data and migration compatibility is not assessed in v0.1.",
+      "affects_rules": [],
+      "blocks_assessment": false,
+      "delegated_to": [
+        "squawk",
+        "atlas"
+      ]
+    },
+    {
+      "code": "COV-OBSERVATION",
+      "domain": "resilience",
+      "scope": "src/main/java/com/acme/orders/client/PaymentClient.java:20",
+      "message": "POST /v1/charges is retried up to 4 times; no idempotency evidence found. Not judged in v0.1 (FN-RES-003 candidate).",
+      "affects_rules": [],
+      "blocks_assessment": false,
+      "delegated_to": []
+    }
+  ],
+  "facts": [
+    {
+      "fact_id": "f-boot",
+      "kind": "stack.spring_boot.version",
+      "subject": {
+        "kind": "build",
+        "key": "maven:orders-service",
+        "display": "orders-service"
+      },
+      "value": "3.4.13",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "pom.xml",
+        "line_start": 10,
+        "line_end": 10,
+        "column": null,
+        "excerpt": "<version>3.4.13</version>"
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "maven-pom-v1"
+    },
+    {
+      "fact_id": "f-shutdown-mode",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring.application",
+        "key": "spring:orders-service",
+        "display": "orders-service"
+      },
+      "value": {
+        "key": "server.shutdown",
+        "value": "graceful"
+      },
+      "unit": null,
+      "status": "default",
+      "override_exposure": "env_possible",
+      "scope": {},
+      "source": null,
+      "default_ref": {
+        "framework": "spring-boot",
+        "version_range": ">=3.4.0,<3.6.0",
+        "reference": {
+          "title": "ServerProperties.shutdown default",
+          "url": null,
+          "source_path": "spring-boot@v3.4.13:SB-AC/web/ServerProperties.java:117"
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-defaults-v1"
+    },
+    {
+      "fact_id": "f-phase-timeout",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring.application",
+        "key": "spring:orders-service",
+        "display": "orders-service"
+      },
+      "value": {
+        "key": "spring.lifecycle.timeout-per-shutdown-phase",
+        "value": "45s"
+      },
+      "unit": "s",
+      "status": "declared",
+      "override_exposure": "env_possible",
+      "scope": {},
+      "source": {
+        "path": "src/main/resources/application.yml",
+        "line_start": 5,
+        "line_end": 5,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-config-v1"
+    },
+    {
+      "fact_id": "f-prestop",
+      "kind": "k8s.container.prestop_seconds",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/commerce/orders-service/orders-service",
+        "display": "orders-service/orders-service"
+      },
+      "value": 10,
+      "unit": "s",
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 57,
+        "line_end": 59,
+        "column": null,
+        "excerpt": "command: [\"sh\", \"-c\", \"sleep 10\"]"
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "k8s-v1"
+    },
+    {
+      "fact_id": "f-grace",
+      "kind": "k8s.pod.termination_grace_seconds",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/commerce/orders-service/orders-service",
+        "display": "orders-service/orders-service"
+      },
+      "value": 30,
+      "unit": "s",
+      "status": "default",
+      "override_exposure": "none",
+      "scope": {},
+      "source": null,
+      "default_ref": {
+        "framework": "kubernetes",
+        "version_range": "all",
+        "reference": {
+          "title": "Kubernetes: Pod termination",
+          "url": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/",
+          "source_path": null
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "k8s-defaults-v1"
+    },
+    {
+      "fact_id": "f-server-port",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring.application",
+        "key": "spring:orders-service",
+        "display": "orders-service"
+      },
+      "value": {
+        "key": "server.port",
+        "value": 8080
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "env_possible",
+      "scope": {},
+      "source": {
+        "path": "src/main/resources/application.yml",
+        "line_start": 12,
+        "line_end": 12,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-config-v1"
+    },
+    {
+      "fact_id": "f-mgmt-port",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring.application",
+        "key": "spring:orders-service",
+        "display": "orders-service"
+      },
+      "value": {
+        "key": "management.server.port",
+        "value": 8081
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "env_possible",
+      "scope": {},
+      "source": {
+        "path": "src/main/resources/application.yml",
+        "line_start": 16,
+        "line_end": 16,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-config-v1"
+    },
+    {
+      "fact_id": "f-readiness",
+      "kind": "k8s.probe.readiness",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/commerce/orders-service/orders-service",
+        "display": "orders-service/orders-service"
+      },
+      "value": {
+        "type": "httpGet",
+        "port": 8080,
+        "path": "/actuator/health/readiness"
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 44,
+        "line_end": 47,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "k8s-v1"
+    },
+    {
+      "fact_id": "f-liveness",
+      "kind": "k8s.probe.liveness",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/commerce/orders-service/orders-service",
+        "display": "orders-service/orders-service"
+      },
+      "value": {
+        "type": "httpGet",
+        "port": "management(8081)",
+        "path": "/actuator/health/liveness"
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 50,
+        "line_end": 53,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "k8s-v1"
+    },
+    {
+      "fact_id": "f-profile",
+      "kind": "spring.active_profiles",
+      "subject": {
+        "kind": "spring.application",
+        "key": "spring:orders-service",
+        "display": "orders-service"
+      },
+      "value": [
+        "prod"
+      ],
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 32,
+        "line_end": 33,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-profiles-v1"
+    },
+    {
+      "fact_id": "f-exposure",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring.application",
+        "key": "spring:orders-service",
+        "display": "orders-service"
+      },
+      "value": {
+        "key": "management.endpoints.web.exposure.include",
+        "value": "*"
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "prod"
+      },
+      "source": {
+        "path": "src/main/resources/application-prod.yml",
+        "line_start": 7,
+        "line_end": 7,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-config-v1"
+    },
+    {
+      "fact_id": "f-read-timeout",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring.application",
+        "key": "spring:orders-service",
+        "display": "orders-service"
+      },
+      "value": {
+        "key": "spring.http.client.read-timeout",
+        "value": "2s"
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "env_possible",
+      "scope": {},
+      "source": {
+        "path": "src/main/resources/application.yml",
+        "line_start": 9,
+        "line_end": 9,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-config-v1"
+    },
+    {
+      "fact_id": "f-hpa",
+      "kind": "k8s.hpa.metric",
+      "subject": {
+        "kind": "k8s.hpa",
+        "key": "k8s:HorizontalPodAutoscaler/commerce/orders-service",
+        "display": "hpa/orders-service"
+      },
+      "value": {
+        "resource": "cpu",
+        "target": "Utilization",
+        "averageUtilization": 70,
+        "min": 4,
+        "max": 10
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/hpa.yaml",
+        "line_start": 11,
+        "line_end": 19,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "k8s-v1"
+    },
+    {
+      "fact_id": "f-requests",
+      "kind": "k8s.container.requests",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/commerce/orders-service/orders-service",
+        "display": "orders-service/orders-service"
+      },
+      "value": {
+        "memory": "768Mi"
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 40,
+        "line_end": 41,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "k8s-v1"
+    },
+    {
+      "fact_id": "f-rollout",
+      "kind": "k8s.deployment.rolling_update",
+      "subject": {
+        "kind": "k8s.deployment",
+        "key": "k8s:Deployment/commerce/orders-service",
+        "display": "deploy/orders-service"
+      },
+      "value": {
+        "maxUnavailable": "50%",
+        "maxSurge": "25%",
+        "replicas": 4
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 9,
+        "line_end": 14,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "k8s-v1"
+    },
+    {
+      "fact_id": "f-pdb",
+      "kind": "k8s.pdb.min_available",
+      "subject": {
+        "kind": "k8s.pdb",
+        "key": "k8s:PodDisruptionBudget/commerce/orders-service",
+        "display": "pdb/orders-service"
+      },
+      "value": "75%",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/pdb.yaml",
+        "line_start": 7,
+        "line_end": 7,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "k8s-v1"
+    },
+    {
+      "fact_id": "f-resttemplate",
+      "kind": "http_client.construction",
+      "subject": {
+        "kind": "http_client",
+        "key": "java:com.acme.orders.client.PaymentClient#restTemplate",
+        "display": "PaymentClient.restTemplate"
+      },
+      "value": {
+        "type": "RestTemplate",
+        "factory": "SimpleClientHttpRequestFactory (HttpAccessor default)",
+        "read_timeout": null,
+        "connect_timeout": null
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "src/main/java/com/acme/orders/client/PaymentClient.java",
+        "line_start": 12,
+        "line_end": 12,
+        "column": null,
+        "excerpt": "private final RestTemplate restTemplate = new RestTemplate();"
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "java-http-clients-v1"
+    },
+    {
+      "fact_id": "f-restclient-static",
+      "kind": "http_client.construction",
+      "subject": {
+        "kind": "http_client",
+        "key": "java:com.acme.orders.client.ShippingQuoteClient#restClient",
+        "display": "ShippingQuoteClient.restClient"
+      },
+      "value": {
+        "type": "RestClient",
+        "builder": "static RestClient.builder()",
+        "factory": "classpath detection"
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "src/main/java/com/acme/orders/client/ShippingQuoteClient.java",
+        "line_start": 13,
+        "line_end": 13,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "java-http-clients-v1"
+    }
+  ],
+  "summary": {
+    "by_verdict": {
+      "VIOLATION": 2,
+      "CONDITIONAL": 6,
+      "UNKNOWN": 0,
+      "SATISFIED": 3
+    },
+    "by_severity": {
+      "info": 0,
+      "low": 1,
+      "medium": 4,
+      "high": 3,
+      "critical": 0
+    },
+    "blocking": 0,
+    "new": 11,
+    "suppressed": 0,
+    "rules_evaluated": 8,
+    "rules_not_applicable": 2,
+    "assessment_limits": {
+      "linkages_declared": 1,
+      "linkages_inferred": 0,
+      "linkages_unresolved": 0,
+      "findings_capped_by_linkage": 0,
+      "findings_with_override_assumption": 6,
+      "findings_conditional_on_external_config": 4,
+      "findings_conditional_on_untested_version": 0,
+      "results_unknown_unsupported_config": 0,
+      "results_unknown_unresolved_value": 0,
+      "rules_not_assessable": 0
+    }
+  },
+  "advisory": {
+    "enabled": false,
+    "items": []
+  }
+}

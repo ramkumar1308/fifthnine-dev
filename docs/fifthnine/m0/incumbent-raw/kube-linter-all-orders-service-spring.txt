@@ -1,0 +1,63 @@
+KubeLinter 0.8.3
+
+samples/orders-service-spring/k8s/configmap.yaml: (object: commerce/orders-service-endpoints /v1, Kind=ConfigMap) Keys are not sorted at root. Expected order: [apiVersion, data, kind, metadata], got: [apiVersion, kind, metadata, data] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/configmap.yaml: (object: commerce/orders-service-endpoints /v1, Kind=ConfigMap) Keys are not sorted at data. Expected order: [INVENTORY_BASE_URL, PAYMENT_BASE_URL, SHIPPING_BASE_URL], got: [PAYMENT_BASE_URL, INVENTORY_BASE_URL, SHIPPING_BASE_URL] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) found matching serviceAccount ("") (check: default-service-account, remediation: Create a dedicated service account for your pod. Refer to https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ for details.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) Object does not define any DNSConfig rules. (check: dnsconfig-options, remediation: Specify dnsconfig options in your Pod specification to ensure the expected DNS setting on the Pod. Refer to https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config for details.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) object has 4 replicas but does not specify inter pod anti-affinity (check: no-anti-affinity, remediation: Specify anti-affinity in your pod specification to ensure that the orchestrator attempts to schedule replicas on different nodes. Using podAntiAffinity, specify a labelSelector that matches pods for the deployment, and set the topologyKey to kubernetes.io/hostname. Refer to https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity for details.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) object does not define any node affinity rules. (check: no-node-affinity, remediation: Specify node-affinity in your pod specification to ensure that the orchestrator attempts to schedule replicas on specified nodes. Refer to https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity for details.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) container "orders-service" does not have a read-only root file system (check: no-read-only-root-fs, remediation: Set readOnlyRootFilesystem to true in the container securityContext.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) pods created by this object are non-isolated (check: non-isolated-pod, remediation: Ensure pod does not accept unsafe traffic by isolating it with a NetworkPolicy. See https://cloud.redhat.com/blog/guide-to-kubernetes-ingress-network-policies for more details.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) no annotation matching "email=[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+" found (check: required-annotation-email, remediation: Add an email annotation to your object with the email address of the object's owner.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) no label matching "owner=<any>" found (check: required-label-owner, remediation: Add an email annotation to your object with the name of the object's owner.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) object has a restart policy defined with '' but the only accepted restart policies are '[Always OnFailure]' (check: restart-policy, remediation: Set up the restart policy for your object to 'Always' or 'OnFailure' to increase the fault tolerance.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) container "orders-service" is not set to runAsNonRoot (check: run-as-non-root, remediation: Set runAsUser to a non-zero number and runAsNonRoot to true in your pod or container securityContext. Refer to https://kubernetes.io/docs/tasks/configure-pod-container/security-context/ for details.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) Keys are not sorted at metadata. Expected order: [labels, name, namespace], got: [name, namespace, labels] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) Keys are not sorted at spec. Expected order: [replicas, selector, strategy, template], got: [replicas, strategy, selector, template] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) Keys are not sorted at spec.strategy. Expected order: [rollingUpdate, type], got: [type, rollingUpdate] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) Keys are not sorted at spec.strategy.rollingUpdate. Expected order: [maxSurge, maxUnavailable], got: [maxUnavailable, maxSurge] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) Keys are not sorted at spec.template.spec.containers[0]. Expected order: [env, envFrom, image, lifecycle, livenessProbe, name, ports, readinessProbe, resources], got: [name, image, ports, env, envFrom, resources, readinessProbe, livenessProbe, lifecycle] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) Keys are not sorted at spec.template.spec.containers[0].ports[0]. Expected order: [containerPort, name], got: [name, containerPort] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) Keys are not sorted at spec.template.spec.containers[0].ports[1]. Expected order: [containerPort, name], got: [name, containerPort] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) Keys are not sorted at spec.template.spec.containers[0].resources. Expected order: [limits, requests], got: [requests, limits] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) Keys are not sorted at spec.template.spec.containers[0].readinessProbe. Expected order: [failureThreshold, httpGet, periodSeconds], got: [httpGet, periodSeconds, failureThreshold] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/deployment.yaml: (object: commerce/orders-service apps/v1, Kind=Deployment) container "orders-service" has cpu request 0 (check: unset-cpu-requirements, remediation: Set CPU requests for your container based on its requirements. Refer to https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits for details.)
+
+samples/orders-service-spring/k8s/hpa.yaml: (object: commerce/orders-service autoscaling/v2, Kind=HorizontalPodAutoscaler) Keys are not sorted at spec. Expected order: [maxReplicas, metrics, minReplicas, scaleTargetRef], got: [scaleTargetRef, minReplicas, maxReplicas, metrics] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/hpa.yaml: (object: commerce/orders-service autoscaling/v2, Kind=HorizontalPodAutoscaler) Keys are not sorted at spec.metrics[0]. Expected order: [resource, type], got: [type, resource] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/hpa.yaml: (object: commerce/orders-service autoscaling/v2, Kind=HorizontalPodAutoscaler) Keys are not sorted at spec.metrics[0].resource.target. Expected order: [averageUtilization, type], got: [type, averageUtilization] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/ingress.yaml: (object: commerce/orders-service networking.k8s.io/v1, Kind=Ingress) Keys are not sorted at spec.rules[0].http.paths[0]. Expected order: [backend, path, pathType], got: [path, pathType, backend] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/pdb.yaml: (object: commerce/orders-service policy/v1, Kind=PodDisruptionBudget) unhealthyPodEvictionPolicy is not explicitly set (check: pdb-unhealthy-pod-eviction-policy, remediation: Set unhealthyPodEvictionPolicy to AlwaysAllow. Refer to https://kubernetes.io/docs/tasks/run-application/configure-pdb/#unhealthy-pod-eviction-policy for more information.)
+
+samples/orders-service-spring/k8s/service.yaml: (object: commerce/orders-service /v1, Kind=Service) Keys are not sorted at spec. Expected order: [ports, selector, type], got: [type, selector, ports] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/service.yaml: (object: commerce/orders-service-metrics /v1, Kind=Service) Keys are not sorted at metadata. Expected order: [labels, name, namespace], got: [name, namespace, labels] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+samples/orders-service-spring/k8s/service.yaml: (object: commerce/orders-service-metrics /v1, Kind=Service) Keys are not sorted at spec. Expected order: [ports, selector, type], got: [type, selector, ports] (check: sorted-keys, remediation: Ensure that keys in your YAML manifest are sorted in alphabetical order to improve consistency and readability.)
+
+Error: found 30 lint errors

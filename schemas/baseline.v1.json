@@ -1,0 +1,82 @@
+{
+  "$defs": {
+    "BaselineEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "fingerprint": {
+          "title": "Fingerprint",
+          "type": "string"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "rule_version": {
+          "title": "Rule Version",
+          "type": "string"
+        },
+        "subject_key": {
+          "title": "Subject Key",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "VIOLATION",
+            "CONDITIONAL",
+            "UNKNOWN"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fingerprint",
+        "rule_id",
+        "rule_version",
+        "subject_key",
+        "verdict"
+      ],
+      "title": "BaselineEntry",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/BaselineEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "profile": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Profile"
+    },
+    "tool_version": {
+      "title": "Tool Version",
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "tool_version",
+    "entries"
+  ],
+  "title": "Baseline",
+  "type": "object"
+}

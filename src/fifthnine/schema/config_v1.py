@@ -50,7 +50,7 @@ class ServiceDecl(_Model):
     evidence: list[str] = Field(default_factory=list, description="Human-readable evidence shown at acceptance")
 
     @model_validator(mode="after")
-    def _accept_provenance(self) -> "ServiceDecl":
+    def _accept_provenance(self) -> ServiceDecl:
         if self.accepted_by == "links-accept" and (not self.evidence_digest or not self.accepted_on):
             raise ValueError("entries written by `fifthnine links accept` need evidence_digest and accepted_on")
         return self

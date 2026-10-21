@@ -25,7 +25,7 @@ No finding may name an `unsupported` component version; those rules are not run 
 
 ## Support levels (D9)
 
-`ComponentSupport.support` is `tested` only if the version appears under `tested_versions` in `support/matrix.v1.yaml` with runtime-fixture evidence. Source review and spot checks never make a version tested. Every result lists support per detected component in `inventory.detected_stacks`, and each finding repeats the entries it depends on in `applicability`.
+`ComponentSupport.support` is `tested` only if the version appears under `tested_versions` in `src/fifthnine/data/support_matrix.v1.yaml` with runtime-fixture evidence. Source review and spot checks never make a version tested. Every result lists support per detected component in `inventory.detected_stacks`, and each finding repeats the entries it depends on in `applicability`.
 
 ## Linkage provenance (D3)
 
@@ -49,4 +49,6 @@ Derived by `derive_status()`: any unsuppressed VIOLATION gives `FAIL_VERIFIED`; 
 
 ## Additive changes since the revision 2 freeze
 
-(none)
+| Date | Schema | Change |
+|---|---|---|
+| 2026-10-21 (M1) | support-matrix v1 | `ComponentEntry.specifier` (PEP 440) and `ComponentEntry.allowed_versions` (exact or leading-component matches) give approved ranges a machine-readable form |

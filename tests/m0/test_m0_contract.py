@@ -16,9 +16,28 @@ from pydantic import ValidationError
 from fifthnine.schema.config_v1 import FifthNineConfig, ServiceDecl, WorkloadRef
 from fifthnine.schema.support_v1 import SupportMatrix
 from fifthnine.schema.v1 import (
-    Assumption, AssumptionKind, AssumptionState, BaselineStatus, ComponentSupport, CoverageNotice, Domain, Fact,
-    FactStatus, Finding, Linkage, LinkStatus, OverrideExposure, ScanResult, ScanStatus, Severity, SourceRef, Subject,
-    SupportLevel, Verdict, derive_status, derive_verdict,
+    Assumption,
+    AssumptionKind,
+    AssumptionState,
+    BaselineStatus,
+    ComponentSupport,
+    CoverageNotice,
+    Domain,
+    Fact,
+    FactStatus,
+    Finding,
+    Linkage,
+    LinkStatus,
+    OverrideExposure,
+    ScanResult,
+    ScanStatus,
+    Severity,
+    SourceRef,
+    Subject,
+    SupportLevel,
+    Verdict,
+    derive_status,
+    derive_verdict,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -219,7 +238,7 @@ def test_unsupported_versions_are_not_evaluated() -> None:
 
 
 def test_support_matrix_claims_nothing_tested_yet() -> None:
-    matrix = SupportMatrix.model_validate(yaml.safe_load((ROOT / "support/matrix.v1.yaml").read_text()))
+    matrix = SupportMatrix.model_validate(yaml.safe_load((ROOT / "src/fifthnine/data/support_matrix.v1.yaml").read_text()))
     assert all(c.tested_versions == [] for c in matrix.components)
     assert all(e.kind != "runtime_fixtures" for c in matrix.components for e in c.other_evidence)
 

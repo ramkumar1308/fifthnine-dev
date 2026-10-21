@@ -2,6 +2,9 @@
 # A version is "tested" only when it appears under tested_versions with runtime_fixtures evidence covering
 # every rule that depends on the component. Everything else is untested, whatever review it has had.
 # As of M0 no version of any component is tested. Approved ranges are targets, not support claims.
+# specifier / allowed_versions are the machine-readable range: a detected version outside them is
+# 'unsupported' and rules depending on it are not run. Ranges marked 'intended' are not CEO-approved
+# support ranges (E5 covers Spring Boot, Java, Python); they only bound what FifthNine will try to test.
 version: 1
 as_of: "2026-10-21"
 tested_definition: >
@@ -12,6 +15,7 @@ components:
   - id: spring-boot
     component: spring-boot
     approved_range: ">=3.2.0,<3.6.0"
+    specifier: ">=3.2.0,<3.6.0"
     tested_versions: []
     other_evidence:
       - {version: "3.2.12", kind: source_review, detail: "ServerProperties, LifecycleProperties, probes, ManagementPortType, config locations, ClientHttpRequestFactories", rules: [FN-DEP-003, FN-DEP-002, FN-RES-001, FN-CFG-001], recorded: "2026-10-21"}
@@ -25,6 +29,7 @@ components:
   - id: spring-framework
     component: spring-framework
     approved_range: ">=6.1.0,<6.3.0 (as managed by Spring Boot 3.2-3.5)"
+    specifier: ">=6.1.0,<6.3.0"
     tested_versions: []
     other_evidence:
       - {version: "6.1.15", kind: source_review, detail: "HttpAccessor default factory, SimpleClientHttpRequestFactory timeouts, DefaultRestClientBuilder", rules: [FN-RES-001], recorded: "2026-10-21"}
@@ -33,12 +38,14 @@ components:
   - id: java
     component: java
     approved_range: "17, 21"
+    allowed_versions: ["17", "21"]
     tested_versions: []
     other_evidence: []
     limits: ["Kotlin sources not parsed"]
   - id: resilience4j
     component: resilience4j
     approved_range: ">=2.0.0,<3.0.0 (intended; not part of E5)"
+    specifier: ">=2.0.0,<3.0.0"
     tested_versions: []
     other_evidence:
       - {version: "2.4.0", kind: source_review, detail: "aspect order defaults, RetryConfig defaults", rules: [FN-RES-002], recorded: "2026-10-21"}
@@ -46,6 +53,7 @@ components:
   - id: python
     component: python
     approved_range: ">=3.10,<3.14"
+    specifier: ">=3.10,<3.14"
     tested_versions: []
     other_evidence:
       - {version: "3.13.16", kind: runtime_spot_check, detail: "M0 runtime checks ran on this interpreter", recorded: "2026-10-21"}
@@ -53,6 +61,7 @@ components:
   - id: fastapi
     component: fastapi
     approved_range: "intended >=0.100 (D9: no claim until tested)"
+    specifier: ">=0.100"
     tested_versions: []
     other_evidence:
       - {version: "0.159.1", kind: runtime_spot_check, detail: "TestClient: /ready 200, /readyz 404 on sample B", rules: [FN-DEP-002], recorded: "2026-10-21"}
@@ -60,6 +69,7 @@ components:
   - id: tenacity
     component: tenacity
     approved_range: "intended 8.x-9.x (D9: no claim until tested)"
+    specifier: ">=8.0,<10.0"
     tested_versions: []
     other_evidence:
       - {version: "9.2.1", kind: runtime_spot_check, detail: "unbounded retry still running at 12s; stop_after_attempt with outer asyncio.timeout cancelled at 4.0s", rules: [FN-RES-004, FN-RES-002], recorded: "2026-10-21"}
@@ -68,6 +78,7 @@ components:
   - id: httpx
     component: httpx
     approved_range: "intended 0.27-0.28 (D9: no claim until tested)"
+    specifier: ">=0.27,<0.29"
     tested_versions: []
     other_evidence:
       - {version: "0.28.1", kind: runtime_spot_check, detail: "default Timeout(5.0); timeout=None call pending at 10s", rules: [FN-RES-002], recorded: "2026-10-21"}
@@ -75,6 +86,7 @@ components:
   - id: gunicorn
     component: gunicorn
     approved_range: "intended 21-26 (D9: no claim until tested)"
+    specifier: ">=21.0,<27.0"
     tested_versions: []
     other_evidence:
       - {version: "26.2.0", kind: source_review, detail: "graceful_timeout default 30; CLI applied after GUNICORN_CMD_ARGS; --check-config on sample args", rules: [FN-DEP-003], recorded: "2026-10-21"}
@@ -82,6 +94,7 @@ components:
   - id: uvicorn
     component: uvicorn
     approved_range: "intended >=0.30 (D9: no claim until tested)"
+    specifier: ">=0.30"
     tested_versions: []
     other_evidence:
       - {version: "0.54.0", kind: source_review, detail: "timeout_graceful_shutdown default None, unbounded wait", rules: [FN-DEP-003], recorded: "2026-10-21"}
@@ -89,6 +102,7 @@ components:
   - id: kubernetes-api
     component: kubernetes-api
     approved_range: "apps/v1, autoscaling/v2, policy/v1, networking.k8s.io/v1, v1"
+    allowed_versions: ["apps/v1/Deployment", "v1/Service", "v1/ConfigMap", "networking.k8s.io/v1/Ingress", "autoscaling/v2/HorizontalPodAutoscaler", "policy/v1/PodDisruptionBudget"]
     tested_versions: []
     other_evidence:
       - {version: "docs main 2026-10-21", kind: source_review, detail: "grace period incl. preStop, HPA requests, PDB vs rollouts, rounding", rules: [FN-DEP-003, FN-CAP-002a, FN-CAP-002b, FN-DEP-001], recorded: "2026-10-21"}

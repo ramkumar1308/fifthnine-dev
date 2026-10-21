@@ -4,7 +4,7 @@ Status: M0 technical review (CEO condition 7), updated for schema revision 2. Ev
 
 How to read the expected verdicts in the matrices below:
 
-- They assume the component versions involved are `tested` in `support/matrix.v1.yaml`. Today none is. Until a version is tested, every failing row is CONDITIONAL with an `untested_version` assumption (D9).
+- They assume the component versions involved are `tested` in `src/fifthnine/data/support_matrix.v1.yaml`. Today none is. Until a version is tested, every failing row is CONDITIONAL with an `untested_version` assumption (D9).
 - D2 (revised by the CEO): a failing check whose material input may be replaced from outside the repository is CONDITIONAL, with the repository-derived computation kept and the assumption named. It is UNKNOWN when the input has no value in the repository at all. It becomes VIOLATION only when the team declares the assumption in `.fifthnine.yml`; the finding then cites that declaration.
 
 ## Pinned versions reviewed

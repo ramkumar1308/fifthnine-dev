@@ -14,7 +14,7 @@ detect     classify: pom.xml, build.gradle(.kts), pyproject/requirements/lockfil
 extract    per-format extractors -> Facts with SourceRef and status. Extractors hold no rule logic
    |
 resolve    1. stack and version detection (Boot from parent/BOM/plugin literal; Python pins)
-           2. support level per detected version from support/matrix.v1.yaml (tested | untested | unsupported);
+           2. support level per detected version from src/fifthnine/data/support_matrix.v1.yaml (tested | untested | unsupported);
               unsupported components get a COV-UNSUPPORTED notice and their rules are not run
            3. version-defaults table (data file, every entry cites tag + file + line)
            4. Kubernetes object graph (Deployment <-> Service <-> Ingress <-> HPA <-> PDB by name/selector)

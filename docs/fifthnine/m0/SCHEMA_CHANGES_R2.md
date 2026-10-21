@@ -31,7 +31,7 @@ Removed: nothing. `conditional_reasons` stays as human-readable text.
 | 12 | New top-level `platform.admission_defaults` (`unknown` default, or `none`) | Additive | Lets a team declare that no LimitRange injects requests, the one cluster-side input the first-wave rules depend on |
 | 13 | `ExternalOverrides` unchanged in shape; meaning changes: `mode: none` now turns an open `external_override_env` assumption into `declared_by_team` (verdict can become VIOLATION) instead of only affecting blocking eligibility | Semantic | D2 |
 
-## New file: `support/matrix.v1.yaml` with model `schema/support_v1.py`
+## New file: `src/fifthnine/data/support_matrix.v1.yaml` with model `schema/support_v1.py`
 
 Lists, per component, the approved range (E5), the versions with `tested` status and the evidence for each, and versions reviewed only. Every entry is `tested: []` today: M0 read source and ran some library behaviour, which is not the M2/M3 fixture standard. `support: tested` in a result requires the version to be listed here.
 

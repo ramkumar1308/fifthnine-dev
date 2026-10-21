@@ -17,17 +17,43 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from fifthnine.schema.v1 import (
-    Assumption, AssumptionKind, AssumptionState, AssessmentLimits, BaselineStatus, ComponentSupport, CoverageNotice,
-    DefaultRef, Domain, Fact, FactStatus, Finding, Inventory, Linkage, LinkStatus, OverrideExposure, Reference,
-    Remediation, ScanInfo, ScanResult, Severity, SourceRef, Subject, Summary, SupportLevel, ToolInfo, Verdict,
-    blocking_ineligible_reasons, derive_status, derive_verdict,
+    AssessmentLimits,
+    Assumption,
+    AssumptionKind,
+    AssumptionState,
+    BaselineStatus,
+    ComponentSupport,
+    CoverageNotice,
+    DefaultRef,
+    Domain,
+    Fact,
+    FactStatus,
+    Finding,
+    Inventory,
+    Linkage,
+    LinkStatus,
+    OverrideExposure,
+    Reference,
+    Remediation,
+    ScanInfo,
+    ScanResult,
+    Severity,
+    SourceRef,
+    Subject,
+    Summary,
+    SupportLevel,
+    ToolInfo,
+    Verdict,
+    blocking_ineligible_reasons,
+    derive_status,
+    derive_verdict,
 )
 
 OUT = Path("docs/fifthnine/m0/simulated")
 TOOL = ToolInfo(version="0.1.0-simulated", rule_pack_versions={"fifthnine-core": "0.1.0"})
 BANNER = "SIMULATED OUTPUT (M0, schema rev 2). Facts written by hand from the dev answer key; verdicts computed by derive_verdict(). No scanner exists yet."
 PROJECTED = "Projection: assumes M2/M3 runtime fixtures pass for the detected versions, so they are reported as 'tested'. Today no version is tested (see the *.today-untested.* file)."
-TODAY = "Current state: support/matrix.v1.yaml lists no tested versions, so every detected version is 'untested' (D9)."
+TODAY = "Current state: src/fifthnine/data/support_matrix.v1.yaml lists no tested versions, so every detected version is 'untested' (D9)."
 DIGEST = "sha256:11ecbffae90f37ebec63f2d982acb1e2"
 CFG = ".fifthnine.yml"
 
@@ -292,7 +318,7 @@ def orders(mode: str) -> ScanResult:
                                        affects_rules=["FN-DEP-003", "FN-DEP-002", "FN-CFG-001", "FN-CAP-002a"]))
     if not tested:
         coverage.append(CoverageNotice(code="COV-UNTESTED-VERSION", scope="pom.xml:10",
-                                       message="spring-boot 3.4.13, spring-framework 6.2.15, java 21 and the Kubernetes APIs are inside the approved ranges but not tested (support/matrix.v1.yaml). Failing checks are reported as CONDITIONAL.",
+                                       message="spring-boot 3.4.13, spring-framework 6.2.15, java 21 and the Kubernetes APIs are inside the approved ranges but not tested (src/fifthnine/data/support_matrix.v1.yaml). Failing checks are reported as CONDITIONAL.",
                                        affects_rules=[s.rule_id for s in specs]))
     coverage += [
         CoverageNotice(code="FN-OPS-002", scope="pom.xml", message="Transitive Maven dependencies not resolved (no network, no build).", affects_rules=["FN-RES-001"]),

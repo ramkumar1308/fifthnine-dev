@@ -3,7 +3,7 @@
 FifthNine Scan 0.1.0-simulated   .   report mode   profile: prod (k8s/deployment.yaml:33)
 Stack: spring-boot 3.4.13 [untested], spring-framework 6.2.15 [untested], java 21 [untested], kubernetes-api apps/v1, autoscaling/v2, policy/v1 [untested]
 Status: REVIEW_REQUIRED   0 violation  8 conditional  0 unknown  3 satisfied   would block in gate mode (>= high): 0
-Note: Current state: support/matrix.v1.yaml lists no tested versions, so every detected version is 'untested' (D9).
+Note: Current state: src/fifthnine/data/support_matrix.v1.yaml lists no tested versions, so every detected version is 'untested' (D9).
 
 CONDITIONAL high    FN-CAP-002a  HPA cannot scale on cpu: container has no cpu request
                                 at k8s/hpa.yaml:16, k8s/deployment.yaml:40
@@ -112,7 +112,7 @@ Coverage and limits
   FN-OPS-002           k8s/deployment.yaml:37
                        Secret orders-service-secrets is referenced by envFrom but not stored in the repository. Findings that depend on Spring settings it could override stay CONDITIONAL; the repository-derived computation is kept. Declare external_overrides in .fifthnine.yml if out-of-repo sources do not override them.
   COV-UNTESTED-VERSION pom.xml:10
-                       spring-boot 3.4.13, spring-framework 6.2.15, java 21 and the Kubernetes APIs are inside the approved ranges but not tested (support/matrix.v1.yaml). Failing checks are reported as CONDITIONAL.
+                       spring-boot 3.4.13, spring-framework 6.2.15, java 21 and the Kubernetes APIs are inside the approved ranges but not tested (src/fifthnine/data/support_matrix.v1.yaml). Failing checks are reported as CONDITIONAL.
   FN-OPS-002           pom.xml
                        Transitive Maven dependencies not resolved (no network, no build).
   COV-DELEGATED        repository

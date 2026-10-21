@@ -81,7 +81,7 @@ M0 engineering foundation approved with two required corrections (D2, D9). M1 co
 | M0-D6 | APPROVED | Deterministic JSON by default |
 | M0-D7 | APPROVED | Kubernetes object scope as proposed |
 | M0-D8 | APPROVED: publish the development corpus before independent held-out selection | Corpus list published in the repository before the benchmark author starts selecting |
-| M0-D9 | REVISED: claim support only for tested versions; document untested ranges and applicability limits | `support/matrix.v1.yaml` (no version tested as of M0), `ComponentSupport` with `tested`/`untested`/`unsupported`, VIOLATION requires tested versions, untested gives CONDITIONAL with `untested_version`, unsupported is not evaluated |
+| M0-D9 | REVISED: claim support only for tested versions; document untested ranges and applicability limits | `src/fifthnine/data/support_matrix.v1.yaml` (no version tested as of M0), `ComponentSupport` with `tested`/`untested`/`unsupported`, VIOLATION requires tested versions, untested gives CONDITIONAL with `untested_version`, unsupported is not evaluated |
 | M0-D10 | DEFERRED until package name and ownership are confirmed | No registration; `fifthnine` used only as the working CLI/package name |
 
 Schema changes: revision 2 of v1, explained before application in `m0/SCHEMA_CHANGES_R2.md`. Identifier kept as `fifthnine.result/v1` because no engine has emitted v1; the CEO may ask for a v2 identifier instead.
@@ -100,3 +100,23 @@ Technical prerequisites for M1 are complete. Remaining blockers are administrati
 Needed later, not blocking M1: benchmark author and outside SRE reviewer (before M3 ends); a CI runner or machine with Maven Central access (M2); Semgrep registry re-check (before M3 freeze); package name and ownership (M0-D10, before alpha); dev corpus publication (early M1, before held-out selection).
 
 M1 scope as authorized: installable `fifthnine` CLI, workspace discovery with ignores and untrusted-input limits, profile selection, stack and version detection with support levels, console and JSON output on the frozen schema, deterministic results, exit codes 0/1/2, no network. No rules beyond coverage notices, so M1 scans report `INCOMPLETE` with an honest inventory.
+
+---
+
+## 2026-10-21: M1 authorized; repository created
+
+| ID | Decision | Status |
+|---|---|---|
+| M1-A | Official repository `ramkumar1308/fifthnine-dev` (public, default branch `main`), Apache-2.0. Push access for the CTO session confirmed by pushing `feature/m1-cli-foundation` | APPROVED (CEO) |
+| M1-B | Schema revision R2 approved; identifier stays `fifthnine.result/v1` (resolves R2 in M1 readiness) | APPROVED (CEO) |
+| M1-C | M1 scope: installable package and CLI, `fifthnine scan .`, discovery, framework/version detection, tested/untested/unsupported classification, deterministic JSON and console, exit codes, honest INCOMPLETE, tests and GitHub Actions CI. No M2, no rules, no AI, no FifthNine Verify. PR must not be merged without CEO approval | APPROVED (CEO) |
+
+CTO implementation notes for M1 (reviewable in the PR):
+
+| ID | Note |
+|---|---|
+| M1-N1 | Support matrix moved into the package (`src/fifthnine/data/support_matrix.v1.yaml`) so installed builds can classify versions. Additive fields `specifier` and `allowed_versions` added to the support-matrix schema |
+| M1-N2 | Flags and commands from the frozen CLI that belong to later milestones are accepted by the parser and exit 2 naming the milestone. Nothing is silently ignored |
+| M1-N3 | Virtualenvs are excluded by the presence of `pyvenv.cfg`, not by directory names such as `env`, to avoid hiding per-environment manifests |
+| M1-N4 | One detected-stack entry per distinct component version, preferring lockfile, then build descriptor, then Dockerfile as the cited source |
+| M1-N5 | Dev corpus publication (M0-D8) is not part of this PR; it is the first M2 preparation item and will be proposed separately |

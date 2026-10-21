@@ -9,7 +9,7 @@ Date: 2026-10-21. Author: Claude (CTO). Approved by the CEO with corrections D2 
 | Final architecture | `ARCHITECTURE.md` |
 | Frozen CLI interface | `CLI.md` |
 | Versioned Fact and Finding schemas | `SCHEMAS.md`, `SCHEMA_CHANGES_R2.md`, `src/fifthnine/schema/{v1,config_v1,support_v1}.py`, generated `schemas/*.v1.json` |
-| Supported versions and limits (D9) | `support/matrix.v1.yaml` (no version tested yet) |
+| Supported versions and limits (D9) | `src/fifthnine/data/support_matrix.v1.yaml` (no version tested yet) |
 | Rule applicability and incumbent-overlap evidence | `RULES.md`, `INCUMBENT_RUNS.md`, raw outputs in `incumbent-raw/` |
 | Version-specific test matrices for high-risk rules | `RULES.md`: FN-DEP-003 (S1-S19, P1-P7), FN-DEP-002 (R1-R17), FN-CFG-001 profiles (F1-F14), external overrides (X1-X11), plus matrices for the other six |
 | Two representative sample repositories | `samples/orders-service-spring`, `samples/catalog-api-fastapi`; answer keys `benchmarks/dev/*.expected.yaml`; runtime evidence `benchmarks/dev/runtime_checks/` |
@@ -60,7 +60,7 @@ LICENSE                                  Apache-2.0
 docs/fifthnine/PHASE1_IMPLEMENTATION_CONTRACT.md, DECISIONS.md, M0_AUDIT_AND_PROPOSAL.md
 docs/fifthnine/m0/                       this package
 src/fifthnine/schema/                    frozen v1 models, revision 2 (no engine code)
-support/matrix.v1.yaml                   tested-version matrix (D9)
+src/fifthnine/data/support_matrix.v1.yaml                   tested-version matrix (D9)
 schemas/                                 generated JSON Schemas
 scripts/                                 export_schemas.py, m0_simulate.py, m0_run_incumbents.sh
 samples/                                 two sample repositories

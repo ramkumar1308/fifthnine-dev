@@ -186,7 +186,7 @@
             }
           ],
           "default": null,
-          "description": "Entry id in support/matrix.v1.yaml",
+          "description": "Entry id in src/fifthnine/data/support_matrix.v1.yaml",
           "title": "Matrix Entry"
         },
         "support": {

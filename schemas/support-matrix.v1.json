@@ -3,8 +3,16 @@
     "ComponentEntry": {
       "additionalProperties": false,
       "properties": {
+        "allowed_versions": {
+          "description": "Exact allowed values when a specifier cannot express the range (Java majors, Kubernetes apiVersion/kind). A detected version matches an entry exactly or as its leading dot-separated components (e.g. '21' matches '21.0.4')",
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Versions",
+          "type": "array"
+        },
         "approved_range": {
-          "description": "CEO-approved range (E5) or the range FifthNine intends to test",
+          "description": "CEO-approved range (E5) or the range FifthNine intends to test, as prose",
           "title": "Approved Range",
           "type": "string"
         },
@@ -31,6 +39,19 @@
           },
           "title": "Other Evidence",
           "type": "array"
+        },
+        "specifier": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Machine-readable PEP 440 specifier for approved_range, e.g. '>=3.2.0,<3.6.0'. Outside it: unsupported",
+          "title": "Specifier"
         },
         "tested_versions": {
           "description": "Only runtime_fixtures evidence for every dependent rule qualifies a version as tested",

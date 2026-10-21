@@ -11,11 +11,11 @@ which is generated from these models (scripts/export_schemas.py).
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SCHEMA_ID = "fifthnine.result/v1"
+SCHEMA_ID: Final = "fifthnine.result/v1"
 DISCLAIMER = (
     "FifthNine reports evidence about specific, documented reliability checks on the files it could read. "
     "It does not certify production readiness and does not prevent outages. A scan with no findings is not a "
@@ -87,7 +87,7 @@ class AssumptionState(str, Enum):
 
 
 class SupportLevel(str, Enum):
-    TESTED = "tested"  # version listed as tested in support/matrix.v1.yaml
+    TESTED = "tested"  # version listed as tested in src/fifthnine/data/support_matrix.v1.yaml
     UNTESTED = "untested"  # inside the approved range (E5) but not tested, or version not determined
     UNSUPPORTED = "unsupported"  # outside the approved range; rules relying on it are not evaluated
 
@@ -103,7 +103,7 @@ class ScanStatus(str, Enum):
     FAIL_VERIFIED = "FAIL_VERIFIED"  # at least one unsuppressed VIOLATION
     REVIEW_REQUIRED = "REVIEW_REQUIRED"  # no VIOLATION, at least one CONDITIONAL
     INCOMPLETE = "INCOMPLETE"  # no VIOLATION or CONDITIONAL, but UNKNOWNs or blocking coverage gaps, or nothing assessable
-    PASS_WITH_COVERAGE = "PASS_WITH_COVERAGE"  # only SATISFIED results; always read with the coverage section
+    PASS_WITH_COVERAGE = "PASS_WITH_COVERAGE"  # noqa: S105 - status name, not a secret. Only SATISFIED results; read with coverage
 
 
 class Domain(str, Enum):
@@ -158,7 +158,7 @@ class Assumption(_Model):
     declared_in: SourceRef | None = Field(default=None, description="Required when state is declared_by_team")
 
     @model_validator(mode="after")
-    def _declared_has_location(self) -> "Assumption":
+    def _declared_has_location(self) -> Assumption:
         if self.state is AssumptionState.DECLARED_BY_TEAM and self.declared_in is None:
             raise ValueError("declared_by_team assumptions must cite where the team declared them")
         return self
@@ -170,7 +170,7 @@ class ComponentSupport(_Model):
     version_source: SourceRef | None = None
     support: SupportLevel
     tested_versions: list[str] = Field(default_factory=list, description="Tested versions from the support matrix for this component")
-    matrix_entry: str | None = Field(default=None, description="Entry id in support/matrix.v1.yaml")
+    matrix_entry: str | None = Field(default=None, description="Entry id in src/fifthnine/data/support_matrix.v1.yaml")
 
 
 # ---------------------------------------------------------------- facts and links
@@ -207,7 +207,7 @@ class Linkage(_Model):
     current_digest: str | None = Field(default=None, description="Digest of the same evidence in this scan; differs when stale")
 
     @model_validator(mode="after")
-    def _provenance(self) -> "Linkage":
+    def _provenance(self) -> Linkage:
         if self.status in (LinkStatus.DECLARED, LinkStatus.STALE) and self.declared_in is None:
             raise ValueError("declared and stale linkages must cite their .fifthnine.yml location")
         if self.accepted_by == "links-accept" and (self.evidence_digest is None or self.accepted_on is None):
@@ -262,7 +262,7 @@ class Finding(_Model):
     suppression: Suppression | None = None
 
     @model_validator(mode="after")
-    def _verdict_invariants(self) -> "Finding":
+    def _verdict_invariants(self) -> Finding:
         open_material = [a for a in self.assumptions if a.material and a.state is AssumptionState.OPEN]
         if self.verdict is Verdict.VIOLATION:
             if open_material:

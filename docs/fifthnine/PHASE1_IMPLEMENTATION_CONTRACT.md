@@ -16,10 +16,11 @@ A11 (M0-D2 revised) When external configuration or cluster-side defaults may ove
 A12 (M0-D3) Accepted linkages require explicit human approval, record provenance (who/when/evidence) and an evidence digest, and become stale (non-authoritative) when that evidence changes.
 A13 (M0-D5 provisional) No rule may block CI until its runtime and boundary-case tests pass for the tested versions it depends on and the outside SRE reviewer has accepted its findings.
 A14 (M0-D8) The development corpus is published before independent held-out selection.
-A15 (M0-D9 revised) FifthNine claims support only for versions listed as tested in support/matrix.v1.yaml. Untested versions inside approved ranges are reported as untested and cap failing checks at CONDITIONAL; ranges and limits are documented.
+A15 (M0-D9 revised) FifthNine claims support only for versions listed as tested in src/fifthnine/data/support_matrix.v1.yaml. Untested versions inside approved ranges are reported as untested and cap failing checks at CONDITIONAL; ranges and limits are documented.
 A16 (M0-D10) Package name registration deferred until name and ownership are confirmed.
 A17 Sample-specific comparisons with other scanners must not be presented as proven real-world superiority.
 A18 M1 delivers a usable CLI foundation only. No M2 work, no Phase 2 capability, no dashboard, application graph or AI agent.
+A19 (2026-10-21) Official repository ramkumar1308/fifthnine-dev (Apache-2.0). Schema revision R2 approved with identifier fifthnine.result/v1 kept. M1 authorized; pull requests are merged only with CEO approval.
 
 ---
 

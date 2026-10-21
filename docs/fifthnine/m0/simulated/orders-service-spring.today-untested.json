@@ -21,7 +21,7 @@
     "code_executed": false
   },
   "status": "REVIEW_REQUIRED",
-  "status_reason": "No established violations; conditional findings need review. [Current state: support/matrix.v1.yaml lists no tested versions, so every detected version is 'untested' (D9).]",
+  "status_reason": "No established violations; conditional findings need review. [Current state: src/fifthnine/data/support_matrix.v1.yaml lists no tested versions, so every detected version is 'untested' (D9).]",
   "disclaimer": "FifthNine reports evidence about specific, documented reliability checks on the files it could read. It does not certify production readiness and does not prevent outages. A scan with no findings is not a statement that the system is production ready.",
   "inventory": {
     "files_considered": 20,
@@ -1203,7 +1203,7 @@
       "code": "COV-UNTESTED-VERSION",
       "domain": null,
       "scope": "pom.xml:10",
-      "message": "spring-boot 3.4.13, spring-framework 6.2.15, java 21 and the Kubernetes APIs are inside the approved ranges but not tested (support/matrix.v1.yaml). Failing checks are reported as CONDITIONAL.",
+      "message": "spring-boot 3.4.13, spring-framework 6.2.15, java 21 and the Kubernetes APIs are inside the approved ranges but not tested (src/fifthnine/data/support_matrix.v1.yaml). Failing checks are reported as CONDITIONAL.",
       "affects_rules": [
         "FN-CAP-002a",
         "FN-DEP-001",

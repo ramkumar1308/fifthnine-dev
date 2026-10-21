@@ -22,7 +22,15 @@ class Evidence(_Model):
 class ComponentEntry(_Model):
     id: str
     component: str
-    approved_range: str = Field(description="CEO-approved range (E5) or the range FifthNine intends to test")
+    approved_range: str = Field(description="CEO-approved range (E5) or the range FifthNine intends to test, as prose")
+    specifier: str | None = Field(
+        default=None, description="Machine-readable PEP 440 specifier for approved_range, e.g. '>=3.2.0,<3.6.0'. Outside it: unsupported"
+    )
+    allowed_versions: list[str] = Field(
+        default_factory=list,
+        description="Exact allowed values when a specifier cannot express the range (Java majors, Kubernetes apiVersion/kind). "
+        "A detected version matches an entry exactly or as its leading dot-separated components (e.g. '21' matches '21.0.4')",
+    )
     tested_versions: list[Evidence] = Field(
         default_factory=list, description="Only runtime_fixtures evidence for every dependent rule qualifies a version as tested"
     )

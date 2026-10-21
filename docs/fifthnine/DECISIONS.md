@@ -120,3 +120,24 @@ CTO implementation notes for M1 (reviewable in the PR):
 | M1-N3 | Virtualenvs are excluded by the presence of `pyvenv.cfg`, not by directory names such as `env`, to avoid hiding per-environment manifests |
 | M1-N4 | One detected-stack entry per distinct component version, preferring lockfile, then build descriptor, then Dockerfile as the cited source |
 | M1-N5 | Dev corpus publication (M0-D8) is not part of this PR; it is the first M2 preparation item and will be proposed separately |
+
+---
+
+## 2026-10-21: CEO decisions on the competitive strategy report
+
+| ID | Decision | Status |
+|---|---|---|
+| S-1 | Approve a one-week head-to-head: Copilot with strong SRE instructions and a frontier model with equivalent context, five runs per contender, identical prompts, model configurations and cases | APPROVED (CEO) |
+| S-2 | No kill threshold on detection rate. Evaluate correctness, repeatability, false positives, framework-version accuracy, uncertainty handling, evidence quality, CI execution characteristics and unique actionable findings | APPROVED (CEO) |
+| S-3 | Planted samples are preliminary screening cases; no market-superiority claims from them. M5 uses independently authored cases and unfamiliar repositories | APPROVED (CEO) |
+| S-4 | M5 includes GitHub Copilot and a strong frontier model in their best reasonable repository-aware configurations | APPROVED (CEO) |
+| S-5 | Positioning: "FifthNine provides deterministic, version-aware production reliability checks with verifiable code evidence, clear applicability and explicit coverage gaps." | APPROVED (CEO) |
+| S-6 | MCP stays deferred until after M3; it is a potential distribution interface, not authorized scope | APPROVED (CEO) |
+| S-7 | M1 PR #1 needs a separate implementation review before merge; passing CI does not authorize merging | APPROVED (CEO) |
+| S-8 | Protocol returned before execution; scoring rules not changed after results are seen. Report must give a case-level matrix and separate technical feasibility from commercial differentiation | APPROVED (CEO) |
+
+The protocol is `experiments/HX1_PROTOCOL.md`, status PROPOSED until the CEO approves it. On approval, its commit hash is the frozen protocol.
+
+### 2026-10-21: priorities restated by CEO and co-founder
+
+FifthNine Scan is the only active product priority; scope locked. Milestone order: M1 review and merge, M2 framework-aware extraction, M3 version-aware checks, M4 CLI and CI/CD integration, M5 independent benchmarking against Copilot, existing scanners and experienced SRE reviewers. HX1 is supporting competitive research and must not delay M1 to M4. Not in Phase 1: FifthNine Verify, application-wide dependency platform, Critical Business Journeys, Incident Genome, MCP, new AI-agent capabilities. M2 implementation starts only after M1 is approved.

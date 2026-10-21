@@ -1,6 +1,7 @@
 # HX1: head-to-head screening protocol (pre-registration)
 
 Status: PROPOSED, awaiting CEO approval. Nothing in this protocol has been executed.
+Role (CEO, 2026-10-21): supporting competitive research. HX1 does not gate M1, M2, M3 or M4, and no milestone waits for its results. It runs when the CEO assigns runners and budget; engineering continues regardless. Its results feed M3 rule prioritization and the M5 benchmark design.
 Author: Claude (CTO). Date: 2026-10-21.
 Freeze rule: once approved, the commit that contains this file is the frozen protocol. Scoring rules, case content, prompts and model settings do not change after any contender output has been seen. A rule that proves impossible to follow is logged as a deviation, and results are reported under both the frozen rule and the deviation, side by side.
 
@@ -176,7 +177,7 @@ FifthNine's column is filled from the rule specs before any contender output is 
 | Adjudication of extras | Outside SRE reviewer, or CEO and co-founder | day 4 |
 | Scoring and report | CTO | day 5 |
 
-M2 preparation continues in parallel. The locked Phase 1 product does not change.
+No milestone waits for HX1. If HX1 is not run before M3 starts, M3 proceeds on the approved rule specs and HX1 runs later against the same frozen cases. The locked Phase 1 product does not change.
 
 ## 11. Decisions needed before day 1
 

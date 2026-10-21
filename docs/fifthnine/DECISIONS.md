@@ -137,3 +137,7 @@ CTO implementation notes for M1 (reviewable in the PR):
 | S-8 | Protocol returned before execution; scoring rules not changed after results are seen. Report must give a case-level matrix and separate technical feasibility from commercial differentiation | APPROVED (CEO) |
 
 The protocol is `experiments/HX1_PROTOCOL.md`, status PROPOSED until the CEO approves it. On approval, its commit hash is the frozen protocol.
+
+### 2026-10-21: priorities restated by CEO and co-founder
+
+FifthNine Scan is the only active product priority; scope locked. Milestone order: M1 review and merge, M2 framework-aware extraction, M3 version-aware checks, M4 CLI and CI/CD integration, M5 independent benchmarking against Copilot, existing scanners and experienced SRE reviewers. HX1 is supporting competitive research and must not delay M1 to M4. Not in Phase 1: FifthNine Verify, application-wide dependency platform, Critical Business Journeys, Incident Genome, MCP, new AI-agent capabilities. M2 implementation starts only after M1 is approved.

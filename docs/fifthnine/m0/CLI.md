@@ -1,5 +1,7 @@
 # FifthNine Scan CLI interface, v1 (frozen at M0)
 
+Implementation status (M1): `--version`, `scan` (console and JSON, `--profile`, `--config`, `--mode`, `--fail-on`, `--facts`, `--max-file-size`, `--output`, `--quiet`, `--no-color`, `--verbose`), `rules list`, `rules explain` (no rules yet), `schema` (also `support-matrix`). Reserved for later milestones and refusing with exit 2: `--base-ref`, `--baseline`, `--format sarif`, `--timing`, `--rule`/`--skip-rule` (no rules to select), `links`, `links accept`, `baseline create`.
+
 Frozen means: commands, flags, defaults and exit codes below do not change without CEO approval. New optional flags can be added. Everything is offline; no command opens a network connection or executes repository code.
 
 ## The default path

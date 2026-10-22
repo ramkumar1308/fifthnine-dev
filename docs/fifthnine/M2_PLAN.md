@@ -1,8 +1,8 @@
 # M2 plan: application and deployment fact extraction
 
-Status: proposed, awaiting CEO approval. Nothing in this plan is implemented. M1 was merged to `main` as `d58bcbe` on 2026-10-21.
+Status: approved with conditions by the CEO on 2026-10-21 (DECISIONS.md M2-D1 to M2-D4, requirements M2-R1 to M2-R3). M1 was merged to `main` as `d58bcbe` on 2026-10-21. Amendments requested in M2-0 (`docs/fifthnine/M2-0.md`, "Amendments to the M2 plan requested") apply once approved; until then this text is the approved plan.
 
-M2 turns the M1 inventory into resolved, source-located facts. It adds no rules. Scans still report `INCOMPLETE` with `COV-NO-RULES`, and the result schema stays `fifthnine.result/v1` revision 2: `Fact`, `FactStatus`, `OverrideExposure`, `SourceRef` and `Linkage` already carry everything below. If implementation finds a gap in the schema, the change comes to the CEO before it is made.
+M2 turns the M1 inventory into resolved, source-located facts. It adds no rules. Scans still report `INCOMPLETE` with `COV-NO-RULES`, and the result schema stays `fifthnine.result/v1` (revision 2 unless the CEO approves the M2-0 revision 3 proposal): `Fact`, `FactStatus`, `OverrideExposure`, `SourceRef` and `Linkage` already carry everything below. If implementation finds a gap in the schema, the change comes to the CEO before it is made.
 
 Contract gate (section 9): semantic fixtures pass, provenance is accurate, and conflicting or missing profiles return unknown. Demo: derived facts with exact file and line on the two supported sample services.
 

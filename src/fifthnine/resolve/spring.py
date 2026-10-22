@@ -224,6 +224,8 @@ class _Run:
         self.args_table: dict[str, list[Hit]] = {}
         self.profiles: list[str] = []
         self.profile_unknown = False
+        self._expo_key = "spring.profiles.active"
+        self._expo_extra: list[str] = []
         self.label = "default"
         self.active_fid: str | None = None
         self.props: dict[str, Prop | None] = {}
@@ -728,11 +730,29 @@ class _Run:
                     code="FN-OPS-002", scope=self._where(env_conflict),
                     message=f"The scan was told to assume profile(s) {', '.join(active_names)} ({self.option[1] if self.option else 'option'}), but the "
                             f"repository activates {', '.join(env_names)} here. The scan option was used."))
+        self._expo_key, self._expo_extra = "spring.profiles.active", []
+        if unresolved is None:
+            self.profiles = self._expand([*include_names, *active_names], groups)
+            if not self.profiles:
+                # No profile is activated: Boot accepts the default profiles, "default" unless spring.profiles.default
+                # (read from the layered sources and the base config files, never from a profile-specific file) names others.
+                self._expo_extra = ["SPRING_PROFILES_DEFAULT"]
+                for h in self.hits("spring.profiles.default")[:1]:
+                    m = self.materialize(h.key, h)
+                    top, precedence, status = h, h.precedence, m.status
+                    self._expo_key = "spring.profiles.default"
+                    if m.unresolved is not None:
+                        unresolved = m.unresolved
+                        break
+                    names = [str(v).strip() for v in (m.value if isinstance(m.value, list) else str(m.value).split(",")) if str(v).strip()]
+                    if not names:
+                        unresolved = "spring.profiles.default is empty, so which profile Spring Boot treats as the default is not known"
+                        break
+                    self.profiles = self._expand(names, groups)
+                    active_names = names
         if unresolved is not None:
             self.profile_unknown = True
             self.profiles = []
-        else:
-            self.profiles = self._expand([*include_names, *active_names], groups)
         self.label = ",".join(self.profiles) if self.profiles else "default"
         self._build_files(self.profiles if not self.profile_unknown else [])
         self._emit_active(top, status, unresolved, precedence, active_names, include_names, group_locs, include_locs)
@@ -743,7 +763,7 @@ class _Run:
         inputs: list[FactInput] = []
         source: SourceRef | None = None
         layer = "file"
-        expo_key = "spring.profiles.active"
+        expo_key = self._expo_key
         if self.option is not None:
             st, prec = FactStatus.DECLARED, "fifthnine.profile_option"
             layer = "option"
@@ -763,14 +783,14 @@ class _Run:
         for p, n in [*group_locs, *include_locs]:
             inputs.append(loc(R.VALUE_SOURCE, p, n))
         if unresolved is not None:
-            expo, srcs = self.exposure(expo_key, layer, [], top.var if top else None)
+            expo, srcs = self.exposure(expo_key, layer, self._expo_extra, top.var if top else None)
             self.active_fid = self.fb.add("spring.active_profiles", subject, None, FactStatus.UNRESOLVED, source=source, inputs=inputs,
                                           exposure=expo, exposure_sources=srcs, link_ids=self.link_ids, unresolved_reason=unresolved)
             self.cov.append(CoverageNotice(code="FN-OPS-002", scope=subject,
                                            message=f"The active profile cannot be resolved ({unresolved}); profile-specific files were not applied "
                                                    "and values read from base files are marked inferred."))
             return
-        expo, srcs = self.exposure(expo_key, layer, [], top.var if top else None)
+        expo, srcs = self.exposure(expo_key, layer, self._expo_extra, top.var if top else None)
         self.active_fid = self.fb.add("spring.active_profiles", subject, list(self.profiles), st, source=source, inputs=inputs,
                                       exposure=expo, exposure_sources=srcs, link_ids=self.link_ids, precedence=prec)
         if not self.profiles:

@@ -3,16 +3,19 @@
 # source and the anchor text on that line; benchmarks/dev/facts/verify_upstream.py re-reads the tagged source and checks each one.
 # The cited release is the latest patch of the minor on 2026-10-21. An entry applies to the other patch releases of the same minor
 # on the stated assumption that a default does not change inside a minor; `component.spring-framework` is exact-patch only.
+# `verified_at` lists the releases of the minor at which verify_upstream.py found each cited anchor text in the cited file (first, middle
+# and latest patch); the cited line is checked at the cited release only. An anchor match shows the declaration is unchanged, not that
+# every code path leaves the value untouched.
 # These are documented defaults, never observed production values: application code, the classpath and auto-configuration that
 # the repository does not show can still change the effective behaviour.
 schema: fifthnine.defaults/v1
 framework: spring-boot
 repository: spring-projects/spring-boot
 releases:
-  "3.2": {tag: v3.2.12, commit: 8f481bcca405f68ef0d19fb1ef9e0a2841534eb8}
-  "3.3": {tag: v3.3.13, commit: be1467902eb4bcc78963adc6557a3e6ed582799e}
-  "3.4": {tag: v3.4.13, commit: 96f3fe7953b609b9be4ada70ee562d97d89092a1}
-  "3.5": {tag: v3.5.16, commit: 0566f6933049aca6bc5ffc6d559fffade9cd2e0c}
+  "3.2": {tag: v3.2.12, commit: 8f481bcca405f68ef0d19fb1ef9e0a2841534eb8, verified_at: [v3.2.0, v3.2.6, v3.2.12]}
+  "3.3": {tag: v3.3.13, commit: be1467902eb4bcc78963adc6557a3e6ed582799e, verified_at: [v3.3.0, v3.3.7, v3.3.13]}
+  "3.4": {tag: v3.4.13, commit: 96f3fe7953b609b9be4ada70ee562d97d89092a1, verified_at: [v3.4.0, v3.4.7, v3.4.13]}
+  "3.5": {tag: v3.5.16, commit: 0566f6933049aca6bc5ffc6d559fffade9cd2e0c, verified_at: [v3.5.0, v3.5.8, v3.5.16]}
 entries:
   server.shutdown:
     versions:

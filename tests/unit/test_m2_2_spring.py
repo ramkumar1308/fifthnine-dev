@@ -391,6 +391,42 @@ def test_default_profile_file_is_read_when_no_profile_is_active(tmp_path: Path) 
     assert f.value == 8080  # an active profile replaces "default"
 
 
+def test_spring_profiles_default_replaces_the_default_profile(tmp_path: Path) -> None:
+    res = {"application.yml": "spring:\n  profiles:\n    default: dev\nserver:\n  port: 8080\n",
+           "application-dev.yml": "server:\n  port: 7001\n", "application-default.yml": "server:\n  port: 7000\n"}
+    r = _scan(tmp_path, Repo(resources=res))
+    assert _props(r)["server.port"].value == 7001
+    active = _one(r, "spring.active_profiles", "spring:.")
+    assert active.value == ["dev"]
+    (tmp_path / "a").mkdir()
+    f = _props(_scan(tmp_path / "a", Repo(resources=res), profile="prod"))["server.port"]
+    assert f.value == 8080  # an active profile ends the default profile
+    (tmp_path / "e").mkdir()
+    f = _props(_scan(tmp_path / "e", Repo(resources={**res, "application.yml": "server:\n  port: 8080\n"},
+                                          env={"SPRING_PROFILES_DEFAULT": "dev"})))["server.port"]
+    assert f.value == 7001
+    (tmp_path / "g").mkdir()
+    grp = {**res, "application.yml": "spring:\n  profiles:\n    default: dev\n    group:\n      dev: extra\n",
+           "application-extra.yml": "server:\n  port: 7002\n"}
+    assert _props(_scan(tmp_path / "g", Repo(resources=grp)))["server.port"].value == 7002
+
+
+def test_spring_profiles_default_that_cannot_be_read_makes_profile_facts_unresolved(tmp_path: Path) -> None:
+    res = {"application.yml": "server:\n  port: 8080\n", "application-dev.yml": "server:\n  port: 7001\n"}
+    r = _scan(tmp_path, Repo(resources=res, env={"SPRING_PROFILES_DEFAULT": None}), oracle=False)
+    active = _one(r, "spring.active_profiles", "spring:.")
+    assert active.status is FactStatus.UNRESOLVED
+    assert _props(r)["server.port"].status is not FactStatus.DECLARED  # never a silently derived value
+    (tmp_path / "f").mkdir()
+    picked = {"application.yml": "spring:\n  profiles:\n    default: ${PICK}\n", "application-dev.yml": res["application-dev.yml"]}
+    r2 = _scan(tmp_path / "f", Repo(resources=picked), oracle=False)
+    assert _one(r2, "spring.active_profiles", "spring:.").status is FactStatus.UNRESOLVED
+    (tmp_path / "p").mkdir()
+    inside = {"application.yml": "server:\n  port: 8080\n", "application-dev.yml": "spring:\n  profiles:\n    default: dev\n"}
+    r3 = _scan(tmp_path / "p", Repo(resources=inside))
+    assert _one(r3, "spring.active_profiles", "spring:.").value == []  # a profile-specific file cannot select the default profile
+
+
 def test_dash_d_after_dash_jar_is_a_program_argument(tmp_path: Path) -> None:
     res = {"application.yml": "server:\n  port: 8080\n"}
     f = _props(_scan(tmp_path, Repo(resources=res, command=["-Dserver.port=9999"])))["server.port"]

@@ -526,6 +526,13 @@ def oracle_profiles(ctx: Ctx, option: list[str] | None) -> list[str] | None:
                 groups.setdefault(g, [])
                 groups[g] += [p.strip() for p in e.text.split(",") if p.strip()]
         names = _expand_groups(names, groups)
+        if not names:  # Boot accepts the default profiles; spring.profiles.default is read from the unconditional sources only
+            d = base.entries("spring.profiles.default")
+            if d:
+                text = base.expand(d[0][0]) if d[0][0] != UNRESOLVED else None
+                if text is None:
+                    return None
+                names = _expand_groups([p.strip() for p in text.split(",") if p.strip()], groups)
         return names
     return _expand_groups(names, {})
 

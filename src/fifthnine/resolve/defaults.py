@@ -89,7 +89,8 @@ def spring_default(key: str, version: str | None) -> SpringDefault | None:
     if entry.get("exact_patch_only") and f"v{version}" != release["tag"]:
         return None
     upstream = UpstreamRef(repository=table["repository"], tag=release["tag"], commit=release["commit"], path=row["path"],
-                           line=row["line"], anchor=row["anchor"], verified_at=[])
+                           line=row["line"], anchor=row["anchor"],
+                           verified_at=[release["tag"]] if entry.get("exact_patch_only") else list(release.get("verified_at") or [release["tag"]]))
     url = f"https://github.com/{table['repository']}/blob/{release['commit']}/{row['path']}#L{row['line']}"
     dref = DefaultRef(
         framework=table["framework"], version_range=f"{minor}.x",

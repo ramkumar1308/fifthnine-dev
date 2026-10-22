@@ -166,3 +166,16 @@ CTO application: `cohort` field on every corpus entry, six maintained Spring Boo
 | M2-1-D4 | Independent case author and independent experienced SRE adjudicator required; if one person holds both roles, disclose it and keep adjudication blind to contender identity; no answer keys exposed to AI runners | REQUIREMENT (CEO) |
 | M2-1-D5 | AI optional and disabled by default; offline deterministic scanning always works; hosted AI needs customer authorization; bounded file access, prompt-injection defences, secret handling and an auditable record of transmitted data defined before any product implementation | REQUIREMENT (CEO) |
 | M2-1-D6 | Scope locked: no MCP, hosted service, autonomous remediation, cross-repository verification platform or FifthNine Verify. A successful HX2 does not authorize AI development; a separate implementation proposal needs CEO approval | REQUIREMENT (CEO) |
+
+---
+
+## 2026-10-22: M2-1 merged; M2-2 authorized
+
+| ID | Decision | Status |
+|---|---|---|
+| M2-2-D1 | PR #6 merged (main 4dcc093). The 1,778 disclosed oracle skips are kept as coverage limitations and are not described as independently verified | APPROVED (CEO) |
+| M2-2-D2 | Kubernetes defaults count reconciled in PR #7 | AWAITING APPROVAL |
+| M2-2-D3 | M2-2 proceeds per its approved plan. HX2 protocol is prepared separately and not executed. No AI code, no scope expansion | APPROVED (CEO) |
+| M2-2-D4 | Objective: accurate Spring Boot application configuration extraction, including the production-effective values future SRE reliability checks need | DIRECTION (CEO) |
+
+CTO application: Spring defaults for Boot 3.2 to 3.5 only; Boot outside that range gets unresolved derived facts. An independent test oracle re-implements the layering rules and is not claimed to replace a runtime check, which stays open as M2-D3.

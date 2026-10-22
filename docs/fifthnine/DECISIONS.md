@@ -153,3 +153,16 @@ Open from M2-0 (`docs/fifthnine/M2-0.md`): corpus approval; schema revision 3 (a
 | M2-0-R1 | Focused independent re-review of the revised answer keys before PR #4 merges, covering the two former blocking label problems and all affected provenance and status definitions | REQUIREMENT (CEO) |
 
 CTO application: `cohort` field on every corpus entry, six maintained Spring Boot applications added (SB-11 to SB-16) under unchanged criteria; Kubernetes defaults verified identical at v1.34.12, v1.35.9, v1.36.5 and v1.37.1 and cited at v1.37.1. M2-1 does not start until PR #4 is accepted and merged.
+
+---
+
+## 2026-10-22: M2-0 merged; M2-1 authorized; AI experiment approved in principle
+
+| ID | Decision | Status |
+|---|---|---|
+| M2-1-D1 | PR #4 merged at reviewed head 4598507 (merge commit `60118c2`). Corpus, cohort classification, focused key review and Kubernetes-default policy accepted. Original linkage evidence requirements preserved; verification is not weakened to raise the linked count | APPROVED (CEO) |
+| M2-1-D2 | M2-1 authorized after the merge: Docker and Kubernetes fact extraction, workload relationships, override exposure, linkage proposals. Deterministic results, exact provenance, honest unknown coverage | APPROVED (CEO) |
+| M2-1-D3 | AI architecture experiment (HX2) approved in principle, not AI implementation. Protocol prepared after M2-1 and executed only after the protocol and the independent evaluator are approved. Compares a strong standalone coding agent with the same agent given FifthNine's verified facts and verification, with the same source access and a fair investigation budget. Measures incremental real findings, false positives, unsupported conclusions, version correctness, repeatability, cost and engineer usefulness | APPROVED IN PRINCIPLE (CEO) |
+| M2-1-D4 | Independent case author and independent experienced SRE adjudicator required; if one person holds both roles, disclose it and keep adjudication blind to contender identity; no answer keys exposed to AI runners | REQUIREMENT (CEO) |
+| M2-1-D5 | AI optional and disabled by default; offline deterministic scanning always works; hosted AI needs customer authorization; bounded file access, prompt-injection defences, secret handling and an auditable record of transmitted data defined before any product implementation | REQUIREMENT (CEO) |
+| M2-1-D6 | Scope locked: no MCP, hosted service, autonomous remediation, cross-repository verification platform or FifthNine Verify. A successful HX2 does not authorize AI development; a separate implementation proposal needs CEO approval | REQUIREMENT (CEO) |

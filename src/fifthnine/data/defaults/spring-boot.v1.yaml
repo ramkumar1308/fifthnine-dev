@@ -1,0 +1,115 @@
+# Spring Boot defaults used when a setting is absent from every source the repository shows (CEO decisions M2-D1, M2-R1, M2-R2).
+# One reviewed release per supported minor (3.2 to 3.5; Boot 4 is deferred, M2-0-D6). Every entry cites a file and line in the tagged
+# source and the anchor text on that line; benchmarks/dev/facts/verify_upstream.py re-reads the tagged source and checks each one.
+# The cited release is the latest patch of the minor on 2026-10-21. An entry applies to the other patch releases of the same minor
+# on the stated assumption that a default does not change inside a minor; `component.spring-framework` is exact-patch only.
+# These are documented defaults, never observed production values: application code, the classpath and auto-configuration that
+# the repository does not show can still change the effective behaviour.
+schema: fifthnine.defaults/v1
+framework: spring-boot
+repository: spring-projects/spring-boot
+releases:
+  "3.2": {tag: v3.2.12, commit: 8f481bcca405f68ef0d19fb1ef9e0a2841534eb8}
+  "3.3": {tag: v3.3.13, commit: be1467902eb4bcc78963adc6557a3e6ed582799e}
+  "3.4": {tag: v3.4.13, commit: 96f3fe7953b609b9be4ada70ee562d97d89092a1}
+  "3.5": {tag: v3.5.16, commit: 0566f6933049aca6bc5ffc6d559fffade9cd2e0c}
+entries:
+  server.shutdown:
+    versions:
+      "3.2": {value: "immediate", path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ServerProperties.java, line: 114, anchor: "private Shutdown shutdown = Shutdown.IMMEDIATE;"}
+      "3.3": {value: "immediate", path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ServerProperties.java, line: 116, anchor: "private Shutdown shutdown = Shutdown.IMMEDIATE;"}
+      "3.4": {value: "graceful", path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ServerProperties.java, line: 117, anchor: "private Shutdown shutdown = Shutdown.GRACEFUL;"}
+      "3.5": {value: "graceful", path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ServerProperties.java, line: 116, anchor: "private Shutdown shutdown = Shutdown.GRACEFUL;"}
+  spring.lifecycle.timeout-per-shutdown-phase:
+    unit: s
+    versions:
+      "3.2": {value: 30, path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/context/LifecycleProperties.java, line: 36, anchor: "private Duration timeoutPerShutdownPhase = Duration.ofSeconds(30);"}
+      "3.3": {value: 30, path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/context/LifecycleProperties.java, line: 36, anchor: "private Duration timeoutPerShutdownPhase = Duration.ofSeconds(30);"}
+      "3.4": {value: 30, path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/context/LifecycleProperties.java, line: 36, anchor: "private Duration timeoutPerShutdownPhase = Duration.ofSeconds(30);"}
+      "3.5": {value: 30, path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/context/LifecycleProperties.java, line: 36, anchor: "private Duration timeoutPerShutdownPhase = Duration.ofSeconds(30);"}
+  server.port:
+    versions:
+      "3.2": {value: 8080, path: spring-boot-project/spring-boot/src/main/java/org/springframework/boot/web/server/AbstractConfigurableWebServerFactory.java, line: 46, anchor: "private int port = 8080;"}
+      "3.3": {value: 8080, path: spring-boot-project/spring-boot/src/main/java/org/springframework/boot/web/server/AbstractConfigurableWebServerFactory.java, line: 49, anchor: "private int port = 8080;"}
+      "3.4": {value: 8080, path: spring-boot-project/spring-boot/src/main/java/org/springframework/boot/web/server/AbstractConfigurableWebServerFactory.java, line: 49, anchor: "private int port = 8080;"}
+      "3.5": {value: 8080, path: spring-boot-project/spring-boot/src/main/java/org/springframework/boot/web/server/AbstractConfigurableWebServerFactory.java, line: 49, anchor: "private int port = 8080;"}
+  server.servlet.context-path:
+    versions:
+      "3.2": {value: null, path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ServerProperties.java, line: 242, anchor: "private String contextPath;"}
+      "3.3": {value: null, path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ServerProperties.java, line: 257, anchor: "private String contextPath;"}
+      "3.4": {value: null, path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ServerProperties.java, line: 258, anchor: "private String contextPath;"}
+      "3.5": {value: null, path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ServerProperties.java, line: 257, anchor: "private String contextPath;"}
+  server.error.include-stacktrace:
+    versions:
+      "3.2": {value: "never", path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ErrorProperties.java, line: 46, anchor: "private IncludeAttribute includeStacktrace = IncludeAttribute.NEVER;"}
+      "3.3": {value: "never", path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ErrorProperties.java, line: 46, anchor: "private IncludeAttribute includeStacktrace = IncludeAttribute.NEVER;"}
+      "3.4": {value: "never", path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ErrorProperties.java, line: 46, anchor: "private IncludeAttribute includeStacktrace = IncludeAttribute.NEVER;"}
+      "3.5": {value: "never", path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ErrorProperties.java, line: 46, anchor: "private IncludeAttribute includeStacktrace = IncludeAttribute.NEVER;"}
+  management.server.port:
+    versions:
+      "3.2": {value: null, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java, line: 43, anchor: "private Integer port;"}
+      "3.3": {value: null, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java, line: 43, anchor: "private Integer port;"}
+      "3.4": {value: null, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java, line: 43, anchor: "private Integer port;"}
+      "3.5": {value: null, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java, line: 44, anchor: "private Integer port;"}
+  management.server.base-path:
+    versions:
+      "3.2": {value: "", path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java, line: 55, anchor: "private String basePath = \"\";"}
+      "3.3": {value: "", path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java, line: 55, anchor: "private String basePath = \"\";"}
+      "3.4": {value: "", path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java, line: 55, anchor: "private String basePath = \"\";"}
+      "3.5": {value: "", path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java, line: 56, anchor: "private String basePath = \"\";"}
+  management.endpoints.web.base-path:
+    versions:
+      "3.2": {value: "/actuator", path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java, line: 47, anchor: "private String basePath = \"/actuator\";"}
+      "3.3": {value: "/actuator", path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java, line: 47, anchor: "private String basePath = \"/actuator\";"}
+      "3.4": {value: "/actuator", path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java, line: 47, anchor: "private String basePath = \"/actuator\";"}
+      "3.5": {value: "/actuator", path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java, line: 47, anchor: "private String basePath = \"/actuator\";"}
+  management.endpoints.web.path-mapping.*:
+    versions:
+      "3.2": {value: null, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java, line: 52, anchor: "private final Map<String, String> pathMapping = new LinkedHashMap<>();"}
+      "3.3": {value: null, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java, line: 52, anchor: "private final Map<String, String> pathMapping = new LinkedHashMap<>();"}
+      "3.4": {value: null, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java, line: 52, anchor: "private final Map<String, String> pathMapping = new LinkedHashMap<>();"}
+      "3.5": {value: null, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java, line: 52, anchor: "private final Map<String, String> pathMapping = new LinkedHashMap<>();"}
+  management.endpoints.web.exposure.include:
+    versions:
+      "3.2": {value: ["health"], path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/expose/EndpointExposure.java, line: 35, anchor: "WEB(\"health\"),"}
+      "3.3": {value: ["health"], path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/expose/EndpointExposure.java, line: 35, anchor: "WEB(\"health\"),"}
+      "3.4": {value: ["health"], path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/expose/EndpointExposure.java, line: 35, anchor: "WEB(\"health\"),"}
+      "3.5": {value: ["health"], path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/expose/EndpointExposure.java, line: 35, anchor: "WEB(\"health\"),"}
+  management.endpoints.web.exposure.exclude:
+    versions:
+      "3.2": {value: [], path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java, line: 94, anchor: "private Set<String> exclude = new LinkedHashSet<>();"}
+      "3.3": {value: [], path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java, line: 94, anchor: "private Set<String> exclude = new LinkedHashSet<>();"}
+      "3.4": {value: [], path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java, line: 94, anchor: "private Set<String> exclude = new LinkedHashSet<>();"}
+      "3.5": {value: [], path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java, line: 94, anchor: "private Set<String> exclude = new LinkedHashSet<>();"}
+  management.endpoint.health.probes.groups:
+    applies_when: {platform: "kubernetes"}
+    versions:
+      "3.2": {value: {liveness: true, readiness: true}, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesAutoConfiguration.java, line: 91, anchor: "if (CloudPlatform.getActive(environment) == CloudPlatform.KUBERNETES) {"}
+      "3.3": {value: {liveness: true, readiness: true}, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesAutoConfiguration.java, line: 91, anchor: "if (CloudPlatform.getActive(environment) == CloudPlatform.KUBERNETES) {"}
+      "3.4": {value: {liveness: true, readiness: true}, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesAutoConfiguration.java, line: 91, anchor: "if (CloudPlatform.getActive(environment) == CloudPlatform.KUBERNETES) {"}
+      "3.5": {value: {liveness: true, readiness: true}, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesAutoConfiguration.java, line: 91, anchor: "if (CloudPlatform.getActive(environment) == CloudPlatform.KUBERNETES) {"}
+  management.endpoint.health.probes.add-additional-paths:
+    versions:
+      "3.2": {value: false, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroupsPostProcessor.java, line: 39, anchor: ".equalsIgnoreCase(environment.getProperty(\"management.endpoint.health.probes.add-additional-paths\"));"}
+      "3.3": {value: false, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroupsPostProcessor.java, line: 39, anchor: ".equalsIgnoreCase(environment.getProperty(\"management.endpoint.health.probes.add-additional-paths\"));"}
+      "3.4": {value: false, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroupsPostProcessor.java, line: 39, anchor: ".equalsIgnoreCase(environment.getProperty(\"management.endpoint.health.probes.add-additional-paths\"));"}
+      "3.5": {value: false, path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroupsPostProcessor.java, line: 39, anchor: ".equalsIgnoreCase(environment.getProperty(\"management.endpoint.health.probes.add-additional-paths\"));"}
+  endpoint.default_access:
+    versions:
+      "3.2": {value: "enabled", path: spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/endpoint/annotation/Endpoint.java, line: 69, anchor: "boolean enableByDefault() default true;"}
+      "3.3": {value: "enabled", path: spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/endpoint/annotation/Endpoint.java, line: 69, anchor: "boolean enableByDefault() default true;"}
+      "3.4": {value: "unrestricted", path: spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/endpoint/annotation/Endpoint.java, line: 79, anchor: "Access defaultAccess() default Access.UNRESTRICTED;"}
+      "3.5": {value: "unrestricted", path: spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/endpoint/annotation/Endpoint.java, line: 79, anchor: "Access defaultAccess() default Access.UNRESTRICTED;"}
+  endpoint.shutdown.default_access:
+    versions:
+      "3.2": {value: "disabled", path: spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/context/ShutdownEndpoint.java, line: 35, anchor: "@Endpoint(id = \"shutdown\", enableByDefault = false)"}
+      "3.3": {value: "disabled", path: spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/context/ShutdownEndpoint.java, line: 35, anchor: "@Endpoint(id = \"shutdown\", enableByDefault = false)"}
+      "3.4": {value: "none", path: spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/context/ShutdownEndpoint.java, line: 36, anchor: "@Endpoint(id = \"shutdown\", defaultAccess = Access.NONE)"}
+      "3.5": {value: "none", path: spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/context/ShutdownEndpoint.java, line: 36, anchor: "@Endpoint(id = \"shutdown\", defaultAccess = Access.NONE)"}
+  component.spring-framework:
+    exact_patch_only: true
+    versions:
+      "3.2": {value: "6.1.15", path: gradle.properties, line: 20, anchor: "springFrameworkVersion=6.1.15"}
+      "3.3": {value: "6.1.21", path: gradle.properties, line: 22, anchor: "springFrameworkVersion=6.1.21"}
+      "3.4": {value: "6.2.15", path: gradle.properties, line: 22, anchor: "springFrameworkVersion=6.2.15"}
+      "3.5": {value: "6.2.19", path: gradle.properties, line: 22, anchor: "springFrameworkVersion=6.2.19"}

@@ -70,6 +70,8 @@ class DeploymentResult:
     dockerfiles: dict[str, DockerfileModel] = field(default_factory=dict)
     env_models: dict[str, EnvModel] = field(default_factory=dict)
     dockerfile_for_link: dict[str, str] = field(default_factory=dict)  # link id -> Dockerfile path
+    container_links: dict[str, Linkage] = field(default_factory=dict)  # container subject -> its source-root link (when one was proposed)
+    container_args: dict[str, list[tuple[str, str, int]]] = field(default_factory=dict)  # container subject -> (token, path, line) of command + args
 
 
 # ---------------------------------------------------------------- container environment (RULES.md X1 to X5)
@@ -403,6 +405,14 @@ def resolve_deployment(ws: Workspace) -> DeploymentResult:
             proposed.append((w, csub, c, _linkage(ws, w, csub, c, identities, out, fb)))
     proposed = _single_image_per_module(proposed, out)
     for w, csub, c, link in proposed:
+        if link is not None and link.status is not LinkStatus.UNRESOLVED:
+            out.container_links[csub] = link
+        tokens: list[tuple[str, str, int]] = []
+        for field_name in ("command", "args"):
+            node = c.get(field_name)
+            if node is not None and node.is_seq:
+                tokens += [(str(i.value), w.doc.path, i.line) for i in node.seq()]
+        out.container_args[csub] = tokens
         _effective_command(w, csub, c, link, out, docker_ids, fb)
         _mounts(w, csub, c, link, out, docker_ids, fb)
     return out

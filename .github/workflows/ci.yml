@@ -43,9 +43,10 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          PYTHONIOENCODING=utf-8 python -m pytest -q -rf --tb=short -p no:cacheprovider > /tmp/diag.txt 2>&1 || true
-          grep -E "^(FAILED|E )" /tmp/diag.txt | head -25 | while IFS= read -r l; do echo "::error::${l:0:450}"; done
-          tail -5 /tmp/diag.txt | while IFS= read -r l; do echo "::warning::${l:0:300}"; done
+          set +e
+          PYTHONIOENCODING=utf-8 python -X faulthandler -m pytest -v -p no:cacheprovider > /tmp/diag.txt 2>&1
+          echo "pytest exit $?" >> /tmp/diag.txt
+          tail -25 /tmp/diag.txt | while IFS= read -r l; do echo "::error::${l:0:400}"; done
 
   package:
     name: package and offline smoke test

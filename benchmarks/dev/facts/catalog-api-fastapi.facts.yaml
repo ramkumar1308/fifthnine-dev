@@ -1,6 +1,6 @@
 # Fact answer key for samples/catalog-api-fastapi (M2-0).
 # Development data, labelled by the CTO. Not a held-out benchmark case; never report it as one.
-# Locations are relative to samples/catalog-api-fastapi. Format and scoring: docs/fifthnine/M2-0.md.
+# Locations are relative to samples/catalog-api-fastapi. Format, status conventions and scoring: docs/fifthnine/M2-0.md.
 # Kubernetes objects here have no metadata.namespace; subject keys use "_" for an unset namespace.
 schema: fifthnine.devkey.facts/v1
 sample: catalog-api-fastapi
@@ -8,10 +8,11 @@ mode: default
 mode_note: >
   `fifthnine scan .` with no .fifthnine.yml. The container-to-source link is proposed (inferred). The
   out-of-repository Secret catalog-api-env is attached through envFrom, so every env-bindable setting is
-  repository-resolved only and carries env_possible. Python HTTP client timeouts are not keyed: they are
-  delegated to Ruff S113 and Bandit B113 (M0-D4, RULES.md FN-RES-001).
+  repository-resolved only and carries env_possible. Python HTTP client facts are keyed only where a
+  first-wave rule needs them (FN-RES-002 per-attempt timeout); missing-timeout checks on Python clients
+  are delegated to Ruff S113 and Bandit B113 (M0-D4).
 labelled_by: claude-cto
-reviewed_by: null
+reviewed_by: independent M2-0 reviewer (findings and dispositions in PR #4)
 
 links:
   - id: CA-L01
@@ -23,10 +24,10 @@ links:
       - {path: k8s/deployment.yaml, line: 20, anchor: "image: registry.acme.example/catalog-api:2.3.1"}
       - {path: pyproject.toml, line: 2, anchor: 'name = "catalog-api"'}
       - {path: k8s/deployment.yaml, line: 23, anchor: '"app.main:app"'}
-      - {path: app/main.py, line: 5, anchor: "app = FastAPI("}
+      - {path: app/main.py, line: 5, anchor: 'app = FastAPI(title="catalog-api")'}
       - {path: Dockerfile, line: 9, anchor: "EXPOSE 8000"}
       - {path: k8s/deployment.yaml, line: 31, anchor: "containerPort: 8000"}
-    milestone: M2-5
+    milestone: M2-1
 
 facts:
   # ---------------------------------------------------------------- build and versions
@@ -36,7 +37,8 @@ facts:
     value: {name: catalog-api}
     status: declared
     source: {path: pyproject.toml, line: 2, anchor: 'name = "catalog-api"'}
-    milestone: M2-5
+    milestone: M2-1
+    note: Linkage evidence, so needed from M2-1.
   - id: CA-B02
     kind: stack.version
     subject: component:fastapi
@@ -115,8 +117,9 @@ facts:
     subject: docker:Dockerfile#0
     value: {form: exec, argv: [uvicorn, "app.main:app", --host, 0.0.0.0, --port, "8000", --reload]}
     status: overridden
-    overridden_by: CA-K05
-    source: {path: Dockerfile, line: 11, anchor: '"--reload"'}
+    overridden_by: CA-K06
+    source: {path: Dockerfile, line: 11, anchor: 'CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]'}
+    link_ids: [CA-L01]
     milestone: M2-1
     note: Superseded for the Deployment container because the container sets command (RULES.md F13 trap).
 
@@ -135,74 +138,104 @@ facts:
     status: unresolved
     unresolved_reason: metadata.namespace is not set; the namespace is chosen when the manifest is applied.
     inputs:
-      - {role: absence, loc: {path: k8s/deployment.yaml, line: 3, anchor: "metadata:"}}
+      - {role: absence, loc: {path: k8s/deployment.yaml, line: 4, anchor: "name: catalog-api"}}
     milestone: M2-1
   - id: CA-K03
-    kind: k8s.pod.termination_grace_period
+    kind: k8s.deployment.strategy_type
     subject: k8s:Deployment/_/catalog-api
-    value: 30
-    unit: s
-    status: declared
-    source: {path: k8s/deployment.yaml, line: 17, anchor: "terminationGracePeriodSeconds: 30"}
+    value: RollingUpdate
+    status: default
+    inputs:
+      - {role: absence, loc: {path: k8s/deployment.yaml, line: 4, anchor: "name: catalog-api"}}
+    default_ref:
+      framework: kubernetes
+      applied_version: null
+      repository: kubernetes/kubernetes
+      tag: v1.34.0
+      commit: f28b4c9efbca5c5c0af716d9f2d5702667ee8a45
+      path: pkg/apis/apps/v1/defaults.go
+      line: 47
+      anchor: strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
+      note: Pending decision K1 (version-stable Kubernetes defaults cited at one pinned release).
     milestone: M2-1
   - id: CA-K04
+    kind: k8s.deployment.max_unavailable
+    subject: k8s:Deployment/_/catalog-api
+    value: 25%
+    status: default
+    inputs:
+      - {role: absence, loc: {path: k8s/deployment.yaml, line: 4, anchor: "name: catalog-api"}}
+    default_ref:
+      framework: kubernetes
+      applied_version: null
+      repository: kubernetes/kubernetes
+      tag: v1.34.0
+      commit: f28b4c9efbca5c5c0af716d9f2d5702667ee8a45
+      path: pkg/apis/apps/v1/defaults.go
+      line: 56
+      anchor: maxUnavailable := intstr.FromString("25%")
+      note: Pending decision K1.
+    milestone: M2-1
+  - id: CA-K05
     kind: k8s.container.image
     subject: k8s:Deployment/_/catalog-api/api
     value: registry.acme.example/catalog-api:2.3.1
     status: declared
     source: {path: k8s/deployment.yaml, line: 20, anchor: "image: registry.acme.example/catalog-api:2.3.1"}
     milestone: M2-1
-  - id: CA-K05
+  - id: CA-K06
     kind: k8s.container.effective_command
     subject: k8s:Deployment/_/catalog-api/api
     value: [gunicorn, "app.main:app", "--worker-class=uvicorn_worker.UvicornWorker", "--workers=4", "--bind=0.0.0.0:8000", "--graceful-timeout=60", "--timeout=90"]
     status: declared
     source: {path: k8s/deployment.yaml, line: 21, anchor: 'command: ["gunicorn"]'}
     inputs:
-      - {role: value_source, loc: {path: k8s/deployment.yaml, line: 22, anchor: "args:"}}
+      - {role: value_source, loc: {path: k8s/deployment.yaml, line: 22, anchor: "          args:"}}
     precedence: k8s.container.command
     supersedes: [CA-D05]
     milestone: M2-1
-    note: A container `command` replaces the image ENTRYPOINT and CMD; `args` replaces CMD. The Dockerfile --reload never runs here.
-  - id: CA-K06
+    note: >
+      A container `command` replaces the image ENTRYPOINT and CMD; `args` replaces CMD. The Dockerfile --reload never
+      runs here. No link needed: the command is fully stated in the manifest.
+  - id: CA-K07
     kind: k8s.container.port
     subject: k8s:Deployment/_/catalog-api/api#http
     value: 8000
     status: declared
     source: {path: k8s/deployment.yaml, line: 31, anchor: "containerPort: 8000"}
     milestone: M2-1
-  - id: CA-K07
+  - id: CA-K08
     kind: k8s.container.env_from
     subject: k8s:Deployment/_/catalog-api/api#secret:catalog-api-env
-    value: {kind: Secret, name: catalog-api-env, in_repository: false}
-    status: unresolved
-    unresolved_reason: Secret catalog-api-env is not defined in the repository; its keys are unknown (RULES.md X3).
+    value: {kind: Secret, name: catalog-api-env, in_repository: false, order: 0}
+    status: declared
     source: {path: k8s/deployment.yaml, line: 34, anchor: "name: catalog-api-env"}
     milestone: M2-1
-  - id: CA-K08
+    note: The reference is declared; the Secret's keys are unknown and appear only as env_possible on dependent facts (RULES.md X3).
+  - id: CA-K09
     kind: k8s.container.resources.requests.memory
     subject: k8s:Deployment/_/catalog-api/api
     value: 512Mi
     status: declared
     source: {path: k8s/deployment.yaml, line: 37, anchor: "memory: 512Mi"}
     milestone: M2-1
-  - id: CA-K09
+  - id: CA-K10
     kind: k8s.container.resources.requests.cpu
     subject: k8s:Deployment/_/catalog-api/api
     value: null
-    status: unresolved
-    unresolved_reason: Not set in the repository. A namespace LimitRange or admission webhook may set it at admission (RULES.md H6).
-    inputs:
-      - {role: absence, loc: {path: k8s/deployment.yaml, line: 36, anchor: "requests:"}}
+    status: declared
+    absent: true
+    source: {path: k8s/deployment.yaml, line: 36, anchor: "requests:"}
     milestone: M2-1
-  - id: CA-K10
+    note: Established as not set (no cpu request, no cpu limit). Admission defaults are a rule-side assumption (RULES.md H6).
+  - id: CA-K11
     kind: k8s.container.resources.limits.memory
     subject: k8s:Deployment/_/catalog-api/api
     value: 1Gi
     status: declared
     source: {path: k8s/deployment.yaml, line: 39, anchor: "memory: 1Gi"}
     milestone: M2-1
-  - id: CA-K11
+  - id: CA-K12
     kind: k8s.container.probe.readiness
     subject: k8s:Deployment/_/catalog-api/api
     value: {type: httpGet, path: /readyz, port: 8000}
@@ -210,9 +243,9 @@ facts:
     source: {path: k8s/deployment.yaml, line: 42, anchor: "path: /readyz"}
     inputs:
       - {role: reference, loc: {path: k8s/deployment.yaml, line: 43, anchor: "port: http"}}
-      - {role: value_source, fact: CA-K06}
+      - {role: value_source, fact: CA-K07}
     milestone: M2-1
-  - id: CA-K12
+  - id: CA-K13
     kind: k8s.container.probe.liveness
     subject: k8s:Deployment/_/catalog-api/api
     value: {type: httpGet, path: /healthz, port: 8000}
@@ -220,9 +253,26 @@ facts:
     source: {path: k8s/deployment.yaml, line: 47, anchor: "path: /healthz"}
     inputs:
       - {role: reference, loc: {path: k8s/deployment.yaml, line: 48, anchor: "port: http"}}
-      - {role: value_source, fact: CA-K06}
+      - {role: value_source, fact: CA-K07}
     milestone: M2-1
-  - id: CA-K13
+  - id: CA-K14
+    kind: k8s.container.lifecycle.prestop
+    subject: k8s:Deployment/_/catalog-api/api
+    value: null
+    status: declared
+    absent: true
+    source: {path: k8s/deployment.yaml, line: 19, anchor: "- name: api"}
+    milestone: M2-1
+    note: No lifecycle block. FN-DEP-003 P1 uses preStop none.
+  - id: CA-K15
+    kind: k8s.pod.termination_grace_period
+    subject: k8s:Deployment/_/catalog-api
+    value: 30
+    unit: s
+    status: declared
+    source: {path: k8s/deployment.yaml, line: 17, anchor: "terminationGracePeriodSeconds: 30"}
+    milestone: M2-1
+  - id: CA-K16
     kind: k8s.service.selects
     subject: k8s:Service/_/catalog-api
     value: {type: LoadBalancer, workloads: [k8s:Deployment/_/catalog-api]}
@@ -232,7 +282,7 @@ facts:
       - {role: reference, loc: {path: k8s/deployment.yaml, line: 15, anchor: "app: catalog-api"}}
       - {role: value_source, loc: {path: k8s/service.yaml, line: 6, anchor: "type: LoadBalancer"}}
     milestone: M2-1
-  - id: CA-K14
+  - id: CA-K17
     kind: k8s.service.port
     subject: k8s:Service/_/catalog-api#http
     value: {port: 80, target_port: http, container_port: 8000}
@@ -240,9 +290,9 @@ facts:
     source: {path: k8s/service.yaml, line: 11, anchor: "port: 80"}
     inputs:
       - {role: reference, loc: {path: k8s/service.yaml, line: 12, anchor: "targetPort: http"}}
-      - {role: value_source, fact: CA-K06}
+      - {role: value_source, fact: CA-K07}
     milestone: M2-1
-  - id: CA-K15
+  - id: CA-K18
     kind: k8s.hpa.target
     subject: k8s:HorizontalPodAutoscaler/_/catalog-api
     value: {workload: k8s:Deployment/_/catalog-api, min: 3, max: 12}
@@ -252,7 +302,7 @@ facts:
       - {role: value_source, loc: {path: k8s/hpa.yaml, line: 10, anchor: "minReplicas: 3"}}
       - {role: value_source, loc: {path: k8s/hpa.yaml, line: 11, anchor: "maxReplicas: 12"}}
     milestone: M2-1
-  - id: CA-K16
+  - id: CA-K19
     kind: k8s.hpa.metric
     subject: k8s:HorizontalPodAutoscaler/_/catalog-api#cpu
     value: {type: Resource, resource: cpu, target_type: AverageValue, average_value: 400m}
@@ -261,7 +311,7 @@ facts:
     inputs:
       - {role: value_source, loc: {path: k8s/hpa.yaml, line: 17, anchor: "type: AverageValue"}}
     milestone: M2-1
-  - id: CA-K17
+  - id: CA-K20
     kind: k8s.pdb
     subject: k8s:PodDisruptionBudget/_/catalog-api
     value: {max_unavailable: 1, workloads: [k8s:Deployment/_/catalog-api]}
@@ -272,6 +322,8 @@ facts:
     milestone: M2-1
 
   # ---------------------------------------------------------------- Python application and server
+  # Code facts (debug, routes, retry decorators, call chains) do not depend on the container environment, so they
+  # carry no link. CA-P01 does: it is the app object the container command selects.
   - id: CA-P01
     kind: python.asgi_app
     subject: python:app.main:app
@@ -280,7 +332,7 @@ facts:
     source: {path: app/main.py, line: 5, anchor: 'app = FastAPI(title="catalog-api")'}
     inputs:
       - {role: reference, loc: {path: k8s/deployment.yaml, line: 23, anchor: '"app.main:app"'}}
-    link: CA-L01
+    link_ids: [CA-L01]
     milestone: M2-3
   - id: CA-P02
     kind: fastapi.debug
@@ -288,9 +340,9 @@ facts:
     value: false
     status: default
     inputs:
-      - {role: absence, loc: {path: app/main.py, line: 5, anchor: "FastAPI("}}
+      - {role: absence, loc: {path: app/main.py, line: 5, anchor: 'app = FastAPI(title="catalog-api")'}}
       - {role: version_basis, fact: CA-B02}
-    default:
+    default_ref:
       framework: fastapi
       applied_version: "0.159.1"
       repository: fastapi/fastapi
@@ -319,7 +371,7 @@ facts:
     inputs:
       - {role: reference, loc: {path: app/main.py, line: 6, anchor: "app.include_router(health.router)"}}
     milestone: M2-3
-    note: The readiness probe (CA-K11) requests /readyz, which no route serves.
+    note: The readiness probe (CA-K12) requests /readyz, which no route serves.
   - id: CA-P05
     kind: fastapi.route
     subject: python:app.main:app#GET:/v1/products/{sku}
@@ -327,7 +379,7 @@ facts:
     status: declared
     source: {path: app/routes/products.py, line: 11, anchor: '@router.get("/products/{sku}")'}
     inputs:
-      - {role: reference, loc: {path: app/main.py, line: 7, anchor: 'prefix="/v1"'}}
+      - {role: reference, loc: {path: app/main.py, line: 7, anchor: 'app.include_router(products.router, prefix="/v1")'}}
     milestone: M2-3
   - id: CA-P06
     kind: fastapi.route
@@ -336,7 +388,7 @@ facts:
     status: declared
     source: {path: app/routes/products.py, line: 20, anchor: '@router.get("/products/{sku}/availability")'}
     inputs:
-      - {role: reference, loc: {path: app/main.py, line: 7, anchor: 'prefix="/v1"'}}
+      - {role: reference, loc: {path: app/main.py, line: 7, anchor: 'app.include_router(products.router, prefix="/v1")'}}
     milestone: M2-3
   - id: CA-P07
     kind: gunicorn.setting
@@ -346,7 +398,7 @@ facts:
     status: declared
     source: {path: k8s/deployment.yaml, line: 27, anchor: '"--graceful-timeout=60"'}
     inputs:
-      - {role: value_source, fact: CA-K05}
+      - {role: value_source, fact: CA-K06}
     precedence: gunicorn.cli
     milestone: M2-3
     note: >
@@ -360,7 +412,7 @@ facts:
     status: declared
     source: {path: k8s/deployment.yaml, line: 28, anchor: '"--timeout=90"'}
     inputs:
-      - {role: value_source, fact: CA-K05}
+      - {role: value_source, fact: CA-K06}
     precedence: gunicorn.cli
     milestone: M2-3
   - id: CA-P09
@@ -370,7 +422,7 @@ facts:
     status: declared
     source: {path: k8s/deployment.yaml, line: 25, anchor: '"--workers=4"'}
     inputs:
-      - {role: value_source, fact: CA-K05}
+      - {role: value_source, fact: CA-K06}
     precedence: gunicorn.cli
     milestone: M2-3
   - id: CA-P10
@@ -380,7 +432,7 @@ facts:
     status: declared
     source: {path: k8s/deployment.yaml, line: 24, anchor: '"--worker-class=uvicorn_worker.UvicornWorker"'}
     inputs:
-      - {role: value_source, fact: CA-K05}
+      - {role: value_source, fact: CA-K06}
     precedence: gunicorn.cli
     milestone: M2-3
   - id: CA-P11
@@ -390,7 +442,7 @@ facts:
     status: declared
     source: {path: k8s/deployment.yaml, line: 26, anchor: '"--bind=0.0.0.0:8000"'}
     inputs:
-      - {role: value_source, fact: CA-K05}
+      - {role: value_source, fact: CA-K06}
     precedence: gunicorn.cli
     milestone: M2-3
 
@@ -401,9 +453,10 @@ facts:
     value: {default: "http://pricing:8080", env: PRICING_URL}
     status: declared
     override_exposure: env_possible
-    exposure_sources: ["Secret catalog-api-env (envFrom, not in repository) may set PRICING_URL"]
+    exposure_sources:
+      - {via: envFrom, object: k8s:Secret/_/catalog-api-env, variables: [PRICING_URL]}
     source: {path: app/settings.py, line: 5, anchor: 'pricing_url: str = "http://pricing:8080"'}
-    link: CA-L01
+    link_ids: [CA-L01]
     milestone: M2-3
     note: RULES.md X11. The field default is the repository value; env names match case-insensitively (pydantic-settings default).
   - id: CA-S02
@@ -412,9 +465,10 @@ facts:
     value: {default: "http://inventory:8080", env: INVENTORY_URL}
     status: declared
     override_exposure: env_possible
-    exposure_sources: ["Secret catalog-api-env may set INVENTORY_URL"]
+    exposure_sources:
+      - {via: envFrom, object: k8s:Secret/_/catalog-api-env, variables: [INVENTORY_URL]}
     source: {path: app/settings.py, line: 6, anchor: 'inventory_url: str = "http://inventory:8080"'}
-    link: CA-L01
+    link_ids: [CA-L01]
     milestone: M2-3
   - id: CA-S03
     kind: python.settings_field
@@ -422,9 +476,10 @@ facts:
     value: {default: "http://recommendations:8080", env: RECOMMENDATIONS_URL}
     status: declared
     override_exposure: env_possible
-    exposure_sources: ["Secret catalog-api-env may set RECOMMENDATIONS_URL"]
+    exposure_sources:
+      - {via: envFrom, object: k8s:Secret/_/catalog-api-env, variables: [RECOMMENDATIONS_URL]}
     source: {path: app/settings.py, line: 7, anchor: 'recommendations_url: str = "http://recommendations:8080"'}
-    link: CA-L01
+    link_ids: [CA-L01]
     milestone: M2-3
   - id: CA-S04
     kind: python.settings_field
@@ -432,12 +487,13 @@ facts:
     value: {default: 4.0, env: PRODUCT_PAGE_BUDGET_SECONDS}
     status: declared
     override_exposure: env_possible
-    exposure_sources: ["Secret catalog-api-env may set PRODUCT_PAGE_BUDGET_SECONDS"]
+    exposure_sources:
+      - {via: envFrom, object: k8s:Secret/_/catalog-api-env, variables: [PRODUCT_PAGE_BUDGET_SECONDS]}
     source: {path: app/settings.py, line: 8, anchor: "product_page_budget_seconds: float = 4.0"}
-    link: CA-L01
+    link_ids: [CA-L01]
     milestone: M2-3
 
-  # ---------------------------------------------------------------- tenacity retry policies
+  # ---------------------------------------------------------------- retry, timeout and deadline (FN-RES-002, FN-RES-004)
   - id: CA-T01
     kind: python.retry.stop
     subject: python:app.clients.inventory.fetch_stock
@@ -460,7 +516,7 @@ facts:
     inputs:
       - {role: absence, loc: {path: app/clients/inventory.py, line: 21, anchor: "@retry("}}
       - {role: version_basis, fact: CA-B06}
-    default:
+    default_ref:
       framework: tenacity
       applied_version: "9.2.1"
       repository: jd/tenacity
@@ -478,25 +534,81 @@ facts:
     status: declared
     source: {path: app/clients/inventory.py, line: 23, anchor: "wait=wait_exponential(multiplier=0.5, max=10)"}
     milestone: M2-3
+  - id: CA-T05
+    kind: python.http_client.timeout
+    subject: python:app.clients.inventory._client
+    value: {connect: 2.0, read: 2.0, write: 2.0, pool: 2.0}
+    unit: s
+    status: declared
+    source: {path: app/clients/inventory.py, line: 6, anchor: "timeout=httpx.Timeout(2.0)"}
+    milestone: M2-3
+    note: Per-attempt timeout for FN-RES-002 (RULES.md W1). httpx.Timeout(2.0) sets all four phases.
+  - id: CA-T06
+    kind: python.retry.client
+    subject: python:app.clients.inventory.fetch_stock
+    value: {client: python:app.clients.inventory._client}
+    status: declared
+    source: {path: app/clients/inventory.py, line: 16, anchor: 'response = await _client.get(f"/stock/{sku}")'}
+    inputs:
+      - {role: reference, fact: CA-T05}
+    milestone: M2-3
+  - id: CA-T07
+    kind: python.deadline
+    subject: python:app.routes.products.product_page
+    value: {mechanism: asyncio.timeout, seconds: 4.0}
+    unit: s
+    status: declared
+    override_exposure: env_possible
+    exposure_sources:
+      - {via: inherited, from_facts: [CA-S04]}
+    source: {path: app/routes/products.py, line: 13, anchor: "async with asyncio.timeout(settings.product_page_budget_seconds):"}
+    inputs:
+      - {role: value_source, fact: CA-S04}
+    link_ids: [CA-L01]
+    milestone: M2-3
+    note: Outer deadline for FN-RES-002 W1 and W3. The value is the settings default, so it inherits CA-S04's exposure.
+  - id: CA-T08
+    kind: python.call_reaches
+    subject: python:app.routes.products.product_page
+    value: {callee: python:app.clients.inventory.fetch_stock, within_deadline: python:app.routes.products.product_page}
+    status: declared
+    source: {path: app/routes/products.py, line: 14, anchor: "stock = await inventory.fetch_stock(sku)"}
+    inputs:
+      - {role: reference, fact: CA-P05}
+      - {role: reference, fact: CA-T07}
+    milestone: M2-3
+    note: Route-to-retry reachability (FN-RES-004 T1 vs T2) and the call inside the deadline (FN-RES-002 W1).
+  - id: CA-T09
+    kind: python.call_reaches
+    subject: python:app.routes.products.availability
+    value: {callee: python:app.clients.inventory.fetch_warehouses, within_deadline: null}
+    status: declared
+    source: {path: app/routes/products.py, line: 22, anchor: "await inventory.fetch_warehouses(sku)"}
+    inputs:
+      - {role: reference, fact: CA-P06}
+    milestone: M2-3
+    note: The unbounded retry (CA-T03) is reachable from a request path with no outer deadline.
 
 negative:
   - id: CA-N01
     statement: The effective command of the Deployment container does not contain --reload (RULES.md F13 trap).
-    forbid: {kind: k8s.container.effective_command, contains: --reload}
+    forbid: {kind: k8s.container.effective_command, value_contains: --reload}
     milestone: M2-1
   - id: CA-N02
     statement: requires-python is not reported as the runtime Python version.
-    forbid: {kind: stack.version, subject: component:python, source_path: pyproject.toml}
+    forbid: {kind: stack.version, subject: "component:python", source_path: pyproject.toml}
     milestone: M2-3
   - id: CA-N03
-    statement: No fact takes its value from Secret catalog-api-env, which is not in the repository.
-    forbid: {value_from: k8s:Secret/_/catalog-api-env}
+    statement: No fact resolved through the out-of-repository Secret has a value; it can only appear as override exposure.
+    forbid: {input_fact: CA-K08, status_not: unresolved}
     milestone: M2-1
   - id: CA-N04
     statement: No route /readyz is invented to match the probe.
-    forbid: {kind: fastapi.route, path: /readyz}
+    forbid: {kind: fastapi.route, subject: "python:app.main:app#GET:/readyz"}
     milestone: M2-3
   - id: CA-N05
-    statement: No Python HTTP client timeout facts are produced; that check is delegated (M0-D4).
-    forbid: {kind_prefix: python.http_client}
+    statement: >
+      No timeout facts for the module-level requests and httpx calls in app.clients.pricing: Python missing-timeout
+      checks are delegated (M0-D4) and no first-wave rule reads them.
+    forbid: {kind_prefix: python.http_client, subject_prefix: "python:app.clients.pricing"}
     milestone: M2-3

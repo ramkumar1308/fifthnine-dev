@@ -136,4 +136,4 @@ CTO implementation notes for M1 (reviewable in the PR):
 | M2-R2 | Preserve provenance for derived values (inputs, precedence, framework-version semantics); propose a minimal schema change before implementing one if v1 cannot express it | REQUIREMENT (CEO) |
 | M2-R3 | Strict separation between the offline scanner and network-enabled fixtures; M1 security, resource-limit and determinism guarantees preserved | REQUIREMENT (CEO) |
 
-Open from M2-0 (`docs/fifthnine/M2-0.md`): corpus approval, schema revision 3 (additive provenance fields), K1 Kubernetes defaults policy, and awareness of the Spring Boot 3.5 open-source end of line ahead of M3 planning.
+Open from M2-0 (`docs/fifthnine/M2-0.md`): corpus approval; schema revision 3 (additive provenance fields and `absent`, within v1); K1 Kubernetes defaults policy; three plan amendments (linkage proposals in M2-1, tenacity/deadline/call-chain facts in M2-3, unset-namespace convention); merge order PR #3 before PR #4; awareness of the Spring Boot 3.5 open-source end of line ahead of M3 planning.

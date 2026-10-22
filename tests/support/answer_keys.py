@@ -4,11 +4,13 @@ Two kinds of file live under benchmarks/dev:
 
 - corpus/corpus.v1.yaml: the public development corpus (A14, M0-D8), pinned by commit.
 - facts/<sample>.facts.yaml: hand-labelled facts for the in-repository samples. M2 extractors are scored
-  against these keys (M2_PLAN.md acceptance criterion 3).
+  against these keys (M2_PLAN.md acceptance criterion 3; scoring rules in docs/fifthnine/M2-0.md).
 
 Keys are development data. They are never held-out benchmark cases and must never be reported as such.
-The field names mirror the Fact model in fifthnine.schema.v1 plus the additive fields proposed in
-docs/fifthnine/M2-0.md (schema revision 3 proposal). If that proposal changes, these models change with it.
+
+Field names follow fifthnine.schema.v1.Fact plus the revision 3 fields proposed in docs/fifthnine/M2-0.md, with
+two documented simplifications: `source` and input locations are a `Loc` (one line plus anchor text) where the
+output uses SourceRef(line_start=line_end=line), and `default_ref` carries the upstream citation directly.
 """
 
 from __future__ import annotations
@@ -17,10 +19,13 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from fifthnine.core.safeparse import load_yaml_documents, to_plain
 from fifthnine.schema.v1 import FactStatus, OverrideExposure
+
+Milestone = Literal["M2-1", "M2-2", "M2-3", "M2-4", "M2-5"]
+MILESTONE_ORDER = {"M2-1": 1, "M2-2": 2, "M2-3": 3, "M2-4": 4, "M2-5": 5}
 
 
 class _Model(BaseModel):
@@ -32,20 +37,18 @@ class Loc(_Model):
 
     path: str
     line: int = Field(ge=1)
-    anchor: str = Field(min_length=1)
+    anchor: str = Field(min_length=6)
 
 
 class InputRole(str, Enum):
-    VALUE_SOURCE = "value_source"  # where the winning literal is written
+    VALUE_SOURCE = "value_source"  # where a contributing literal is written, or a fact whose value is used
     PLACEHOLDER = "placeholder"  # ${VAR:default} expression that was resolved
-    ENV_DEFINITION = "env_definition"  # where an environment variable gets its value
     ENV_ATTACHMENT = "env_attachment"  # env / envFrom entry that makes a variable visible to the container
     PROFILE_ACTIVATION = "profile_activation"
-    PROPERTY_REFERENCE = "property_reference"  # Maven ${prop} use site, Gradle catalog reference
+    PROPERTY_REFERENCE = "property_reference"  # Maven ${prop} use site
     VERSION_BASIS = "version_basis"  # the resolved component version a default lookup used
-    REFERENCE = "reference"  # selector, backend, scaleTargetRef, named port, include_router, decorator binding
-    ABSENCE = "absence"  # the object where a field is not set, so a default applies
-    SUPERSEDED = "superseded"  # lower-precedence value that lost
+    REFERENCE = "reference"  # selector, backend, scaleTargetRef, named port, include_router, decorator binding, call
+    ABSENCE = "absence"  # identity line of the object where a field is not set
 
 
 class Input(_Model):
@@ -60,11 +63,28 @@ class Input(_Model):
         return self
 
 
+class ExposureSource(_Model):
+    """The mechanism behind override_exposure (proposed Fact.exposure_sources)."""
+
+    via: Literal["envFrom", "valueFrom", "volume", "inherited"]
+    object: str | None = Field(default=None, description="Out-of-repository object, e.g. k8s:Secret/commerce/orders-service-secrets")
+    variables: list[str] = Field(default_factory=list, description="Variables or keys that could carry the override; illustrative, not scored")
+    from_facts: list[str] = Field(default_factory=list, description="For via=inherited: the facts whose exposure this one inherits")
+
+    @model_validator(mode="after")
+    def _shape(self) -> ExposureSource:
+        if (self.via == "inherited") != bool(self.from_facts):
+            raise ValueError("inherited exposure names from_facts, and only inherited exposure does")
+        if self.via != "inherited" and not self.object:
+            raise ValueError("a direct exposure source names the out-of-repository object")
+        return self
+
+
 class UpstreamDefault(_Model):
-    """Framework-version semantics: the cited default at a pinned upstream tag."""
+    """Framework-version semantics: the cited default at a pinned upstream tag (proposed DefaultRef.upstream)."""
 
     framework: str
-    applied_version: str | None = Field(description="Component version the default was looked up for; null only for documented version-independent defaults")
+    applied_version: str | None = Field(description="Component version the default was looked up for; null only under decision K1")
     repository: str
     tag: str
     commit: str = Field(pattern=r"^[0-9a-f]{40}$")
@@ -82,33 +102,64 @@ class LabelledFact(_Model):
     value: Any = None
     unit: str | None = None
     status: FactStatus
+    absent: bool = Field(default=False, description="Proposed Fact.absent: the field is established as not set in the cited object")
     override_exposure: OverrideExposure = OverrideExposure.NONE
-    exposure_sources: list[str] = Field(default_factory=list)
+    exposure_sources: list[ExposureSource] = Field(default_factory=list)
     source: Loc | None = None
     inputs: list[Input] = Field(default_factory=list)
     precedence: str | None = None
     supersedes: list[str] = Field(default_factory=list)
     overridden_by: str | None = None
-    link: str | None = None
-    default: UpstreamDefault | None = None
+    link_ids: list[str] = Field(default_factory=list)
+    default_ref: UpstreamDefault | None = None
     unresolved_reason: str | None = None
-    milestone: Literal["M2-1", "M2-2", "M2-3", "M2-4", "M2-5"]
+    milestone: Milestone
     note: str | None = None
 
     @model_validator(mode="after")
     def _status_rules(self) -> LabelledFact:
-        if self.status is FactStatus.DEFAULT and self.default is None:
-            raise ValueError(f"{self.id}: a default fact must cite the upstream default")
-        if self.status is not FactStatus.DEFAULT and self.default is not None:
-            raise ValueError(f"{self.id}: only default facts carry an upstream citation")
-        if self.status is FactStatus.UNRESOLVED and not self.unresolved_reason:
-            raise ValueError(f"{self.id}: an unresolved fact needs a reason")
-        if self.status is FactStatus.OVERRIDDEN and not self.overridden_by:
+        s = self.status
+        if (s is FactStatus.DEFAULT) != (self.default_ref is not None):
+            raise ValueError(f"{self.id}: default facts, and only default facts, cite the upstream default")
+        if s is FactStatus.UNRESOLVED and (not self.unresolved_reason or self.value is not None):
+            raise ValueError(f"{self.id}: an unresolved fact has a null value and a reason")
+        if s is not FactStatus.UNRESOLVED and self.unresolved_reason:
+            raise ValueError(f"{self.id}: only unresolved facts carry unresolved_reason")
+        if s is FactStatus.OVERRIDDEN and not self.overridden_by:
             raise ValueError(f"{self.id}: an overridden fact names the fact that won")
-        if self.status in (FactStatus.DECLARED, FactStatus.OVERRIDDEN, FactStatus.INFERRED) and self.source is None:
-            raise ValueError(f"{self.id}: a {self.status.value} fact needs a source location")
-        if self.override_exposure is not OverrideExposure.NONE and not self.exposure_sources:
-            raise ValueError(f"{self.id}: name the mechanism behind override_exposure")
+        if s in (FactStatus.DECLARED, FactStatus.OVERRIDDEN, FactStatus.INFERRED) and self.source is None:
+            raise ValueError(f"{self.id}: a {s.value} fact needs a source location")
+        if s is FactStatus.INFERRED and not self.note:
+            raise ValueError(f"{self.id}: an inferred fact explains the heuristic (it adds a linkage_inferred assumption)")
+        if self.absent and (s is not FactStatus.DECLARED or self.value is not None):
+            raise ValueError(f"{self.id}: an absent fact is declared with a null value")
+        if (self.override_exposure is OverrideExposure.NONE) == bool(self.exposure_sources):
+            raise ValueError(f"{self.id}: exposure_sources are given exactly when override_exposure is not none")
+        return self
+
+
+class Forbid(_Model):
+    """Closed predicate vocabulary for negative keys. All given fields must match for an extractor fact to violate it.
+    Fact references (input_fact) name key fact ids; the scorer maps them to the matched extractor facts."""
+
+    kind: str | None = None
+    kind_prefix: str | None = None
+    subject: str | None = None
+    subject_prefix: str | None = None
+    scope: dict[str, str] | None = None
+    source_path: str | None = None
+    value: Any = None
+    value_not: Any = None
+    value_contains: str | None = None
+    status_not: FactStatus | None = None
+    input_fact: str | None = None
+
+    @model_validator(mode="after")
+    def _not_empty(self) -> Forbid:
+        if not self.model_dump(exclude_none=True):
+            raise ValueError("a negative key needs at least one predicate")
+        if not (self.kind or self.kind_prefix or self.subject or self.subject_prefix or self.source_path or self.input_fact):
+            raise ValueError("a negative key must narrow by kind, subject, source or input")
         return self
 
 
@@ -117,8 +168,8 @@ class NegativeKey(_Model):
 
     id: str = Field(pattern=r"^[A-Z]{2}-N\d{2}$")
     statement: str
-    forbid: dict[str, Any]
-    milestone: Literal["M2-1", "M2-2", "M2-3", "M2-4", "M2-5"]
+    forbid: Forbid
+    milestone: Milestone
 
 
 class LabelledLink(_Model):
@@ -128,7 +179,7 @@ class LabelledLink(_Model):
     from_ref: str
     to_ref: str
     evidence: list[Loc]
-    milestone: Literal["M2-5"]
+    milestone: Milestone
 
 
 class FactKey(_Model):
@@ -148,20 +199,28 @@ class FactKey(_Model):
         dupes = sorted({i for i in ids if ids.count(i) > 1})
         if dupes:
             raise ValueError(f"duplicate ids: {dupes}")
-        fact_ids = {f.id for f in self.facts}
-        link_ids = {lk.id for lk in self.links}
+        by_id = {f.id: f for f in self.facts}
+        links = {lk.id: lk for lk in self.links}
         for f in self.facts:
             refs = [i.fact for i in f.inputs if i.fact] + f.supersedes + ([f.overridden_by] if f.overridden_by else [])
-            missing = [r for r in refs if r not in fact_ids]
+            refs += [r for e in f.exposure_sources for r in e.from_facts]
+            missing = [r for r in refs if r not in by_id] + [lk for lk in f.link_ids if lk not in links]
             if missing:
-                raise ValueError(f"{f.id} references unknown facts {missing}")
-            if f.link and f.link not in link_ids:
-                raise ValueError(f"{f.id} references unknown link {f.link}")
-        by_id = {f.id: f for f in self.facts}
+                raise ValueError(f"{f.id} references unknown ids {missing}")
+            late = [r for r in refs if MILESTONE_ORDER[by_id[r].milestone] > MILESTONE_ORDER[f.milestone]]
+            late += [lk for lk in f.link_ids if MILESTONE_ORDER[links[lk].milestone] > MILESTONE_ORDER[f.milestone]]
+            if late:
+                raise ValueError(f"{f.id} ({f.milestone}) depends on {late}, which land later")
+            for i in f.inputs:
+                if i.role is InputRole.VERSION_BASIS and (not i.fact or by_id[i.fact].kind != "stack.version"):
+                    raise ValueError(f"{f.id}: version_basis must reference a stack.version fact")
         for f in self.facts:
             for loser in f.supersedes:
                 if by_id[loser].overridden_by not in (f.id, None):
                     raise ValueError(f"{f.id} supersedes {loser}, which names a different winner")
+        for n in self.negative:
+            if n.forbid.input_fact and n.forbid.input_fact not in by_id:
+                raise ValueError(f"{n.id} references unknown fact {n.forbid.input_fact}")
         return self
 
 
@@ -178,17 +237,11 @@ class CorpusEntry(_Model):
     commit_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     framework: Literal["spring-boot", "fastapi"]
     licence: Licence
+    in_supported_range: Literal["yes", "no", "unknown"]
     deployment_shape: Literal["plain", "plain+kustomize", "plain+helm", "helm-only"]
     linkage_expectation: Literal["in-repo-app", "partial", "none"]
-    rationale: str
+    rationale: str = Field(min_length=40)
     m1_baseline: str
-
-    @field_validator("rationale")
-    @classmethod
-    def _rationale_specific(cls, v: str) -> str:
-        if len(v) < 40:
-            raise ValueError("rationale must say why this repository is in the corpus")
-        return v
 
 
 class Corpus(_Model):
@@ -200,7 +253,7 @@ class Corpus(_Model):
 
     @model_validator(mode="after")
     def _unique(self) -> Corpus:
-        for attr in ("id", "repository"):
+        for attr in ("id", "repository", "commit"):
             values = [getattr(e, attr) for e in self.entries]
             if len(values) != len(set(values)):
                 raise ValueError(f"duplicate {attr} in corpus")
@@ -209,4 +262,6 @@ class Corpus(_Model):
 
 def load(path: Path, model: type[BaseModel]) -> Any:
     docs = load_yaml_documents(path.read_text(encoding="utf-8"))
+    if len(docs) != 1:
+        raise ValueError(f"{path}: expected exactly one YAML document, found {len(docs)}")
     return model.model_validate(to_plain(docs[0].data))

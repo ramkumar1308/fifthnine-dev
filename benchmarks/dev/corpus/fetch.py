@@ -3,9 +3,8 @@
 Usage: python benchmarks/dev/corpus/fetch.py DEST_DIR
 
 Needs network access to github.com. This is benchmark tooling, never part of the scanner, and is not run by the
-offline test suite. Each repository lands in DEST_DIR/<owner>__<repo> with HEAD at the pinned commit; the script
-fails if the fetched commit does not match. Blobs larger than 1 MiB are not downloaded, matching the scanner's
-default per-file limit.
+offline test suite. Each repository lands in DEST_DIR/<owner>__<repo> with HEAD at the pinned commit (shallow, one
+commit, full tree); the script fails if the fetched commit does not match.
 """
 
 from __future__ import annotations
@@ -36,7 +35,7 @@ def main(dest: Path) -> int:
             _git(target, "init", "-q")
             _git(target, "remote", "add", "origin", f"https://github.com/{repo}.git")
         try:
-            _git(target, "fetch", "-q", "--depth", "1", "--filter=blob:limit=1m", "origin", commit)
+            _git(target, "fetch", "-q", "--depth", "1", "origin", commit)
             _git(target, "-c", "advice.detachedHead=false", "checkout", "-q", "--force", commit)
         except subprocess.CalledProcessError as exc:
             print(f"{entry['id']} {repo}: fetch failed: {exc.stderr.strip()}", file=sys.stderr)

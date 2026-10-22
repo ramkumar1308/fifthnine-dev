@@ -121,7 +121,7 @@ The v0.1 engine has no AI code path. The result schema reserves a top-level `adv
 
 ## Untrusted input
 
-Repositories are hostile input. Defaults: 1 MiB per file, 20,000 files, YAML alias expansion capped, YAML documents per file capped, parse timeout per file where the parser allows it, symlinks outside root rejected, no `eval` or import of repository Python (AST only), no shelling out except `git show` / `git diff` with argument lists, secret-like values (`password`, `secret`, `token`, `key` in the key name) redacted in excerpts.
+Repositories are hostile input. Defaults: 1 MiB per file, 20,000 files, YAML aliases refused in configuration and never expanded in manifests (M1 amendment: see docs/fifthnine/M1.md, Untrusted input), YAML documents per file capped, no per-file parse timeout in v0.1 (bounded by the file cap and parser choice instead), symlinks outside root rejected, no `eval` or import of repository Python (AST only), no shelling out except `git show` / `git diff` with argument lists, secret-like values (`password`, `secret`, `token`, `key` in the key name) redacted in excerpts.
 
 ## Performance targets for M1/M2 measurement
 

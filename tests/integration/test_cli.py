@@ -131,7 +131,8 @@ def test_unsupported_and_unresolved_are_reported(make_repo) -> None:  # type: ig
     pom = ("<project><parent><groupId>org.springframework.boot</groupId>"
            "<artifactId>spring-boot-starter-parent</artifactId><version>2.7.18</version></parent></project>")
     root = make_repo({"pom.xml": pom, "k8s/db.yaml": "apiVersion: apps/v1\nkind: StatefulSet\nmetadata: {name: db}\n",
-                      "chart/Chart.yaml": "apiVersion: v2\nname: x\n", "broken.yaml": "a: [1\n"})
+                      "chart/Chart.yaml": "apiVersion: v2\nname: x\n", "broken.yaml": "apiVersion: v1\nkind: Service\nspec: [1\n",
+                      "notes.yaml": "a: [1\n"})  # not Kubernetes-shaped: never parsed, so not an error
     data = scan_json(root)
     codes = [c["code"] for c in data["coverage"]]
     assert codes.count("COV-UNSUPPORTED") >= 3  # Boot 2.x, StatefulSet, Helm

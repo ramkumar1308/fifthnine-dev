@@ -27,7 +27,7 @@ def test_walk_is_sorted_and_honors_exclusions(make_repo) -> None:  # type: ignor
     })
     ws = discover(root)
     assert [f.path for f in ws.files] == [".gitignore", "a/b.py", "a/z.py", "b.py", "env/prod/deploy.yaml"]
-    assert ws.excluded_dirs == ["node_modules", "py39", "target"] and ws.gitignored == 2
+    assert ws.excluded_dirs == ["node_modules", "py39", "target"] and (ws.ignored_files, ws.ignored_dirs) == (1, 1)
 
 
 def test_config_ignore_paths(make_repo) -> None:  # type: ignore[no-untyped-def]

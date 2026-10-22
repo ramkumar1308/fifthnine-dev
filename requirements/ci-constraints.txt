@@ -1,0 +1,7 @@
+# Pinned versions for CI tooling so a new ruff, mypy or pytest release cannot break the build
+# without a code change. Update deliberately.
+ruff==0.17.1
+mypy==1.19.1
+pytest==9.1.1
+jsonschema==4.26.0
+PyYAML==6.0.3

@@ -47,7 +47,6 @@ PARSED_KINDS = frozenset({
     KIND_MAVEN_POM, KIND_GRADLE_BUILD, KIND_GRADLE_CATALOG, KIND_PYPROJECT, KIND_REQUIREMENTS, KIND_LOCKFILE,
     KIND_PYTHON_VERSION, KIND_SPRING_CONFIG, KIND_DOCKERFILE, KIND_YAML, KIND_HELM_CHART, KIND_KUSTOMIZATION,
 })
-SOURCE_KINDS = frozenset({KIND_JAVA_SOURCE, KIND_KOTLIN_SOURCE, KIND_PYTHON_SOURCE})
 
 
 def classify(path: PurePosixPath) -> str | None:
@@ -102,25 +101,60 @@ class Workspace:
     files: list[FileEntry] = field(default_factory=list)
     skipped: list[SkippedFile] = field(default_factory=list)
     excluded_dirs: list[str] = field(default_factory=list)
-    gitignored: int = 0
+    ignored_files: int = 0  # matched by .gitignore or ignore_paths
+    ignored_dirs: int = 0
+    invalid_ignore_patterns: list[str] = field(default_factory=list)
     file_limit_reached: bool = False
 
     def read_text(self, entry: FileEntry) -> str:
-        """Read a discovered file. Callers only pass entries that passed the size cap."""
+        """Read a discovered file (size-capped by discover). A UTF-8 byte order mark is dropped; undecodable bytes
+        become U+FFFD. OSError propagates to the caller, which records the file as skipped."""
         data = (self.root / entry.path).read_bytes()
-        return data.decode("utf-8", errors="replace")
-
-    def of_kind(self, *kinds: str) -> list[FileEntry]:
-        return [f for f in self.files if f.kind in kinds]
+        return data.decode("utf-8-sig", errors="replace")
 
 
-def _load_ignore_spec(root: Path, extra_patterns: list[str]) -> pathspec.PathSpec:
+class IgnorePatternError(ValueError):
+    """An ignore_paths entry from .fifthnine.yml is not a valid gitignore pattern."""
+
+
+def _load_ignore_spec(root: Path, extra_patterns: list[str], invalid: list[str]) -> pathspec.PathSpec:
+    """Root .gitignore plus config ignore_paths. Invalid .gitignore lines are skipped (git ignores them too) and
+    reported; an invalid ignore_paths entry is a configuration error."""
     lines: list[str] = []
     gitignore = root / ".gitignore"
-    if gitignore.is_file() and not gitignore.is_symlink() and gitignore.stat().st_size <= DEFAULT_MAX_FILE_SIZE:
-        lines.extend(gitignore.read_text(encoding="utf-8", errors="replace").splitlines())
-    lines.extend(extra_patterns)
+    try:
+        if gitignore.is_file() and not gitignore.is_symlink() and gitignore.stat().st_size <= DEFAULT_MAX_FILE_SIZE:
+            candidates = gitignore.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+        else:
+            candidates = []
+    except OSError:
+        candidates = []
+    for line in candidates:
+        try:
+            pathspec.PathSpec.from_lines("gitwildmatch", [line])
+            lines.append(line)
+        except Exception:  # noqa: BLE001 - pathspec raises several error types for bad patterns
+            invalid.append(line)
+    for pattern in extra_patterns:
+        try:
+            pathspec.PathSpec.from_lines("gitwildmatch", [pattern])
+        except Exception as exc:  # noqa: BLE001
+            raise IgnorePatternError(f"invalid ignore_paths entry {pattern!r}: {exc}") from None
+        lines.append(pattern)
     return pathspec.PathSpec.from_lines("gitwildmatch", lines)
+
+
+def _safe_rel(rel: str) -> str | None:
+    """None when a path is not valid UTF-8 (undecodable bytes surface as surrogates on POSIX)."""
+    try:
+        rel.encode("utf-8")
+        return rel
+    except UnicodeEncodeError:
+        return None
+
+
+def _printable(rel: str) -> str:
+    return rel.encode("utf-8", errors="surrogateescape").decode("utf-8", errors="backslashreplace")
 
 
 def _is_binary(path: Path) -> bool:
@@ -133,12 +167,14 @@ def discover(
     ignore_paths: list[str] | None = None,
     max_file_size: int = DEFAULT_MAX_FILE_SIZE,
     max_files: int = DEFAULT_MAX_FILES,
+    exclude_files: frozenset[str] = frozenset(),
 ) -> Workspace:
     """Walk `root` in sorted order. Honors the root .gitignore and config ignore_paths (gitwildmatch).
-    Nested .gitignore files are not read in v0.1 (documented limitation)."""
+    Nested .gitignore files are not read in v0.1 (documented limitation). `exclude_files` holds repository-relative
+    paths FifthNine itself writes (the report file), so writing a report inside the tree does not change the scan."""
     root = root.resolve()
     ws = Workspace(root=root)
-    spec = _load_ignore_spec(root, ignore_paths or [])
+    spec = _load_ignore_spec(root, ignore_paths or [], ws.invalid_ignore_patterns)
     stack: list[Path] = [root]
     while stack:
         current = stack.pop()
@@ -151,7 +187,11 @@ def discover(
         subdirs: list[Path] = []
         for entry in entries:
             path = Path(entry.path)
-            rel = path.relative_to(root).as_posix()
+            raw_rel = path.relative_to(root).as_posix()
+            rel = _safe_rel(raw_rel) or ""
+            if not rel:
+                ws.skipped.append(SkippedFile(path=_printable(raw_rel), reason="unsupported", detail="name is not valid UTF-8; not read"))
+                continue
             if entry.is_symlink():
                 target = os.path.realpath(path)
                 inside = target == str(root) or target.startswith(str(root) + os.sep)
@@ -165,30 +205,39 @@ def discover(
                     ws.excluded_dirs.append(rel)  # any virtualenv, whatever its name, is identified by pyvenv.cfg
                     continue
                 if spec.match_file(rel + "/"):
-                    ws.gitignored += 1
+                    ws.ignored_dirs += 1
                     continue
                 subdirs.append(path)
                 continue
             if not entry.is_file(follow_symlinks=False):
                 continue
+            if rel in exclude_files:
+                continue  # FifthNine's own report file; never part of the scanned repository
             if spec.match_file(rel):
-                ws.gitignored += 1
+                ws.ignored_files += 1
                 continue
             if len(ws.files) >= max_files:
                 ws.file_limit_reached = True
                 return _finish(ws)
-            size = entry.stat(follow_symlinks=False).st_size
-            mode = entry.stat(follow_symlinks=False).st_mode
-            if not stat.S_ISREG(mode):
+            info = entry.stat(follow_symlinks=False)
+            if not stat.S_ISREG(info.st_mode):
                 continue
+            size = info.st_size
             kind = classify(PurePosixPath(rel))
             if kind in PARSED_KINDS or kind == KIND_FIFTHNINE_CONFIG:
                 if size > max_file_size:
                     ws.skipped.append(SkippedFile(path=rel, reason="too_large", detail=f"{size} bytes > limit {max_file_size}"))
                     kind = None
-                elif _is_binary(path):
-                    ws.skipped.append(SkippedFile(path=rel, reason="binary", detail="NUL byte in first 8 KiB"))
-                    kind = None
+                else:
+                    try:
+                        binary = _is_binary(path)
+                    except OSError as exc:
+                        ws.skipped.append(SkippedFile(path=rel, reason="unsupported", detail=f"not readable: {exc.strerror}"))
+                        kind = None
+                        binary = False
+                    if binary:
+                        ws.skipped.append(SkippedFile(path=rel, reason="binary", detail="NUL byte in first 8 KiB"))
+                        kind = None
             ws.files.append(FileEntry(path=rel, size=size, kind=kind))
         stack.extend(reversed(subdirs))
     return _finish(ws)

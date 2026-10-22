@@ -6,6 +6,7 @@ notice saying so, never a pass (CEO condition C2).
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -15,13 +16,14 @@ from pydantic import ValidationError
 from fifthnine import __version__
 from fifthnine.core import support
 from fifthnine.core.detect import K8S_WORKLOAD_KINDS, DetectionResult, detect, detection_facts
-from fifthnine.core.safeparse import ParseError, load_yaml_documents
+from fifthnine.core.safeparse import ParseError, load_yaml_documents, to_plain
 from fifthnine.core.workspace import (
     BUILTIN_EXCLUDED_DIRS,
     DEFAULT_MAX_FILE_SIZE,
     KIND_JAVA_SOURCE,
     KIND_KOTLIN_SOURCE,
     KIND_PYTHON_SOURCE,
+    IgnorePatternError,
     Workspace,
     discover,
 )
@@ -61,14 +63,7 @@ class ScanOptions:
     fail_on: Severity | None = None
     facts: Literal["referenced", "all", "none"] = "referenced"
     max_file_size: int = DEFAULT_MAX_FILE_SIZE
-
-
-def _plain(value: object) -> object:
-    if isinstance(value, dict):
-        return {str(k): _plain(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_plain(v) for v in value]
-    return value
+    output_path: Path | None = None  # report file FifthNine will write; excluded from discovery
 
 
 def load_config(root: Path, explicit: Path | None) -> tuple[FifthNineConfig | None, str | None]:
@@ -82,13 +77,20 @@ def load_config(root: Path, explicit: Path | None) -> tuple[FifthNineConfig | No
     if path.stat().st_size > DEFAULT_MAX_FILE_SIZE:
         raise FifthNineError(f"config file larger than {DEFAULT_MAX_FILE_SIZE} bytes: {path}")
     try:
-        docs = load_yaml_documents(path.read_text(encoding="utf-8"))
+        text = path.read_bytes().decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise FifthNineError(f"invalid {path.name}: not valid UTF-8") from None
+    except OSError as exc:
+        raise FifthNineError(f"cannot read {path}: {exc.strerror}") from None
+    try:
+        docs = load_yaml_documents(text)
+        if len(docs) != 1:
+            raise FifthNineError(f"invalid {path.name}: expected exactly one YAML document, found {len(docs)}")
+        data = to_plain(docs[0].data)
     except ParseError as exc:
         raise FifthNineError(f"invalid {path.name}: {exc}") from None
-    if len(docs) != 1:
-        raise FifthNineError(f"invalid {path.name}: expected exactly one YAML document, found {len(docs)}")
     try:
-        config = FifthNineConfig.model_validate(_plain(docs[0].data))
+        config = FifthNineConfig.model_validate(data)
     except ValidationError as exc:
         first = exc.errors()[0]
         where = ".".join(str(p) for p in first["loc"]) or "(top level)"
@@ -96,7 +98,7 @@ def load_config(root: Path, explicit: Path | None) -> tuple[FifthNineConfig | No
     try:
         shown = path.resolve().relative_to(root).as_posix()
     except ValueError:
-        shown = path.name
+        shown = None  # config outside the repository: used, but not part of the inventory
     return config, shown
 
 
@@ -141,6 +143,18 @@ def _coverage(ws: Workspace, result: DetectionResult, stacks: list[ComponentSupp
     for d in [d for d in result.detections if d.version is None] + result.unresolved:
         where = f"{d.source.path}:{d.source.line_start}" if d.source else "repository"
         notes.append(CoverageNotice(code="FN-OPS-002", scope=where, message=f"{d.component}: version not determined ({d.note or d.how})."))
+    for c in untested:
+        if c.version is not None and support.comparable_version(c.version) is None and c.component != "kubernetes-api":
+            where = f"{c.version_source.path}:{c.version_source.line_start}" if c.version_source else "repository"
+            notes.append(CoverageNotice(code="FN-OPS-002", scope=where,
+                                        message=f"{c.component}: version {c.version!r} is not comparable with the supported range."))
+    if ws.ignored_files or ws.ignored_dirs:
+        notes.append(CoverageNotice(code="COV-IGNORED", scope="repository",
+                                    message=f"{ws.ignored_files} files and {ws.ignored_dirs} directories excluded by .gitignore or "
+                                            "ignore_paths; their contents were not inventoried."))
+    if ws.invalid_ignore_patterns:
+        notes.append(CoverageNotice(code="COV-IGNORED-CONFIG", scope=".gitignore",
+                                    message=f"{len(ws.invalid_ignore_patterns)} invalid .gitignore line(s) skipped, as git does."))
     if result.helm_charts or result.helm_templates:
         files = sorted(result.helm_charts + result.helm_templates)
         notes.append(CoverageNotice(code="COV-UNSUPPORTED", scope=", ".join(files[:5]) + (" ..." if len(files) > 5 else ""),
@@ -181,6 +195,8 @@ def run_scan(opts: ScanOptions) -> ScanResult:
     if not root.is_dir():
         raise FifthNineError(f"path is not a directory: {root}")
     root = root.resolve()
+    if not os.access(root, os.R_OK | os.X_OK):
+        raise FifthNineError(f"path is not readable: {root}")
     config, config_shown = load_config(root, opts.config_path)
 
     if opts.profile:
@@ -192,7 +208,17 @@ def run_scan(opts: ScanOptions) -> ScanResult:
     policy_mode = opts.policy_mode or (config.policy.mode if config else "report")
     fail_on = opts.fail_on or (config.policy.fail_on if config else Severity.HIGH)
 
-    ws = discover(root, ignore_paths=config.ignore_paths if config else None, max_file_size=opts.max_file_size)
+    exclude: frozenset[str] = frozenset()
+    if opts.output_path is not None:
+        try:
+            exclude = frozenset({opts.output_path.resolve().relative_to(root).as_posix()})
+        except ValueError:
+            exclude = frozenset()
+    try:
+        ws = discover(root, ignore_paths=config.ignore_paths if config else None, max_file_size=opts.max_file_size,
+                      exclude_files=exclude)
+    except IgnorePatternError as exc:
+        raise FifthNineError(f"invalid .fifthnine.yml: {exc}") from None
     result = detect(ws)
     stacks = _stacks(result)
     coverage = _coverage(ws, result, stacks)
@@ -203,7 +229,8 @@ def run_scan(opts: ScanOptions) -> ScanResult:
     all_facts: list[Fact] = detection_facts(result)
     facts = all_facts if opts.facts == "all" else []  # no findings in M1, so no facts are referenced
 
-    parsed = set(result.parsed) | ({config_shown} if config_shown else set())
+    inventoried = {f.path for f in ws.files}
+    parsed = set(result.parsed) | ({config_shown} if config_shown in inventoried else set())
     skipped = sorted(ws.skipped + result.parse_errors, key=lambda s: (s.path, s.reason))
     findings: list[Finding] = []
     status = derive_status(findings, coverage, rules_evaluated=0)

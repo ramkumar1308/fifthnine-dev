@@ -8,6 +8,7 @@ Repository content is hostile input (contract section 11). Every parser here:
 
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass, field
 from typing import Any
@@ -15,6 +16,7 @@ from xml.parsers import expat
 
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
+from ruamel.yaml.nodes import MappingNode, Node, ScalarNode
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -23,6 +25,13 @@ else:  # pragma: no cover - exercised on Python 3.10 in CI
 
 MAX_YAML_DOCUMENTS = 200
 MAX_XML_ELEMENTS = 100_000
+MAX_PLAIN_NODES = 100_000
+_QUOTED = re.compile(r"""("[^"]*"|'[^']*')""")
+
+
+def _redact(message: str) -> str:
+    """Replace quoted values in parser messages, which may contain secrets."""
+    return _QUOTED.sub("'****'", message)
 
 
 class ParseError(Exception):
@@ -100,6 +109,15 @@ def parse_xml(text: str) -> XmlNode:
 # ---------------------------------------------------------------- YAML
 
 
+def _yaml_error(exc: BaseException) -> ParseError:
+    """Location and problem class only. Quoted values in parser messages are redacted, because they can be
+    secrets (for example a duplicated `password` key)."""
+    mark = getattr(exc, "problem_mark", None)
+    where = f" at line {mark.line + 1}" if mark is not None else ""
+    problem = getattr(exc, "problem", None) or type(exc).__name__
+    return ParseError(f"invalid YAML{where}: {_redact(str(problem))}")
+
+
 @dataclass
 class YamlDocument:
     index: int
@@ -108,8 +126,9 @@ class YamlDocument:
 
 
 def load_yaml_documents(text: str) -> list[YamlDocument]:
-    """Load all documents with ruamel's round-trip loader, which keeps line numbers and builds only plain
-    mappings, sequences and scalars (no arbitrary Python objects). Aliases become shared references, not copies."""
+    """Load documents with ruamel's round-trip loader (plain mappings, sequences and scalars; no arbitrary Python
+    objects; aliases stay shared references). Used for .fifthnine.yml and packaged data. Convert with to_plain()
+    before handing data to anything that copies it."""
     yaml = YAML(typ="rt", pure=True)
     yaml.allow_duplicate_keys = False
     docs: list[YamlDocument] = []
@@ -120,21 +139,77 @@ def load_yaml_documents(text: str) -> list[YamlDocument]:
             line = getattr(getattr(data, "lc", None), "line", None)
             docs.append(YamlDocument(index=i, data=data, start_line=(line + 1) if isinstance(line, int) else 1))
     except YAMLError as exc:
-        mark = getattr(exc, "problem_mark", None)
-        where = f" at line {mark.line + 1}" if mark is not None else ""
-        raise ParseError(f"invalid YAML{where}: {getattr(exc, 'problem', None) or type(exc).__name__}") from None
+        raise _yaml_error(exc) from None
     except RecursionError:
         raise ParseError("YAML nesting too deep") from None
     return docs
 
 
-def yaml_key_line(mapping: Any, key: str) -> int | None:
-    """1-based line of a key in a ruamel mapping, if known."""
+def compose_yaml_documents(text: str) -> list[Node]:
+    """Compose (parse without constructing) every document. Uses the libyaml-based C parser when available and
+    the pure-Python parser otherwise. Nothing is constructed, so tags never run and aliases are never expanded;
+    every node carries its start line. Used to inventory Kubernetes objects, where only a few top-level scalars
+    are needed and manifests can be large."""
     try:
-        line, _col = mapping.lc.key(key)
-        return int(line) + 1
-    except (AttributeError, KeyError, TypeError):
-        return None
+        yaml = YAML(typ="safe", pure=False)
+        nodes: list[Node] = []
+        for i, node in enumerate(yaml.compose_all(text)):
+            if i >= MAX_YAML_DOCUMENTS:
+                raise ParseError(f"more than {MAX_YAML_DOCUMENTS} YAML documents")
+            if node is not None:
+                nodes.append(node)
+        return nodes
+    except YAMLError as exc:
+        raise _yaml_error(exc) from None
+    except RecursionError:
+        raise ParseError("YAML nesting too deep") from None
+
+
+def mapping_scalars(node: Node, *keys: str) -> dict[str, tuple[str, int]]:
+    """Scalar values of the given top-level keys of a mapping node, with 1-based key lines. Non-scalar values and
+    non-mapping documents give nothing."""
+    out: dict[str, tuple[str, int]] = {}
+    if not isinstance(node, MappingNode):
+        return out
+    for key, value in node.value:
+        if isinstance(key, ScalarNode) and key.value in keys and isinstance(value, ScalarNode) and key.value not in out:
+            out[key.value] = (str(value.value), key.start_mark.line + 1)
+    return out
+
+
+def mapping_child(node: Node, key: str) -> Node | None:
+    if isinstance(node, MappingNode):
+        for k, v in node.value:
+            if isinstance(k, ScalarNode) and k.value == key:
+                return v  # type: ignore[no-any-return]
+    return None
+
+
+def to_plain(value: Any, max_nodes: int = MAX_PLAIN_NODES) -> Any:
+    """Copy ruamel containers into plain dicts and lists for validation. Refuses YAML aliases and anchors that are
+    reused (each container may appear once) and caps the node count, so an alias bomb in a repository-controlled
+    file cannot expand into a huge copy."""
+    seen: set[int] = set()
+    count = 0
+
+    def walk(v: Any) -> Any:
+        nonlocal count
+        count += 1
+        if count > max_nodes:
+            raise ParseError(f"more than {max_nodes} YAML nodes")
+        if isinstance(v, (dict, list)):
+            if id(v) in seen:
+                raise ParseError("YAML aliases (reused anchors) are not accepted in this file")
+            seen.add(id(v))
+            if isinstance(v, dict):
+                return {str(k): walk(x) for k, x in v.items()}
+            return [walk(x) for x in v]
+        return v
+
+    try:
+        return walk(value)
+    except RecursionError:
+        raise ParseError("YAML nesting too deep") from None
 
 
 # ---------------------------------------------------------------- TOML
@@ -145,16 +220,52 @@ def load_toml(text: str) -> dict[str, Any]:
         data: dict[str, Any] = tomllib.loads(text)
         return data
     except tomllib.TOMLDecodeError as exc:
-        raise ParseError(f"invalid TOML: {exc}") from None
+        raise ParseError(f"invalid TOML: {_redact(str(exc))}") from None
+    except RecursionError:
+        raise ParseError("TOML nesting too deep") from None
 
 
 # ---------------------------------------------------------------- helpers
 
 
-def find_line(text: str, needle: str, start: int = 1) -> int | None:
-    """1-based number of the first line at or after `start` containing `needle` verbatim. Used to locate values
-    that a parser without position information (TOML, requirements files) has already extracted."""
+def find_line(text: str, needle: str, start: int = 1, comment: str | None = "#") -> int | None:
+    """1-based number of the first line at or after `start` containing `needle` verbatim, ignoring lines that are
+    comments. Used only where a parser gives no positions (TOML); callers narrow `start` to the right section."""
     for number, line in enumerate(text.splitlines(), 1):
-        if number >= start and needle in line:
+        if number < start:
+            continue
+        if comment and line.lstrip().startswith(comment):
+            continue
+        if needle in line:
             return number
     return None
+
+
+def section_start(text: str, header: str) -> int | None:
+    """1-based line of a TOML table header such as `[tool.poetry.dependencies]`."""
+    for number, line in enumerate(text.splitlines(), 1):
+        if line.strip() == header:
+            return number
+    return None
+
+
+def toml_array_table_lines(text: str, header: str, key: str) -> dict[str, int]:
+    """For `[[header]]` array tables (lockfiles), map the value of `key` in each table to its line, using only the
+    first `key = "..."` line after each header so nested references to the same name are not matched."""
+    found: dict[str, int] = {}
+    pending = False
+    pattern = re.compile(rf'^\s*{re.escape(key)}\s*=\s*"([^"]*)"')
+    for number, line in enumerate(text.splitlines(), 1):
+        stripped = line.strip()
+        if stripped == f"[[{header}]]":
+            pending = True
+            continue
+        if stripped.startswith("["):
+            pending = False
+            continue
+        if pending:
+            match = pattern.match(line)
+            if match:
+                found.setdefault(match.group(1), number)
+                pending = False
+    return found

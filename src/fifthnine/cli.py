@@ -33,6 +33,18 @@ def _not_in_m1(feature: str, milestone: str) -> NoReturn:
     _fail(f"{feature} is part of the frozen CLI but is implemented in {milestone}. This build (M1) cannot honor it.")
 
 
+def _utf8_streams() -> None:
+    """Reports are UTF-8 on every platform. Windows consoles and pipes often default to a legacy code page,
+    where a non-ASCII path in a report would otherwise raise UnicodeEncodeError."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):
+                pass
+
+
 def _write(text: str, output: str | None) -> None:
     if output is None:
         click.echo(text, nl=False)
@@ -90,29 +102,29 @@ def scan(path: Path, profile: str | None, base_ref: str | None, fmt: str, output
     if baseline is None and (path / ".fifthnine-baseline.json").is_file():
         click.echo("fifthnine: note: .fifthnine-baseline.json present but baselines are implemented in M4; it was not applied.", err=True)
 
-    opts = ScanOptions(path=path, profile=profile, config_path=config_path,
+    _utf8_streams()
+    opts = ScanOptions(path=path, profile=profile, config_path=config_path, output_path=Path(output) if output else None,
                        policy_mode=mode,  # type: ignore[arg-type]
                        fail_on=Severity(fail_on) if fail_on else None,
                        facts=facts,  # type: ignore[arg-type]
                        max_file_size=max_file_size)
     try:
         result = run_scan(opts)
+        color = _use_color(no_color)
+        if fmt == "json":
+            _write(render_json(result), output)
+            if output and not quiet:
+                click.echo(render_console(result, color=False), err=True, nl=False)
+        elif not quiet or output:
+            _write(render_console(result, color=color and output is None), output)
+        code = exit_code(result)
     except FifthNineError as exc:
         _fail(str(exc))
-    except Exception as exc:  # noqa: BLE001 - last-resort guard so the exit code stays 2
+    except Exception as exc:  # noqa: BLE001 - last-resort guard: any unexpected failure exits 2, never 0 or 1
         if verbose:
             traceback.print_exc()
-        _fail(f"internal error ({type(exc).__name__}: {exc}). Re-run with --verbose and report it.")
-
-    color = _use_color(no_color)
-    if fmt == "json":
-        _write(render_json(result), output)
-        if output and not quiet:
-            click.echo(render_console(result, color=False), err=True, nl=False)
-    else:
-        if not quiet or output:
-            _write(render_console(result, color=color and output is None), output)
-    sys.exit(exit_code(result))
+        _fail(f"internal error ({type(exc).__name__}). Re-run with --verbose and report it.")
+    sys.exit(code)
 
 
 @cli.group()

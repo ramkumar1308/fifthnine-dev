@@ -1,6 +1,14 @@
 import pytest
 
-from fifthnine.core.safeparse import ParseError, find_line, load_toml, load_yaml_documents, parse_xml, yaml_key_line
+from fifthnine.core.safeparse import (
+    ParseError,
+    compose_yaml_documents,
+    find_line,
+    load_toml,
+    load_yaml_documents,
+    mapping_scalars,
+    parse_xml,
+)
 
 BILLION_LAUGHS = """<?xml version="1.0"?>
 <!DOCTYPE lolz [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">]>
@@ -30,7 +38,9 @@ def test_xml_malformed_is_parse_error() -> None:
 
 def test_yaml_multi_document_with_lines() -> None:
     docs = load_yaml_documents("a: 1\n---\nkind: Deployment\napiVersion: apps/v1\n")
-    assert len(docs) == 2 and yaml_key_line(docs[1].data, "kind") == 3
+    assert len(docs) == 2
+    nodes = compose_yaml_documents("a: 1\n---\nkind: Deployment\napiVersion: apps/v1\n")
+    assert mapping_scalars(nodes[1], "kind", "apiVersion") == {"kind": ("Deployment", 3), "apiVersion": ("apps/v1", 4)}
 
 
 def test_yaml_does_not_construct_python_objects(tmp_path) -> None:  # type: ignore[no-untyped-def]

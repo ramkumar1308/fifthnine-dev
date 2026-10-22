@@ -640,3 +640,17 @@ def test_link_policy_cases(tmp_path: Path) -> None:
     assert not linked("FROM nginx:1.25\nCOPY dist/site.tgz /srv/\nEXPOSE 8080\n")
     assert not linked("FROM nginx:1.25\nCOPY build/site.zip /srv/\nEXPOSE 8080\n")
     assert not linked("FROM eclipse-temurin:21\nCOPY pom.xml .\nEXPOSE 8080\n")
+
+
+def test_yaml_depth_check_accumulates_compact_tokens_across_lines() -> None:
+    from fifthnine.core.safeparse import ParseError, compose_yaml_documents
+
+    for tok in ("- ", "? "):
+        lines, col = [], 0
+        for _ in range(99):
+            lines.append(" " * col + tok * 100 + "x")
+            col += 2 * 99  # the next line starts at the column of this line's innermost token
+        with pytest.raises(ParseError, match="nesting"):
+            compose_yaml_documents("\n".join(lines) + "\n")
+    ordinary = "items:\n" + "".join(f"  - name: n{i}\n    tags:\n      - a\n      - b\n" for i in range(500))
+    assert compose_yaml_documents(ordinary)

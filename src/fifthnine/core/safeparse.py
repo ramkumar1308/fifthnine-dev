@@ -178,7 +178,7 @@ def _check_yaml_depth(text: str) -> None:
     comments), block indentation, and compact nesting tokens (`- `, `? `, `: `) at the start of a line. Block scalar
     bodies are skipped, and the count restarts at each document marker."""
     flow = 0
-    stack: list[int] = []  # block nesting: one entry per increase of indentation
+    stack: list[tuple[int, int]] = []  # open block structures: (column, depth), depth including every enclosing line
     scalar_indent: int | None = None  # inside a block scalar whose header is at this indent
     for line in text.splitlines():
         body = line.lstrip(" ")
@@ -197,16 +197,22 @@ def _check_yaml_depth(text: str) -> None:
             body = body[3:].lstrip(" ")
             if not body:
                 continue
-        tokens = 0
-        while body[:2] in _NEST_TOKENS:  # compact nesting: "- - - a", "? ? ? a"
-            tokens += 1
-            body = body[2:].lstrip(" ")
+        col = indent
+        marks: list[int] = []  # columns of the compact nesting tokens that open this line: "- - - a", "? ? ? a"
+        while body[:2] in _NEST_TOKENS:
+            marks.append(col)
+            rest = body[2:]
+            body = rest.lstrip(" ")
+            col += 2 + len(rest) - len(body)
         opened, closed = _flow_brackets(body)
-        flow = max(0, flow + opened - closed)
-        while stack and indent <= stack[-1]:
+        while stack and stack[-1][0] >= indent:
             stack.pop()
-        stack.append(indent)
-        if flow + opened > MAX_YAML_DEPTH or len(stack) + tokens + flow > MAX_YAML_DEPTH or tokens > MAX_YAML_DEPTH:
+        depth = stack[-1][1] if stack else 0
+        for c in marks or [indent]:  # a line that opens with tokens is a sibling at its first token's column
+            depth += 1
+            stack.append((c, depth))
+        flow = max(0, flow + opened - closed)
+        if depth + flow + opened > MAX_YAML_DEPTH:
             raise ParseError("YAML nesting too deep")
         if _BLOCK_SCALAR_HEADER.search(body.split(" #", 1)[0]):
             scalar_indent = indent

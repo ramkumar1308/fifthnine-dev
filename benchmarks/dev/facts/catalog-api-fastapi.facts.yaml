@@ -116,12 +116,12 @@ facts:
     kind: docker.cmd
     subject: docker:Dockerfile#0
     value: {form: exec, argv: [uvicorn, "app.main:app", --host, 0.0.0.0, --port, "8000", --reload]}
-    status: overridden
-    overridden_by: CA-K06
+    status: declared
     source: {path: Dockerfile, line: 11, anchor: 'CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]'}
-    link_ids: [CA-L01]
     milestone: M2-1
-    note: Superseded for the Deployment container because the container sets command (RULES.md F13 trap).
+    note: >
+      Image-level facts stay declared, as SP-D04 does. CA-K06 supersedes it for the Deployment container, which sets
+      command (RULES.md F13 trap); the image CMD would still run in any container that sets neither command nor args.
 
   # ---------------------------------------------------------------- Kubernetes objects and graph
   - id: CA-K01
@@ -169,6 +169,7 @@ facts:
     value: 25%
     status: default
     inputs:
+      - {role: reference, fact: CA-K03}
       - {role: absence, loc: {path: k8s/deployment.yaml, line: 4, anchor: "name: catalog-api"}}
     default_ref:
       framework: kubernetes
@@ -610,7 +611,7 @@ negative:
     milestone: M2-3
   - id: CA-N03
     statement: No fact resolved through the out-of-repository Secret has a value; it can only appear as override exposure.
-    forbid: {input_fact: CA-K08, status_not: unresolved}
+    forbid: {input_fact: CA-K08, input_role: value_source, status_not: unresolved}
     milestone: M2-1
   - id: CA-N04
     statement: No route /readyz is invented to match the probe.

@@ -112,7 +112,7 @@ kube-linter 0.8.3, Checkov 3.3.30, Hadolint 2.15.1 and the Semgrep subset report
 
 | Fact | Source |
 |---|---|
-| Probe groups `liveness` and `readiness` are created when `management.endpoint.health.probes.enabled` is true, or when it is unset and the app runs on Kubernetes (detected from `KUBERNETES_SERVICE_HOST` and `KUBERNETES_SERVICE_PORT`). 3.5 also auto-enables on Cloud Foundry | `SB-ACT-AC/availability/AvailabilityProbesAutoConfiguration.java` ProbesCondition (v3.2.12, v3.5.16); `SB/cloud/CloudPlatform.java` KUBERNETES |
+| Probe groups `liveness` and `readiness` are created when `management.endpoint.health.probes.enabled` is true, or when it is unset and the app runs on Kubernetes (detected from `KUBERNETES_SERVICE_HOST` and `KUBERNETES_SERVICE_PORT`). 3.4 (v3.4.13 line 94) and 3.5 also auto-enable on Cloud Foundry; corrected in M2-0, 3.2 and 3.3 not re-checked | `SB-ACT-AC/availability/AvailabilityProbesAutoConfiguration.java` ProbesCondition (v3.2.12, v3.5.16); `SB/cloud/CloudPlatform.java` KUBERNETES |
 | Additional paths `/livez` and `/readyz` on the main server port only when `management.endpoint.health.probes.add-additional-paths=true` | `SB-ACT-AC/availability/AvailabilityProbesHealthEndpointGroupsPostProcessor.java` lines 38-39; `AvailabilityProbesHealthEndpointGroups.java` |
 | Management port type: DISABLED if `management.server.port < 0`; SAME if unset, or if it equals `server.port`, or if it is 8080 and `server.port` is unset; otherwise DIFFERENT | `SB-ACT-AC/web/server/ManagementPortType.java` get(), identical in v3.2.12 and v3.5.16 |
 | `management.endpoints.web.base-path` default `/actuator` | `SB-ACT-AC/endpoint/web/WebEndpointProperties.java` line 47 |

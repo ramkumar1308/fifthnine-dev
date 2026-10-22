@@ -3,6 +3,7 @@ is correct. These tests check the keys themselves; scoring extractor output agai
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -84,6 +85,19 @@ def test_literal_values_appear_on_their_source_line(path: Path) -> None:
             missing = [e for e in expected if e not in fact.source.anchor]
             if missing:
                 problems.append(f"{fact.id}: anchor {fact.source.anchor!r} lacks {missing}")
+    assert not problems, "\n".join(problems)
+
+
+@pytest.mark.parametrize("path", KEYS, ids=lambda p: p.name)
+def test_written_units_match_labelled_units(path: Path) -> None:
+    """When the source writes a suffixed duration (45s, 500ms), the labelled unit must be that suffix."""
+    key = load(path, FactKey)
+    problems = []
+    for fact in key.facts:
+        if fact.source and isinstance(fact.value, (int, float)) and not isinstance(fact.value, bool) and _is_literal(fact):
+            m = re.search(rf"(?<![\d.]){re.escape(str(fact.value))}(ms|s|m|h)\b", fact.source.anchor)
+            if m and m.group(1) != fact.unit:
+                problems.append(f"{fact.id}: source writes {m.group(0)!r}, labelled unit {fact.unit!r}")
     assert not problems, "\n".join(problems)
 
 

@@ -25,6 +25,13 @@ from fifthnine.core.safeparse import load_yaml_documents, to_plain
 from fifthnine.schema.v1 import FactStatus, OverrideExposure
 
 Milestone = Literal["M2-1", "M2-2", "M2-3", "M2-4", "M2-5"]
+
+# Closed precedence vocabulary (scored). Extend it in the same change that introduces a new resolution path.
+PRECEDENCE = frozenset({
+    "docker.entrypoint", "k8s.container.command", "gunicorn.cli",
+    "spring.os_environment", "spring.packaged_application_file", "spring.packaged_profile_file:prod",
+    "spring.placeholder:os_environment", "spring.actuator.path_algorithm", "spring.boot_builder_customizer",
+})
 MILESTONE_ORDER = {"M2-1": 1, "M2-2": 2, "M2-3": 3, "M2-4": 4, "M2-5": 5}
 
 
@@ -142,6 +149,10 @@ class LabelledFact(_Model):
             raise ValueError(f"{self.id}: an absent fact is declared with a null value")
         if (self.override_exposure is OverrideExposure.NONE) == bool(self.exposure_sources):
             raise ValueError(f"{self.id}: exposure_sources are given exactly when override_exposure is not none")
+        if self.precedence is not None and self.precedence not in PRECEDENCE:
+            raise ValueError(f"{self.id}: precedence {self.precedence!r} is not in the vocabulary")
+        if s is FactStatus.DEFAULT and self.kind != "stack.version" and not any(i.role is InputRole.ABSENCE for i in self.inputs):
+            raise ValueError(f"{self.id}: a default that fills an unset field names where it is unset (absence input)")
         return self
 
 
@@ -158,8 +169,10 @@ class Forbid(_Model):
     value: Any = None
     value_not: Any = None
     value_contains: str | None = None
+    value_is_null: bool | None = None
     status_not: FactStatus | None = None
     input_fact: str | None = None
+    input_role: InputRole | None = None
 
     @model_validator(mode="after")
     def _not_empty(self) -> Forbid:
@@ -168,6 +181,42 @@ class Forbid(_Model):
         if not (self.kind or self.kind_prefix or self.subject or self.subject_prefix or self.source_path or self.input_fact):
             raise ValueError("a negative key must narrow by kind, subject, source or input")
         return self
+
+
+def violates(forbid: Forbid, fact: LabelledFact) -> bool:
+    """True when `fact` matches every predicate in `forbid`. Semantics (also used by the M2 scorer):
+    scope is a subset match; value is equality; value_not is inequality; value_contains is a substring match on a
+    string value, or on any element of a list value; input_fact matches an input of input_role (any role if unset)."""
+    if forbid.kind is not None and fact.kind != forbid.kind:
+        return False
+    if forbid.kind_prefix is not None and not fact.kind.startswith(forbid.kind_prefix):
+        return False
+    if forbid.subject is not None and fact.subject != forbid.subject:
+        return False
+    if forbid.subject_prefix is not None and not fact.subject.startswith(forbid.subject_prefix):
+        return False
+    if forbid.scope is not None and any(fact.scope.get(k) != v for k, v in forbid.scope.items()):
+        return False
+    if forbid.source_path is not None and (fact.source is None or fact.source.path != forbid.source_path):
+        return False
+    if forbid.value is not None and fact.value != forbid.value:
+        return False
+    if forbid.value_not is not None and fact.value == forbid.value_not:
+        return False
+    if forbid.value_contains is not None:
+        v = fact.value
+        items = v if isinstance(v, list) else [v]
+        if not any(isinstance(i, str) and forbid.value_contains in i for i in items):
+            return False
+    if forbid.value_is_null is not None and (fact.value is None) != forbid.value_is_null:
+        return False
+    if forbid.status_not is not None and fact.status is forbid.status_not:
+        return False
+    if forbid.input_fact is not None and not any(
+        i.fact == forbid.input_fact and (forbid.input_role is None or i.role is forbid.input_role) for i in fact.inputs
+    ):
+        return False
+    return True
 
 
 class NegativeKey(_Model):
@@ -225,9 +274,28 @@ class FactKey(_Model):
             for loser in f.supersedes:
                 if by_id[loser].overridden_by not in (f.id, None):
                     raise ValueError(f"{f.id} supersedes {loser}, which names a different winner")
+            if f.overridden_by and f.id not in by_id[f.overridden_by].supersedes:
+                raise ValueError(f"{f.id} names {f.overridden_by} as winner, which does not list it in supersedes")
+            sources = [by_id[i.fact] for i in f.inputs if i.fact and i.role is InputRole.VALUE_SOURCE]
+            if f.status is FactStatus.DECLARED and any(x.status is FactStatus.UNRESOLVED for x in sources):
+                raise ValueError(f"{f.id} is declared but derived from an unresolved fact")
+            if f.override_exposure is OverrideExposure.NONE and any(x.override_exposure is not OverrideExposure.NONE for x in sources):
+                raise ValueError(f"{f.id} derives from an exposed value but has override_exposure none")
+            lost = sorted({lk for x in sources for lk in x.link_ids} - set(f.link_ids))
+            if lost:
+                raise ValueError(f"{f.id} derives from facts that depend on {lost} but does not carry them")
+            if f.default_ref and f.default_ref.applied_version is not None:
+                basis = [by_id[i.fact] for i in f.inputs if i.fact and i.role is InputRole.VERSION_BASIS]
+                if not any(b.value == f.default_ref.applied_version and b.subject == f"component:{f.default_ref.framework}" for b in basis):
+                    raise ValueError(f"{f.id}: applied_version {f.default_ref.applied_version} is not the value of a {f.default_ref.framework} version input")
         for n in self.negative:
             if n.forbid.input_fact and n.forbid.input_fact not in by_id:
                 raise ValueError(f"{n.id} references unknown fact {n.forbid.input_fact}")
+            if n.forbid.input_fact and MILESTONE_ORDER[by_id[n.forbid.input_fact].milestone] > MILESTONE_ORDER[n.milestone]:
+                raise ValueError(f"{n.id} is checked before the fact it references exists")
+            hits = [f.id for f in self.facts if violates(n.forbid, f)]
+            if hits:
+                raise ValueError(f"{n.id} is violated by the key's own facts {hits}")
         return self
 
 

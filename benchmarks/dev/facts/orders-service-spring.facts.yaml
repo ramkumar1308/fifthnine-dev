@@ -294,7 +294,8 @@ facts:
         CEO decision D3: cited at the newest maintained release and verified identical at the latest patch of every
         release from 1.34 to 1.37. The cluster version and its admission configuration are not in the repository: a
         mutating webhook can still change the value at admission, so this is the documented default, never an observed
-        production value.
+        production value. The default is applied by pkg/apis/core/v1/defaults.go line 267 at v1.37.1
+        (`if obj.TerminationGracePeriodSeconds == nil {`).
     milestone: M2-1
   - id: SP-K19
     kind: k8s.service.selects
@@ -480,6 +481,7 @@ facts:
     exposure_sources:
       - {via: envFrom, object: k8s:Secret/commerce/orders-service-secrets, variables: [SERVER_SHUTDOWN, SPRING_APPLICATION_JSON, JAVA_TOOL_OPTIONS]}
     inputs:
+      - {role: absence, loc: {path: src/main/resources/application.yml, line: 11, anchor: "server:"}}
       - {role: version_basis, fact: SP-B02}
     link_ids: [SP-L01]
     default_ref:
@@ -676,6 +678,7 @@ facts:
     exposure_sources:
       - {via: envFrom, object: k8s:Secret/commerce/orders-service-secrets, variables: [MANAGEMENT_ENDPOINTS_WEB_BASEPATH, SPRING_APPLICATION_JSON, JAVA_TOOL_OPTIONS]}
     inputs:
+      - {role: absence, loc: {path: src/main/resources/application.yml, line: 18, anchor: "    web:"}}
       - {role: version_basis, fact: SP-B02}
     link_ids: [SP-L01]
     default_ref:
@@ -698,6 +701,7 @@ facts:
     exposure_sources:
       - {via: envFrom, object: k8s:Secret/commerce/orders-service-secrets, variables: [MANAGEMENT_SERVER_BASEPATH, SPRING_APPLICATION_JSON, JAVA_TOOL_OPTIONS]}
     inputs:
+      - {role: absence, loc: {path: src/main/resources/application.yml, line: 15, anchor: "  server:"}}
       - {role: version_basis, fact: SP-B02}
     link_ids: [SP-L01]
     default_ref:
@@ -721,7 +725,7 @@ facts:
       - {via: envFrom, object: k8s:Secret/commerce/orders-service-secrets, variables: [MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED, SPRING_APPLICATION_JSON, JAVA_TOOL_OPTIONS]}
     inputs:
       - {role: version_basis, fact: SP-B02}
-      - {role: absence, loc: {path: src/main/resources/application.yml, line: 22, anchor: "health:"}}
+      - {role: absence, loc: {path: src/main/resources/application.yml, line: 22, anchor: "    health:"}}
     link_ids: [SP-L01]
     default_ref:
       framework: spring-boot
@@ -747,6 +751,7 @@ facts:
     exposure_sources:
       - {via: envFrom, object: k8s:Secret/commerce/orders-service-secrets, variables: [MANAGEMENT_ENDPOINT_HEALTH_PROBES_ADDADDITIONALPATHS, SPRING_APPLICATION_JSON, JAVA_TOOL_OPTIONS]}
     inputs:
+      - {role: absence, loc: {path: src/main/resources/application.yml, line: 22, anchor: "    health:"}}
       - {role: version_basis, fact: SP-B02}
     link_ids: [SP-L01]
     default_ref:
@@ -760,6 +765,80 @@ facts:
       anchor: .equalsIgnoreCase(environment.getProperty("management.endpoint.health.probes.add-additional-paths"));
       note: Unset reads as false, so /livez and /readyz are not added on the main port.
     milestone: M2-2
+  - id: SP-S26
+    kind: spring.property
+    subject: spring:.:management.endpoints.web.path-mapping.health
+    scope: {profile: prod}
+    value: null
+    status: default
+    override_exposure: env_possible
+    exposure_sources:
+      - {via: envFrom, object: k8s:Secret/commerce/orders-service-secrets, variables: [MANAGEMENT_ENDPOINTS_WEB_PATHMAPPING_HEALTH, SPRING_APPLICATION_JSON, JAVA_TOOL_OPTIONS]}
+    inputs:
+      - {role: absence, loc: {path: src/main/resources/application.yml, line: 18, anchor: "    web:"}}
+      - {role: version_basis, fact: SP-B02}
+    link_ids: [SP-L01]
+    default_ref:
+      framework: spring-boot
+      applied_version: "3.4.13"
+      repository: spring-projects/spring-boot
+      tag: v3.4.13
+      commit: 96f3fe7953b609b9be4ada70ee562d97d89092a1
+      path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java
+      line: 52
+      anchor: private final Map<String, String> pathMapping = new LinkedHashMap<>();
+      note: No mapping, so the endpoint id `health` is used as the path segment.
+    milestone: M2-2
+  - id: SP-S27
+    kind: spring.property
+    subject: spring:.:management.endpoints.web.exposure.exclude
+    scope: {profile: prod}
+    value: []
+    status: default
+    override_exposure: env_possible
+    exposure_sources:
+      - {via: envFrom, object: k8s:Secret/commerce/orders-service-secrets, variables: [MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_EXCLUDE, SPRING_APPLICATION_JSON, JAVA_TOOL_OPTIONS]}
+    inputs:
+      - {role: absence, loc: {path: src/main/resources/application.yml, line: 19, anchor: "      exposure:"}}
+      - {role: version_basis, fact: SP-B02}
+    link_ids: [SP-L01]
+    default_ref:
+      framework: spring-boot
+      applied_version: "3.4.13"
+      repository: spring-projects/spring-boot
+      tag: v3.4.13
+      commit: 96f3fe7953b609b9be4ada70ee562d97d89092a1
+      path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java
+      line: 94
+      anchor: private Set<String> exclude = new LinkedHashSet<>();
+    milestone: M2-2
+  - id: SP-S28
+    kind: spring.actuator.endpoint_access
+    subject: spring:.:health
+    scope: {profile: prod}
+    value: unrestricted
+    status: default
+    override_exposure: env_possible
+    exposure_sources:
+      - {via: envFrom, object: k8s:Secret/commerce/orders-service-secrets, variables: [MANAGEMENT_ENDPOINT_HEALTH_ACCESS, SPRING_APPLICATION_JSON, JAVA_TOOL_OPTIONS]}
+    inputs:
+      - {role: absence, loc: {path: src/main/resources/application.yml, line: 22, anchor: "    health:"}}
+      - {role: version_basis, fact: SP-B02}
+    link_ids: [SP-L01]
+    default_ref:
+      framework: spring-boot
+      applied_version: "3.4.13"
+      repository: spring-projects/spring-boot
+      tag: v3.4.13
+      commit: 96f3fe7953b609b9be4ada70ee562d97d89092a1
+      path: spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/endpoint/annotation/Endpoint.java
+      line: 79
+      anchor: Access defaultAccess() default Access.UNRESTRICTED;
+      note: >
+        The 3.4 access model. HealthEndpoint declares @Endpoint(id = "health") with no defaultAccess override
+        (HealthEndpoint.java line 41); management.endpoint.health.access, management.endpoints.access.default and
+        max-permitted are unset (PropertiesEndpointAccessResolver.java lines 58-59 cap at UNRESTRICTED).
+    milestone: M2-2
   - id: SP-S24
     kind: spring.actuator.endpoint
     subject: spring:.:health/readiness
@@ -768,7 +847,7 @@ facts:
     status: declared
     override_exposure: env_possible
     exposure_sources:
-      - {via: inherited, from_facts: [SP-S02, SP-S04, SP-S05, SP-S20, SP-S21, SP-S22, SP-S23]}
+      - {via: inherited, from_facts: [SP-S02, SP-S04, SP-S05, SP-S20, SP-S21, SP-S22, SP-S23, SP-S26, SP-S27, SP-S28]}
     source: {path: src/main/resources/application.yml, line: 16, anchor: "port: 8081"}
     inputs:
       - {role: value_source, fact: SP-S04}
@@ -778,13 +857,16 @@ facts:
       - {role: value_source, fact: SP-S22}
       - {role: value_source, fact: SP-S23}
       - {role: value_source, fact: SP-S02}
+      - {role: value_source, fact: SP-S26}
+      - {role: value_source, fact: SP-S27}
+      - {role: value_source, fact: SP-S28}
     precedence: spring.actuator.path_algorithm
     link_ids: [SP-L01]
     milestone: M2-2
     note: >
       Derived with the RULES.md FN-DEP-002 path algorithm: the management port 8081 differs from the server port 8080
       (DIFFERENT), so the group is served on 8081 under management.server.base-path ("") + /actuator + /health/readiness.
-      health is exposed (SP-S02 includes "*"). Derived from declared values and cited defaults only, so declared.
+      health is exposed (SP-S02 includes "*", nothing excluded by SP-S27), its path segment is `health` (SP-S26) and its access is unrestricted (SP-S28). Derived from declared values and cited defaults only, so declared.
       The probe in SP-K14 targets 8080.
   - id: SP-S25
     kind: spring.actuator.endpoint
@@ -794,7 +876,7 @@ facts:
     status: declared
     override_exposure: env_possible
     exposure_sources:
-      - {via: inherited, from_facts: [SP-S02, SP-S04, SP-S05, SP-S20, SP-S21, SP-S22, SP-S23]}
+      - {via: inherited, from_facts: [SP-S02, SP-S04, SP-S05, SP-S20, SP-S21, SP-S22, SP-S23, SP-S26, SP-S27, SP-S28]}
     source: {path: src/main/resources/application.yml, line: 16, anchor: "port: 8081"}
     inputs:
       - {role: value_source, fact: SP-S04}
@@ -804,6 +886,9 @@ facts:
       - {role: value_source, fact: SP-S22}
       - {role: value_source, fact: SP-S23}
       - {role: value_source, fact: SP-S02}
+      - {role: value_source, fact: SP-S26}
+      - {role: value_source, fact: SP-S27}
+      - {role: value_source, fact: SP-S28}
     precedence: spring.actuator.path_algorithm
     link_ids: [SP-L01]
     milestone: M2-2
@@ -823,6 +908,7 @@ facts:
     unit: ms
     status: default
     inputs:
+      - {role: absence, loc: {path: src/main/java/com/acme/orders/client/PaymentClient.java, line: 12, anchor: "new RestTemplate()"}}
       - {role: value_source, fact: SP-J01}
       - {role: version_basis, fact: SP-B05}
     default_ref:
@@ -845,6 +931,7 @@ facts:
     unit: ms
     status: default
     inputs:
+      - {role: absence, loc: {path: src/main/java/com/acme/orders/client/PaymentClient.java, line: 12, anchor: "new RestTemplate()"}}
       - {role: value_source, fact: SP-J01}
       - {role: version_basis, fact: SP-B05}
     default_ref:
@@ -870,6 +957,7 @@ facts:
     value: JdkClientHttpRequestFactory
     status: default
     inputs:
+      - {role: absence, loc: {path: src/main/java/com/acme/orders/client/ShippingQuoteClient.java, line: 13, anchor: "RestClient.builder()"}}
       - {role: value_source, fact: SP-J04}
       - {role: version_basis, fact: SP-B05}
       - {role: reference, loc: {path: pom.xml, line: 27, anchor: "<artifactId>spring-boot-starter-web</artifactId>"}}
@@ -894,6 +982,7 @@ facts:
     value: null
     status: default
     inputs:
+      - {role: absence, loc: {path: src/main/java/com/acme/orders/client/ShippingQuoteClient.java, line: 13, anchor: "RestClient.builder()"}}
       - {role: value_source, fact: SP-J05}
       - {role: version_basis, fact: SP-B05}
     default_ref:
@@ -962,7 +1051,7 @@ negative:
     statement: >
       No fact resolved through the out-of-repository Secret has a value: its keys are unknown, so it can only appear
       as override exposure.
-    forbid: {input_fact: SP-K11, status_not: unresolved}
+    forbid: {input_fact: SP-K11, input_role: value_source, status_not: unresolved}
     milestone: M2-1
   - id: SP-N03
     statement: The base-file exposure list is never reported as the effective prod value.

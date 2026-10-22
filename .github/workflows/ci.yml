@@ -43,7 +43,9 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          python -m pytest -q --tb=line -p no:cacheprovider 2>&1 | grep -E "^(FAILED|E  |/|[A-Za-z]:)" | head -20 | while IFS= read -r l; do echo "::error::${l:0:400}"; done
+          PYTHONIOENCODING=utf-8 python -m pytest -q -rf --tb=short -p no:cacheprovider > /tmp/diag.txt 2>&1 || true
+          grep -E "^(FAILED|E )" /tmp/diag.txt | head -25 | while IFS= read -r l; do echo "::error::${l:0:450}"; done
+          tail -5 /tmp/diag.txt | while IFS= read -r l; do echo "::warning::${l:0:300}"; done
 
   package:
     name: package and offline smoke test

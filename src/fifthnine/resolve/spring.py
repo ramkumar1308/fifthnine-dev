@@ -40,7 +40,7 @@ from fifthnine.resolve.springprops import (
     SPECS,
     canon,
     convert,
-    env_name,
+    env_names,
     find_placeholders,
     is_relevant,
     redact,
@@ -364,7 +364,7 @@ class _Run:
             self.consumed.add(path)
             add(self._docs(path), "spring.packaged_application_file", "default", False, False)
         if active is not None:
-            for p in active:
+            for p in (active or ["default"]):  # with no active profile Boot activates "default" and reads application-default.*
                 for path, _ in self._file_candidates(f"application-{p}"):
                     self.consumed.add(path)
                     add(self._docs(path), f"spring.packaged_profile_file:{p}", p, True, True)
@@ -377,6 +377,33 @@ class _Run:
         if self.csub is None:
             return []
         return self.dep.container_args.get(self.csub, [])
+
+    def _command_stream(self) -> list[tuple[str, tuple[str, int], FactStatus, str | None]]:
+        """Tokens of the container's effective command in order: the Kubernetes command and args, or the image ENTRYPOINT
+        and CMD of the linked Dockerfile (inferred, because the deployed image is assumed to be the default stage)."""
+        if self.csub is None:
+            return []
+        k8s: list[tuple[str, tuple[str, int], FactStatus, str | None]] = [
+            (t, (p, ln), FactStatus.DECLARED, None) for t, p, ln in self._tokens()]
+        cmd_set, args_set = self.dep.container_cmd_set.get(self.csub, (bool(k8s), False))
+        if cmd_set:
+            return k8s
+        image = self.dep.container_image_cmd.get(self.csub)
+        if image is None:
+            return k8s
+        ep, cm, ep_id, cm_id = image
+        out: list[tuple[str, tuple[str, int], FactStatus, str | None]] = [(t, (p, ln), FactStatus.INFERRED, ep_id) for t, p, ln in ep]
+        if args_set:
+            out += k8s
+        elif ep or not k8s:
+            out += [(t, (p, ln), FactStatus.INFERRED, cm_id) for t, p, ln in cm]
+        if not ep and not cm and not k8s:
+            return out
+        if not ep:
+            self.cov.append(CoverageNotice(code="FN-OPS-002", scope=self.csub,
+                                           message="The Dockerfile sets no ENTRYPOINT, so the base image's ENTRYPOINT is unknown; "
+                                                   "options it sets are unknown."))
+        return out
 
     def _build_overrides(self) -> None:
         self.sys_table, self.json_table, self.args_table = {}, {}, {}
@@ -394,20 +421,32 @@ class _Run:
                 hit = self.env_get(var)[0]
                 self.cov.append(CoverageNotice(code="FN-OPS-002", scope=self._where(hit),
                                                message=f"{var} is not read by the JVM or by Spring Boot, so it is ignored; use JAVA_TOOL_OPTIONS."))
-        for token, path, line in self._tokens():
+        after_jar = False
+        skip_next = False
+        for token, src, status, via_id in self._command_stream():
             if "$(" in token:
-                self.cov.append(CoverageNotice(code="FN-OPS-002", scope=f"{path}:{line}",
+                self.cov.append(CoverageNotice(code="FN-OPS-002", scope=f"{src[0]}:{src[1]}",
                                                message="A command or args entry uses $(VAR) expansion; the kubelet resolves it at runtime, "
                                                    "so options in it are unknown."))
                 continue
             for word in self._words(token, None):
-                if word.startswith("-D"):
-                    self._add_d(word, (path, line), FactStatus.DECLARED, None, None)
-                elif word.startswith("--") and "=" in word:
+                if skip_next:
+                    skip_next = False
+                    continue
+                if not after_jar:
+                    if word == "-jar":
+                        after_jar, skip_next = True, True
+                        continue
+                    if word in ("-cp", "-classpath", "--class-path", "-p", "--module-path"):
+                        skip_next = True
+                        continue
+                    if word.startswith("-D"):
+                        self._add_d(word, src, status, via_id, None)
+                        continue
+                if word.startswith("--") and "=" in word:  # program arguments: Boot reads --key=value
                     k, _, v = word[2:].partition("=")
                     if re.fullmatch(r"[A-Za-z][\w.\-\[\]]*", k):
-                        self.args_table.setdefault(canon(k), []).append(
-                            Hit(k, v, "args", "spring.command_line", "", (path, line), FactStatus.DECLARED))
+                        self.args_table.setdefault(canon(k), []).append(Hit(k, v, "args", "spring.command_line", "", src, status, via_id))
         for var in JSON_VARS:
             for hit in self.env_get(var)[:1]:
                 if hit.status is FactStatus.UNRESOLVED or hit.raw is None:
@@ -455,10 +494,13 @@ class _Run:
         out += list(reversed(self.args_table.get(c, [])))
         out += list(reversed(self.json_table.get(c, [])))
         out += list(reversed(self.sys_table.get(c, [])))
-        name = env_name(key)
-        for h in self.env_get(name):
-            out.append(Hit(key, h.raw, h.layer, h.precedence, h.profile, h.source, h.status, h.via_fact, name, unresolved=h.unresolved))
+        for name in env_names(key):
+            for h in self.env_get(name):
+                out.append(Hit(key, h.raw, h.layer, h.precedence, h.profile, h.source, h.status, h.via_fact, name, unresolved=h.unresolved))
         out += list(reversed(self.files_table.get(c, [])))
+        if spec_type(key) in ("int", "bool", "list"):
+            # Boot converts an empty string to null for these types (and falls back to the default for an empty include list)
+            out = [h for h in out if h.raw != ""]
         return out
 
     # -- placeholders
@@ -544,8 +586,9 @@ class _Run:
         candidates += list(reversed(self.json_table.get(c, [])))
         candidates += list(reversed(self.sys_table.get(c, [])))
         candidates += self.env_get(name)
-        if env_name(name) != name:
-            candidates += self.env_get(env_name(name))
+        for alt in env_names(name):
+            if alt != name:
+                candidates += self.env_get(alt)
         candidates += [h for h in reversed(self.files_table.get(c, [])) if h is not origin]
         if not candidates:
             return None
@@ -589,7 +632,7 @@ class _Run:
             return OverrideExposure.ENV_POSSIBLE, files  # no container is linked: what the environment sets is unknown
         names: list[str] = []
         if layer in ("file", "default"):
-            names += [*placeholder_vars, env_name(key)]
+            names += [*placeholder_vars, *env_names(key)]
         elif layer in ("env", "docker_env") and var is not None:
             names.append(var)
         if layer in ("file", "default", "env", "docker_env"):

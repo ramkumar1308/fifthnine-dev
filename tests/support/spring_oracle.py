@@ -33,8 +33,16 @@ EXTS = ("yaml", "yml", "properties")
 SECRET = re.compile(r"(password|passwd|secret|token|credential|api-?key|private-?key|passphrase|access-?key)", re.I)
 
 
+_EMPTY_IS_NULL = {"server.port", "management.server.port", "management.endpoints.web.exposure.include",
+                  "management.endpoints.web.exposure.exclude", "management.endpoints.enabled-by-default"}
+
+
 def ocanon(key: str) -> str:
     return key.lower().replace("-", "").replace("_", "")
+
+
+def oenv_legacy(key: str) -> str:
+    return re.sub(r"\.+", "_", re.sub(r"\[(\d+)\]", r".\1.", key).replace("-", "_")).strip("_").upper()
 
 
 def oenv(key: str) -> str:
@@ -167,6 +175,10 @@ class Ctx:
     env: dict[str, tuple[str | None, str, int]] = field(default_factory=dict)  # var -> (value or None if unresolved, path, line)
     unknown_secret: bool = False
     args: list[tuple[str, str, int]] = field(default_factory=list)  # (token, path, line)
+    k8s_cmd: list[tuple[str, str, int]] | None = None  # container command, None when unset
+    k8s_args: list[tuple[str, str, int]] | None = None
+    docker_ep: list[tuple[str, str, int]] | None = None  # image ENTRYPOINT of the default stage chain
+    docker_cmd: list[tuple[str, str, int]] | None = None
     docker_env: dict[str, tuple[str, str, int]] = field(default_factory=dict)  # var -> (value, Dockerfile, line) of the default stage
     linked: bool = False
     layers: list[list[OEntry]] = field(default_factory=list)  # low to high, files only
@@ -224,8 +236,13 @@ def _container_env(root: Path, container_ref: str, ctx: Ctx) -> None:
             ctx.env[n] = ("" if v is None else str(v), dep.path, item.lc.key("value")[0] + 1 if "value" in item else item.lc.key("name")[0] + 1)
     for field_name in ("command", "args"):
         seq = c.get(field_name) or []
-        for i, tok in enumerate(seq):
-            ctx.args.append((str(tok), dep.path, seq.lc.item(i)[0] + 1))
+        toks = [(str(tok), dep.path, seq.lc.item(i)[0] + 1) for i, tok in enumerate(seq)]
+        ctx.args += toks
+        if toks:  # an empty list counts as unset
+            if field_name == "command":
+                ctx.k8s_cmd = toks
+            else:
+                ctx.k8s_args = toks
 
 
 def _docker_env(root: Path, link: Linkage, ctx: Ctx) -> None:
@@ -241,15 +258,30 @@ def _docker_env(root: Path, link: Linkage, ctx: Ctx) -> None:
         if parent is None:
             break
         chain.insert(0, parent)
+    ep: list[tuple[str, str, int]] | None = None
+    cm: list[tuple[str, str, int]] | None = None
     for st in chain:
+        cmd_here = False
         for cmd in st.cmds:
-            if cmd.cmd.upper() != "ENV":
+            kind = cmd.cmd.upper()
+            if kind in ("ENTRYPOINT", "CMD"):
+                argv = list(cmd.value) if cmd.json else [" ".join(cmd.value)]
+                toks = [(a, paths[0], cmd.start_line) for a in argv]
+                if kind == "ENTRYPOINT":
+                    ep = toks
+                    if not cmd_here:
+                        cm = None
+                else:
+                    cm, cmd_here = toks, True
+                continue
+            if kind != "ENV":
                 continue
             vals = list(cmd.value)
             for k, v in zip(vals[0::2], vals[1::2], strict=False):  # BuildKit flattens ENV into name, value, name, value
                 v = v[1:-1] if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'" else v
                 if "$" not in v:
                     ctx.docker_env[k] = (v, paths[0], cmd.start_line)
+    ctx.docker_ep, ctx.docker_cmd = ep, cm
 
 
 # ---------------------------------------------------------------- layered lookup
@@ -317,7 +349,7 @@ class View:
             if doc.on_profile is not None and (profiles is None or not _profile_match(doc.on_profile, active)):
                 continue
             out += [OEntry(e.key, e.text, e.line, e.path, "file", doc.on_profile) for e in doc.entries]
-        for p in profiles or []:
+        for p in profiles or ["default"]:
             for doc in self.ctx.docs(f"application-{p}"):
                 out += [OEntry(e.key, e.text, e.line, e.path, "file", p) for e in doc.entries]
         return out
@@ -334,9 +366,24 @@ class View:
         if v and v[0]:
             for k, val in _flat_json(v[0]).items():
                 self.json[ocanon(k)] = (val, v[1], v[2])
-        for tok, path, line in self.ctx.args:
+        ctx = self.ctx
+        if ctx.k8s_cmd is not None:
+            stream = list(ctx.k8s_cmd) + list(ctx.k8s_args or [])
+        elif ctx.docker_ep is not None and ctx.linked:
+            stream = list(ctx.docker_ep) + (list(ctx.k8s_args) if ctx.k8s_args is not None else list(ctx.docker_cmd or []))
+        else:
+            stream = list(ctx.args)
+        program_args = False
+        skip = False
+        for tok, path, line in stream:
             for w in _words(tok):
-                if w.startswith("-D") and "=" in w:
+                if skip:
+                    skip = False
+                elif not program_args and w == "-jar":
+                    program_args = skip = True
+                elif not program_args and w in ("-cp", "-classpath", "--class-path", "-p", "--module-path"):
+                    skip = True
+                elif not program_args and w.startswith("-D") and "=" in w:
                     k, _, val = w[2:].partition("=")
                     self.sys[ocanon(k)] = (val, path, line)
                 elif w.startswith("--") and "=" in w:
@@ -351,13 +398,13 @@ class View:
         for layer, table in (("args", self.cli), ("json", self.json), ("sysprop", self.sys)):
             if c in table:
                 out.append((table[c][0], table[c][1], table[c][2], layer, None))
-        name = oenv(key)
-        if name in self.ctx.env:
-            val, path, line = self.ctx.env[name]
-            out.append((val if val is not None else UNRESOLVED, path, line, "env", None))
-        if name in self.ctx.docker_env:
-            val, path, line = self.ctx.docker_env[name]
-            out.append((val, path, line, "docker_env", None))
+        for name in dict.fromkeys([oenv(key), oenv_legacy(key)]):
+            if name in self.ctx.env:
+                val, path, line = self.ctx.env[name]
+                out.append((val if val is not None else UNRESOLVED, path, line, "env", None))
+            if name in self.ctx.docker_env:
+                val, path, line = self.ctx.docker_env[name]
+                out.append((val, path, line, "docker_env", None))
         grouped: dict[tuple[str, str | None], list[OEntry]] = {}
         order: list[tuple[str, str | None]] = []
         for e in self.files:
@@ -376,6 +423,8 @@ class View:
                 out.append((",".join(x.text for x in es), es[0].path, es[0].line, "file", es[0].profile))
             else:
                 out.append((es[-1].text, es[-1].path, es[-1].line, "file", es[-1].profile))
+        if key in _EMPTY_IS_NULL or (key.startswith("management.endpoint") and key.endswith((".enabled", ".enabled-by-default"))):
+            out = [e for e in out if e[0] != ""]  # Boot converts "" to null for Integer, Boolean and an include/exclude list
         return out
 
     def lookup(self, name: str, depth: int = 0) -> str | None:
@@ -519,6 +568,10 @@ def same_value(f: Fact, oracle_text: str) -> bool:
     got = fact_text(f)
     if got == oracle_text:
         return True
+    if isinstance(f.value, bool):  # Spring's StringToBooleanConverter
+        word = oracle_text.strip().lower()
+        if word in ("true", "on", "yes", "1", "false", "off", "no", "0"):
+            return (word in ("true", "on", "yes", "1")) is f.value
     if "<redacted>" in got:
         pattern = re.escape(got).replace(re.escape("<redacted>"), ".+?")
         return re.fullmatch(pattern, oracle_text) is not None

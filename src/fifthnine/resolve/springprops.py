@@ -80,6 +80,15 @@ def env_name(key: str) -> str:
     return "_".join(parts).upper()
 
 
+def env_names(key: str) -> list[str]:
+    """Both environment names Spring Boot's SystemEnvironmentPropertyMapper tries for `key`: the uniform name (dashes
+    removed) first, then the legacy name (dashes turned into underscores)."""
+    spaced = re.sub(r"\[(\d+)\]", r".\1.", key)
+    legacy = "_".join(p.replace("-", "_") for p in spaced.split(".") if p).upper()
+    uniform = env_name(key)
+    return [uniform] if legacy == uniform else [uniform, legacy]
+
+
 def split_index(key: str) -> tuple[str, int | None]:
     m = _INDEXED.match(key)
     return (m.group(1), int(m.group(2))) if m else (key, None)
@@ -161,7 +170,11 @@ def convert(key: str, raw: Any, kind: str | None = None) -> tuple[Any, str | Non
         return (int(text), None) if _INT.match(text) else (_scalar_text(raw), None)
     if kind == "bool":
         text = _scalar_text(raw).strip().lower()
-        return (text == "true", None) if text in ("true", "false") else (_scalar_text(raw), None)
+        if text in ("true", "on", "yes", "1"):  # Spring's StringToBooleanConverter
+            return True, None
+        if text in ("false", "off", "no", "0"):
+            return False, None
+        return _scalar_text(raw), None
     if kind == "str":
         return _scalar_text(raw), None
     if isinstance(raw, str):

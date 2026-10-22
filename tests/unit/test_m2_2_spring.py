@@ -46,8 +46,7 @@ FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /src/target/app-*.jar /app/app.jar
 EXPOSE 8080 8081
-{env}ENTRYPOINT ["java", "-jar", "/app/app.jar"]
-"""
+{env}{entry}"""
 DEPLOYMENT = """apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -89,6 +88,7 @@ class Repo:
     linked: bool = True
     mount: str | None = None  # mountPath of an out-of-repository ConfigMap volume
     pom_extra: str = ""
+    entrypoint: str = 'ENTRYPOINT ["java", "-jar", "/app/app.jar"]\n'
 
     def write(self, tmp: Path) -> Path:
         (tmp / "pom.xml").write_text(POM.format(boot=self.boot, extra=self.pom_extra))
@@ -97,7 +97,7 @@ class Repo:
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(textwrap.dedent(text).lstrip("\n"), encoding="utf-8")
         if self.linked:
-            (tmp / "Dockerfile").write_text(DOCKERFILE.format(env=self.docker_env))
+            (tmp / "Dockerfile").write_text(DOCKERFILE.format(env=self.docker_env, entry=self.entrypoint))
             env = ""
             if self.env:
                 env = "          env:\n"
@@ -380,6 +380,58 @@ def test_source_order_command_line_json_system_property_environment_file(tmp_pat
     shadows = sorted(g.value for g in _scan(tmp_path / "e", Repo(resources={"application.yml": yml}, env={"SERVER_PORT": "2"})).facts
                      if g.status is FactStatus.OVERRIDDEN)
     assert shadows == [1]
+
+
+def test_default_profile_file_is_read_when_no_profile_is_active(tmp_path: Path) -> None:
+    res = {"application.yml": "server:\n  port: 8080\n", "application-default.yml": "server:\n  port: 7000\n"}
+    f = _props(_scan(tmp_path, Repo(resources=res)))["server.port"]
+    assert f.value == 7000
+    (tmp_path / "p").mkdir()
+    f = _props(_scan(tmp_path / "p", Repo(resources=res), profile="prod"))["server.port"]
+    assert f.value == 8080  # an active profile replaces "default"
+
+
+def test_dash_d_after_dash_jar_is_a_program_argument(tmp_path: Path) -> None:
+    res = {"application.yml": "server:\n  port: 8080\n"}
+    f = _props(_scan(tmp_path, Repo(resources=res, command=["-Dserver.port=9999"])))["server.port"]
+    assert f.value == 8080  # entrypoint is "java -jar app.jar": -D is not a JVM option
+    (tmp_path / "a").mkdir()
+    r = Repo(resources=res, entrypoint='ENTRYPOINT ["java"]\nCMD ["-Dserver.port=9999", "-jar", "/app/app.jar"]\n')
+    f = _props(_scan(tmp_path / "a", r))["server.port"]
+    assert (f.value, f.precedence) == (9999, "spring.system_property")
+
+
+def test_dockerfile_entrypoint_options_are_read_and_inferred(tmp_path: Path) -> None:
+    ep = 'ENTRYPOINT ["java", "-Dserver.port=9999", "-jar", "/app/app.jar", "--management.server.port=9100"]\n'
+    r = _scan(tmp_path, Repo(resources={"application.yml": "server:\n  port: 8080\n"}, entrypoint=ep))
+    props = _props(r)
+    assert (props["server.port"].value, props["server.port"].status) == (9999, FactStatus.INFERRED)
+    assert props["management.server.port"].value == 9100
+    (tmp_path / "n").mkdir()
+    r2 = _scan(tmp_path / "n", Repo(resources={"application.yml": "server:\n  port: 8080\n"}, entrypoint="CMD [\"java\", \"-jar\", \"/app/app.jar\"]\n"))
+    assert any("ENTRYPOINT" in n.message for n in r2.coverage)
+
+
+def test_legacy_underscore_environment_names(tmp_path: Path) -> None:
+    res = {"application.yml": "server:\n  servlet:\n    context-path: /a\n"}
+    env = {"SERVER_SERVLET_CONTEXT_PATH": "/b"}
+    f = _props(_scan(tmp_path, Repo(resources=res, env=env)))["server.servlet.context-path"]
+    assert (f.value, f.precedence) == ("/b", "spring.os_environment")
+    res2 = {"application.yml": "app:\n  timeout: ${x-y:1}\n"}
+    (tmp_path / "p").mkdir()
+    g = _props(_scan(tmp_path / "p", Repo(resources=res2, env={"X_Y": "2"})))["app.timeout"]
+    assert g.value in (2, "2")
+
+
+def test_boolean_words_and_empty_values_follow_spring_conversion(tmp_path: Path) -> None:
+    res = {"application.properties": "management.endpoint.health.probes.enabled=yes\nmanagement.endpoints.web.exposure.include=\nserver.port=\n"
+                                     "management.server.port=8080\n"}
+    r = _scan(tmp_path, Repo(resources=res))
+    props = _props(r)
+    assert props["management.endpoint.health.probes.enabled"].value is True
+    assert "server.port" not in props or props["server.port"].status is FactStatus.DEFAULT
+    ep = [f for f in r.facts if f.kind == "spring.actuator.endpoint" and f.status is not FactStatus.OVERRIDDEN]
+    assert ep and all(f.value.get("port_type") == "SAME" for f in ep if isinstance(f.value, dict))
 
 
 def test_x8_kubernetes_config_dependency_marks_file_exposure(tmp_path: Path) -> None:

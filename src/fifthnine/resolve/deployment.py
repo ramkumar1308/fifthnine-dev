@@ -72,6 +72,9 @@ class DeploymentResult:
     dockerfile_for_link: dict[str, str] = field(default_factory=dict)  # link id -> Dockerfile path
     container_links: dict[str, Linkage] = field(default_factory=dict)  # container subject -> its source-root link (when one was proposed)
     container_args: dict[str, list[tuple[str, str, int]]] = field(default_factory=dict)  # container subject -> (token, path, line) of command + args
+    container_cmd_set: dict[str, tuple[bool, bool]] = field(default_factory=dict)  # container subject -> (command set, args set)
+    # container subject -> image ENTRYPOINT and CMD tokens of the linked default stage, with the ids of their docker facts
+    container_image_cmd: dict[str, tuple[list[tuple[str, str, int]], list[tuple[str, str, int]], str | None, str | None]] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------- container environment (RULES.md X1 to X5)
@@ -413,6 +416,15 @@ def resolve_deployment(ws: Workspace) -> DeploymentResult:
             if node is not None and node.is_seq:
                 tokens += [(str(i.value), w.doc.path, i.line) for i in node.seq()]
         out.container_args[csub] = tokens
+        out.container_cmd_set[csub] = (_argv(c.get("command")) is not None, _argv(c.get("args")) is not None)
+        if link is not None and link.status is LinkStatus.INFERRED and link.link_id in out.dockerfile_for_link:
+            dpath = out.dockerfile_for_link[link.link_id]
+            tgt = out.dockerfiles[dpath].default_target
+            if tgt is not None:
+                ids = docker_ids[dpath]
+                ep = [(a, dpath, tgt.entrypoint[2]) for a in tgt.entrypoint[1]] if tgt.entrypoint_state == "set" and tgt.entrypoint else []
+                cm = [(a, dpath, tgt.cmd[2]) for a in tgt.cmd[1]] if tgt.cmd_state == "set" and tgt.cmd else []
+                out.container_image_cmd[csub] = (ep, cm, ids.get("entrypoint"), ids.get("cmd"))
         _effective_command(w, csub, c, link, out, docker_ids, fb)
         _mounts(w, csub, c, link, out, docker_ids, fb)
     return out

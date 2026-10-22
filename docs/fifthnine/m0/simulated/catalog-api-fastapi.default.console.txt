@@ -1,0 +1,76 @@
+[SIMULATED OUTPUT (M0, schema rev 2). Facts written by hand from the dev answer key; verdicts computed by derive_verdict(). No scanner exists yet.]
+
+FifthNine Scan 0.1.0-simulated   .   report mode   profile: (none)
+Stack: python 3.12 [tested], fastapi 0.159.1 [tested], tenacity 9.2.1 [tested], httpx 0.28.1 [tested], gunicorn 26.2.0 [tested], kubernetes-api apps/v1, autoscaling/v2, policy/v1 [tested]
+Status: FAIL_VERIFIED   2 violation  3 conditional  0 unknown  2 satisfied   would block in gate mode (>= high): 0
+Note: Projection: assumes M2/M3 runtime fixtures pass for the detected versions, so they are reported as 'tested'. Today no version is tested (see the *.today-untested.* file).
+
+VIOLATION   high    FN-RES-004   fetch_warehouses retries forever
+                                at app/clients/inventory.py:21, app/routes/products.py:22
+                                @retry has no stop=, so tenacity uses stop_never. It is called from GET /v1/products/{sku}/availability: during an inventory outage each request retries indefinitely.
+                                fix: Add stop=stop_after_attempt(3) or stop=stop_before_delay(<budget>).
+                                gate: not blocking (rule not yet promoted to blocking: needs runtime and boundary-case tests (D5))
+
+VIOLATION   medium  FN-DEP-003   gunicorn graceful timeout 60s exceeds pod grace period 30s
+                                at k8s/deployment.yaml:27, k8s/deployment.yaml:17
+                                gunicorn waits up to 60s for workers to finish on SIGTERM, but the pod is killed at 30s.
+                                computed: 60s graceful-timeout > 30s terminationGracePeriodSeconds; no preStop. CLI flag is applied after GUNICORN_CMD_ARGS, so the out-of-repo Secret cannot override it.
+                                fix: Raise terminationGracePeriodSeconds to 70 or lower --graceful-timeout to 25.
+                                gate: not blocking (rule not yet promoted to blocking: needs runtime and boundary-case tests (D5))
+
+CONDITIONAL high    FN-DEP-002   Readiness probe path /readyz is not served by the app
+                                at k8s/deployment.yaml:40, app/routes/health.py:11
+                                The probe calls /readyz; app.main:app registers /healthz and /ready.
+                                from repository evidence: VIOLATION if the assumptions below hold
+                                open assumption: linkage L1 is correct (run `fifthnine links accept`)
+                                fix: Change the probe path to /ready, or add a /readyz route.
+                                gate: not blocking (verdict is CONDITIONAL; rule not yet promoted to blocking: needs runtime and boundary-case tests (D5); linkage L1 is inferred)
+
+CONDITIONAL medium  FN-RES-002   fetch_stock retry policy cannot finish inside the 4s page budget
+                                at app/routes/products.py:13, app/clients/inventory.py:9, app/settings.py:8
+                                product_page wraps fetch_stock in asyncio.timeout(4.0). fetch_stock can take 3 attempts x 2s + 2 x 1s = 8s, so the deadline cancels it during the second attempt.
+                                computed: 3 x 2.0s timeout + 2 x 1.0s wait = 8.0s > 4.0s (deadline from the Settings default)
+                                from repository evidence: VIOLATION if the assumptions below hold
+                                open assumption: out-of-repo environment sources do not override these values (declare external_overrides in .fifthnine.yml if true)
+                                fix: Use stop=stop_before_delay(3) with a 1s per-attempt timeout, or 2 attempts with 1.5s timeout and 0.5s wait.
+                                gate: not blocking (verdict is CONDITIONAL; rule not yet promoted to blocking: needs runtime and boundary-case tests (D5))
+
+CONDITIONAL low     FN-CAP-002b  Deployment sets spec.replicas while an HPA manages it
+                                at k8s/deployment.yaml:8
+                                Each kubectl apply resets replicas to 3.
+                                from repository evidence: VIOLATION if the assumptions below hold
+                                open assumption: the deploy tool applies spec.replicas (Argo CD and Flux can be set to ignore it)
+                                gate: not blocking (verdict is CONDITIONAL; rule not yet promoted to blocking: needs runtime and boundary-case tests (D5))
+
+SATISFIED           FN-CFG-001   Effective container command has no reload or debug mode
+                                at k8s/deployment.yaml:21, Dockerfile:11
+                                assumes (open): linkage L1 is correct
+
+SATISFIED           FN-DEP-002   Liveness probe /healthz matches a registered route
+                                at k8s/deployment.yaml:45, app/routes/health.py:6
+                                assumes (open): linkage L1 is correct
+
+Service linkage
+  L1 inferred: k8s:Deployment/default/catalog-api/api -> source:. (python catalog-api, module app.main:app)
+     - Deployment command names app.main:app; app/main.py defines app = FastAPI(...)
+     - single Dockerfile copies ./app
+     - image basename catalog-api equals pyproject name catalog-api
+     confirm with: fifthnine links accept
+
+Coverage and limits
+  FN-OPS-002           k8s/deployment.yaml
+                       Service linkage L1 inferred from 3 signals. Run `fifthnine links accept` to review and declare it.
+  COV-DELEGATED        app/clients/pricing.py:7, app/clients/recommendations.py:6
+                       Python HTTP calls without a bounded timeout were detected and are left to existing scanners: requests.get without timeout (pricing.py:7), httpx client with timeout=None (recommendations.py:6). Run `ruff check --select S113`.
+  FN-OPS-002           k8s/deployment.yaml:33
+                       Secret catalog-api-env is referenced by envFrom but not stored in the repository. Findings that depend on pydantic-settings fields it could override stay CONDITIONAL; the computation is kept.
+  COV-RULE-SCOPE       k8s/pdb.yaml
+                       PDB uses maxUnavailable; FN-DEP-001 only treats minAvailable as a declared capacity floor, so rollout capacity was not compared.
+  FN-OPS-001           repository
+                       Data and migration compatibility is not assessed in v0.1.
+
+Assessment limits: linkages declared=0 inferred/stale=1; conditional because of linkage=1, external config=1, untested version=0
+
+FifthNine reports evidence about specific, documented reliability checks on the files it could read. It does not certify production readiness and does not prevent outages. A scan with no findings is not a statement that the system is production ready.
+
+[SIMULATED OUTPUT (M0, schema rev 2). Facts written by hand from the dev answer key; verdicts computed by derive_verdict(). No scanner exists yet.]

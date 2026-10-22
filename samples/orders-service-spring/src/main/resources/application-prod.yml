@@ -1,0 +1,12 @@
+# Production overrides. Temporarily widened actuator exposure while debugging
+# the October connection-pool issue (INC-2291). Revert after root cause.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+logging:
+  level:
+    root: INFO
+    com.acme.orders: INFO

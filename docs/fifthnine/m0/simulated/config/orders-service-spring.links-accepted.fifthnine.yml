@@ -1,0 +1,21 @@
+# Written by `fifthnine links accept` on 2026-10-21 after the reviewer confirmed the proposal (D3).
+# The evidence digest covers Dockerfile, the workload container spec and the build descriptor.
+# If any of them changes, FifthNine reports this link as stale until it is accepted again.
+version: 1
+services:
+  - name: orders-service
+    workload:
+      kind: Deployment
+      namespace: commerce
+      name: orders-service
+      container: orders-service
+    dockerfile: Dockerfile
+    source_root: .
+    framework: spring-boot
+    accepted_by: links-accept
+    accepted_on: "2026-10-21"
+    evidence_digest: "sha256:11ecbffae90f37ebec63f2d982acb1e2"
+    evidence:
+      - "single Dockerfile; runtime stage copies target/orders-service-*.jar (Dockerfile:10)"
+      - "image repository basename orders-service equals Maven artifactId (pom.xml:15)"
+      - "Dockerfile EXPOSE 8080 8081 equals containerPorts and server/management ports"

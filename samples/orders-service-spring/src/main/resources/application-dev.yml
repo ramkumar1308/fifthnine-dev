@@ -1,0 +1,13 @@
+server:
+  error:
+    include-stacktrace: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+logging:
+  level:
+    com.acme.orders: DEBUG

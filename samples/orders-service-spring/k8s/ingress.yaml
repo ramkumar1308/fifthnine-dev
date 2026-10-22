@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: orders-service
+  namespace: commerce
+spec:
+  ingressClassName: public
+  rules:
+    - host: orders.acme.example
+      http:
+        paths:
+          - path: /orders
+            pathType: Prefix
+            backend:
+              service:
+                name: orders-service
+                port:
+                  name: http

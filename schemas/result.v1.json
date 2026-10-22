@@ -1,0 +1,1322 @@
+{
+  "$defs": {
+    "AdvisorySection": {
+      "additionalProperties": false,
+      "description": "Reserved for a future, opt-in AI advisory mode. Never mixed into findings, never blocking.\n\nv0.1 always emits {\"enabled\": false, \"items\": []}.",
+      "properties": {
+        "enabled": {
+          "const": false,
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "maxItems": 0,
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "title": "AdvisorySection",
+      "type": "object"
+    },
+    "AssessmentLimits": {
+      "additionalProperties": false,
+      "description": "Per-scan counters for CEO condition 4: how often missing linkage or unsupported config limits the result.",
+      "properties": {
+        "findings_capped_by_linkage": {
+          "default": 0,
+          "description": "Would be VIOLATION with declared linkage",
+          "title": "Findings Capped By Linkage",
+          "type": "integer"
+        },
+        "findings_conditional_on_external_config": {
+          "default": 0,
+          "description": "Would be VIOLATION if external config assumptions held (D2)",
+          "title": "Findings Conditional On External Config",
+          "type": "integer"
+        },
+        "findings_conditional_on_untested_version": {
+          "default": 0,
+          "description": "CONDITIONAL because a detected version is untested (D9)",
+          "title": "Findings Conditional On Untested Version",
+          "type": "integer"
+        },
+        "findings_with_override_assumption": {
+          "default": 0,
+          "description": "Findings carrying an open external_override_* assumption",
+          "title": "Findings With Override Assumption",
+          "type": "integer"
+        },
+        "linkages_declared": {
+          "default": 0,
+          "title": "Linkages Declared",
+          "type": "integer"
+        },
+        "linkages_inferred": {
+          "default": 0,
+          "title": "Linkages Inferred",
+          "type": "integer"
+        },
+        "linkages_unresolved": {
+          "default": 0,
+          "title": "Linkages Unresolved",
+          "type": "integer"
+        },
+        "results_unknown_unresolved_value": {
+          "default": 0,
+          "description": "UNKNOWN because a value is a placeholder or out of repo",
+          "title": "Results Unknown Unresolved Value",
+          "type": "integer"
+        },
+        "results_unknown_unsupported_config": {
+          "default": 0,
+          "description": "UNKNOWN because an input is unsupported (Helm, config import, ...)",
+          "title": "Results Unknown Unsupported Config",
+          "type": "integer"
+        },
+        "rules_not_assessable": {
+          "default": 0,
+          "description": "Applicable rules that produced no verdict for any subject",
+          "title": "Rules Not Assessable",
+          "type": "integer"
+        }
+      },
+      "title": "AssessmentLimits",
+      "type": "object"
+    },
+    "Assumption": {
+      "additionalProperties": false,
+      "properties": {
+        "declared_in": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Required when state is declared_by_team"
+        },
+        "fact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "kind": {
+          "$ref": "#/$defs/AssumptionKind"
+        },
+        "material": {
+          "description": "True if the assumption being false could change the verdict",
+          "title": "Material",
+          "type": "boolean"
+        },
+        "state": {
+          "$ref": "#/$defs/AssumptionState",
+          "default": "open"
+        },
+        "statement": {
+          "description": "What must be true for the stated computation to hold",
+          "title": "Statement",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "statement",
+        "material"
+      ],
+      "title": "Assumption",
+      "type": "object"
+    },
+    "AssumptionKind": {
+      "enum": [
+        "external_override_env",
+        "external_override_file",
+        "linkage_inferred",
+        "classpath_unresolved",
+        "cluster_admission_default",
+        "platform_behavior",
+        "out_of_repo_routing",
+        "untested_version"
+      ],
+      "title": "AssumptionKind",
+      "type": "string"
+    },
+    "AssumptionState": {
+      "enum": [
+        "open",
+        "declared_by_team"
+      ],
+      "title": "AssumptionState",
+      "type": "string"
+    },
+    "BaselineStatus": {
+      "enum": [
+        "new",
+        "existing",
+        "suppressed",
+        "suppression_expired"
+      ],
+      "title": "BaselineStatus",
+      "type": "string"
+    },
+    "ComponentSupport": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "description": "e.g. spring-boot, spring-framework, tenacity, kubernetes-api",
+          "title": "Component",
+          "type": "string"
+        },
+        "matrix_entry": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Entry id in src/fifthnine/data/support_matrix.v1.yaml",
+          "title": "Matrix Entry"
+        },
+        "support": {
+          "$ref": "#/$defs/SupportLevel"
+        },
+        "tested_versions": {
+          "description": "Tested versions from the support matrix for this component",
+          "items": {
+            "type": "string"
+          },
+          "title": "Tested Versions",
+          "type": "array"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Detected version; null when it could not be determined",
+          "title": "Version"
+        },
+        "version_source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "component",
+        "version",
+        "support"
+      ],
+      "title": "ComponentSupport",
+      "type": "object"
+    },
+    "CoverageNotice": {
+      "additionalProperties": false,
+      "properties": {
+        "affects_rules": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affects Rules",
+          "type": "array"
+        },
+        "blocks_assessment": {
+          "default": false,
+          "title": "Blocks Assessment",
+          "type": "boolean"
+        },
+        "code": {
+          "description": "FN-OPS-001 (domain not assessable), FN-OPS-002 (unresolved input), COV-DELEGATED, COV-UNSUPPORTED",
+          "title": "Code",
+          "type": "string"
+        },
+        "delegated_to": {
+          "description": "For COV-DELEGATED, e.g. ['ruff:S113', 'bandit:B113']",
+          "items": {
+            "type": "string"
+          },
+          "title": "Delegated To",
+          "type": "array"
+        },
+        "domain": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Domain"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "scope": {
+          "description": "Path, object or 'repository'",
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "scope",
+        "message"
+      ],
+      "title": "CoverageNotice",
+      "type": "object"
+    },
+    "DefaultRef": {
+      "additionalProperties": false,
+      "description": "Citation for a value that comes from a framework default rather than the repository.",
+      "properties": {
+        "framework": {
+          "title": "Framework",
+          "type": "string"
+        },
+        "reference": {
+          "$ref": "#/$defs/Reference"
+        },
+        "version_range": {
+          "title": "Version Range",
+          "type": "string"
+        }
+      },
+      "required": [
+        "framework",
+        "version_range",
+        "reference"
+      ],
+      "title": "DefaultRef",
+      "type": "object"
+    },
+    "Domain": {
+      "enum": [
+        "resilience",
+        "capacity",
+        "deployment_safety",
+        "production_config",
+        "network_exposure",
+        "data_compatibility",
+        "failure_containment"
+      ],
+      "title": "Domain",
+      "type": "string"
+    },
+    "Fact": {
+      "additionalProperties": false,
+      "properties": {
+        "default_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DefaultRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "extractor": {
+          "description": "extractor id and version, e.g. spring-config-v1",
+          "title": "Extractor",
+          "type": "string"
+        },
+        "fact_id": {
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Namespaced fact kind, e.g. spring.property, k8s.probe.readiness, http_client.read_timeout",
+          "title": "Kind",
+          "type": "string"
+        },
+        "overridden_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "fact_id of the winning fact",
+          "title": "Overridden By"
+        },
+        "override_exposure": {
+          "$ref": "#/$defs/OverrideExposure",
+          "default": "none"
+        },
+        "scope": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "e.g. {'profile': 'prod'}",
+          "title": "Scope",
+          "type": "object"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "$ref": "#/$defs/FactStatus"
+        },
+        "subject": {
+          "$ref": "#/$defs/Subject"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "unresolved_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unresolved Reason"
+        },
+        "value": {
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "fact_id",
+        "kind",
+        "subject",
+        "status",
+        "extractor"
+      ],
+      "title": "Fact",
+      "type": "object"
+    },
+    "FactStatus": {
+      "enum": [
+        "declared",
+        "default",
+        "overridden",
+        "inferred",
+        "unresolved"
+      ],
+      "title": "FactStatus",
+      "type": "string"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "properties": {
+        "applicability": {
+          "items": {
+            "$ref": "#/$defs/ComponentSupport"
+          },
+          "title": "Applicability",
+          "type": "array"
+        },
+        "assumptions": {
+          "items": {
+            "$ref": "#/$defs/Assumption"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "baseline_status": {
+          "$ref": "#/$defs/BaselineStatus",
+          "default": "new"
+        },
+        "blocking_eligible": {
+          "default": false,
+          "title": "Blocking Eligible",
+          "type": "boolean"
+        },
+        "blocking_ineligible_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocking Ineligible Reasons",
+          "type": "array"
+        },
+        "computation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Repository-derived calculation; kept when the verdict is CONDITIONAL (D2)",
+          "title": "Computation"
+        },
+        "conditional_reasons": {
+          "description": "Human-readable; mirrors open material assumptions",
+          "items": {
+            "type": "string"
+          },
+          "title": "Conditional Reasons",
+          "type": "array"
+        },
+        "domain": {
+          "$ref": "#/$defs/Domain"
+        },
+        "fact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "fingerprint": {
+          "description": "sha256 over rule_id + subject.key. Survives line moves and value edits.",
+          "title": "Fingerprint",
+          "type": "string"
+        },
+        "locations": {
+          "description": "Primary location first",
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "title": "Locations",
+          "type": "array"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "references": {
+          "items": {
+            "$ref": "#/$defs/Reference"
+          },
+          "title": "References",
+          "type": "array"
+        },
+        "remediation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Remediation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "requirement": {
+          "description": "The documented semantics being checked",
+          "title": "Requirement",
+          "type": "string"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "rule_version": {
+          "title": "Rule Version",
+          "type": "string"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Severity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Required for VIOLATION and CONDITIONAL"
+        },
+        "subject": {
+          "$ref": "#/$defs/Subject"
+        },
+        "suppression": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Suppression"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "unknown_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unknown Reason"
+        },
+        "verdict": {
+          "$ref": "#/$defs/Verdict"
+        },
+        "verdict_if_assumptions_hold": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Verdict"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For CONDITIONAL: the verdict the repository evidence gives if every open assumption holds"
+        }
+      },
+      "required": [
+        "fingerprint",
+        "rule_id",
+        "rule_version",
+        "domain",
+        "verdict",
+        "title",
+        "message",
+        "subject",
+        "locations",
+        "requirement"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "Inventory": {
+      "additionalProperties": false,
+      "properties": {
+        "detected_stacks": {
+          "items": {
+            "$ref": "#/$defs/ComponentSupport"
+          },
+          "title": "Detected Stacks",
+          "type": "array"
+        },
+        "files_considered": {
+          "title": "Files Considered",
+          "type": "integer"
+        },
+        "files_parsed": {
+          "title": "Files Parsed",
+          "type": "integer"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/$defs/SkippedFile"
+          },
+          "title": "Skipped",
+          "type": "array"
+        }
+      },
+      "required": [
+        "files_considered",
+        "files_parsed"
+      ],
+      "title": "Inventory",
+      "type": "object"
+    },
+    "LinkStatus": {
+      "enum": [
+        "declared",
+        "inferred",
+        "stale",
+        "unresolved"
+      ],
+      "title": "LinkStatus",
+      "type": "string"
+    },
+    "Linkage": {
+      "additionalProperties": false,
+      "properties": {
+        "accept_command": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shown when status is inferred or stale",
+          "title": "Accept Command"
+        },
+        "accepted_by": {
+          "anyOf": [
+            {
+              "enum": [
+                "user",
+                "links-accept"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accepted By"
+        },
+        "accepted_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ISO date recorded at acceptance",
+          "title": "Accepted On"
+        },
+        "current_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Digest of the same evidence in this scan; differs when stale",
+          "title": "Current Digest"
+        },
+        "declared_in": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Location in .fifthnine.yml when declared or stale"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "evidence_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Digest recorded at acceptance",
+          "title": "Evidence Digest"
+        },
+        "from_ref": {
+          "title": "From Ref",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "workload_container_to_image",
+            "image_to_source_root",
+            "workload_container_to_source_root"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "link_id": {
+          "title": "Link Id",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/LinkStatus"
+        },
+        "to_ref": {
+          "title": "To Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "link_id",
+        "kind",
+        "status",
+        "from_ref",
+        "to_ref"
+      ],
+      "title": "Linkage",
+      "type": "object"
+    },
+    "OverrideExposure": {
+      "description": "Whether something outside the repository could replace this value at runtime.",
+      "enum": [
+        "none",
+        "env_possible",
+        "file_possible"
+      ],
+      "title": "OverrideExposure",
+      "type": "string"
+    },
+    "Reference": {
+      "additionalProperties": false,
+      "properties": {
+        "source_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pinned upstream source file, e.g. tag + path.",
+          "title": "Source Path"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "Reference",
+      "type": "object"
+    },
+    "Remediation": {
+      "additionalProperties": false,
+      "properties": {
+        "references": {
+          "items": {
+            "$ref": "#/$defs/Reference"
+          },
+          "title": "References",
+          "type": "array"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary"
+      ],
+      "title": "Remediation",
+      "type": "object"
+    },
+    "ScanInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "base_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Ref"
+        },
+        "code_executed": {
+          "const": false,
+          "default": false,
+          "title": "Code Executed",
+          "type": "boolean"
+        },
+        "config_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Config File"
+        },
+        "fail_on": {
+          "$ref": "#/$defs/Severity",
+          "default": "high"
+        },
+        "mode": {
+          "enum": [
+            "full",
+            "diff"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "network_used": {
+          "const": false,
+          "default": false,
+          "title": "Network Used",
+          "type": "boolean"
+        },
+        "policy_mode": {
+          "default": "report",
+          "enum": [
+            "report",
+            "gate"
+          ],
+          "title": "Policy Mode",
+          "type": "string"
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Profile"
+        },
+        "profile_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "cli | config | k8s-env:<path>:<line> | none",
+          "title": "Profile Source"
+        },
+        "root": {
+          "const": ".",
+          "default": ".",
+          "title": "Root",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "ScanInfo",
+      "type": "object"
+    },
+    "ScanStatus": {
+      "enum": [
+        "FAIL_VERIFIED",
+        "REVIEW_REQUIRED",
+        "INCOMPLETE",
+        "PASS_WITH_COVERAGE"
+      ],
+      "title": "ScanStatus",
+      "type": "string"
+    },
+    "Severity": {
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "SkippedFile": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "ignored",
+            "too_large",
+            "symlink_outside_root",
+            "unsupported",
+            "parse_error",
+            "binary"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "reason"
+      ],
+      "title": "SkippedFile",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "column": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Column"
+        },
+        "excerpt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Short excerpt with secret-like values redacted as '****'. Optional.",
+          "title": "Excerpt"
+        },
+        "line_end": {
+          "minimum": 1,
+          "title": "Line End",
+          "type": "integer"
+        },
+        "line_start": {
+          "minimum": 1,
+          "title": "Line Start",
+          "type": "integer"
+        },
+        "path": {
+          "description": "Repository-relative POSIX path. Never absolute.",
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "line_start",
+        "line_end"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "Subject": {
+      "additionalProperties": false,
+      "properties": {
+        "display": {
+          "title": "Display",
+          "type": "string"
+        },
+        "key": {
+          "description": "Stable identity used in fingerprints, e.g. 'k8s:Deployment/commerce/orders-service/orders-service'",
+          "title": "Key",
+          "type": "string"
+        },
+        "kind": {
+          "description": "e.g. k8s.container, http_client, spring.application, retry_policy",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "key",
+        "display"
+      ],
+      "title": "Subject",
+      "type": "object"
+    },
+    "Summary": {
+      "additionalProperties": false,
+      "properties": {
+        "assessment_limits": {
+          "$ref": "#/$defs/AssessmentLimits"
+        },
+        "blocking": {
+          "title": "Blocking",
+          "type": "integer"
+        },
+        "by_severity": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/Severity"
+          },
+          "title": "By Severity",
+          "type": "object"
+        },
+        "by_verdict": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/Verdict"
+          },
+          "title": "By Verdict",
+          "type": "object"
+        },
+        "new": {
+          "default": 0,
+          "title": "New",
+          "type": "integer"
+        },
+        "rules_evaluated": {
+          "title": "Rules Evaluated",
+          "type": "integer"
+        },
+        "rules_not_applicable": {
+          "title": "Rules Not Applicable",
+          "type": "integer"
+        },
+        "suppressed": {
+          "default": 0,
+          "title": "Suppressed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "by_verdict",
+        "by_severity",
+        "blocking",
+        "rules_evaluated",
+        "rules_not_applicable"
+      ],
+      "title": "Summary",
+      "type": "object"
+    },
+    "SupportLevel": {
+      "enum": [
+        "tested",
+        "untested",
+        "unsupported"
+      ],
+      "title": "SupportLevel",
+      "type": "string"
+    },
+    "Suppression": {
+      "additionalProperties": false,
+      "properties": {
+        "expires": {
+          "description": "ISO date. Required.",
+          "title": "Expires",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/SourceRef"
+        }
+      },
+      "required": [
+        "reason",
+        "expires",
+        "source"
+      ],
+      "title": "Suppression",
+      "type": "object"
+    },
+    "ToolInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "const": "fifthnine",
+          "default": "fifthnine",
+          "title": "Name",
+          "type": "string"
+        },
+        "rule_pack_versions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Rule Pack Versions",
+          "type": "object"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "title": "ToolInfo",
+      "type": "object"
+    },
+    "Verdict": {
+      "description": "Outcome of one rule for one subject. Exactly one per finding.",
+      "enum": [
+        "VIOLATION",
+        "CONDITIONAL",
+        "UNKNOWN",
+        "SATISFIED"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "advisory": {
+      "$ref": "#/$defs/AdvisorySection"
+    },
+    "coverage": {
+      "items": {
+        "$ref": "#/$defs/CoverageNotice"
+      },
+      "title": "Coverage",
+      "type": "array"
+    },
+    "disclaimer": {
+      "default": "FifthNine reports evidence about specific, documented reliability checks on the files it could read. It does not certify production readiness and does not prevent outages. A scan with no findings is not a statement that the system is production ready.",
+      "title": "Disclaimer",
+      "type": "string"
+    },
+    "facts": {
+      "description": "Facts referenced by findings (default) or all (--facts all)",
+      "items": {
+        "$ref": "#/$defs/Fact"
+      },
+      "title": "Facts",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "inventory": {
+      "$ref": "#/$defs/Inventory"
+    },
+    "linkages": {
+      "items": {
+        "$ref": "#/$defs/Linkage"
+      },
+      "title": "Linkages",
+      "type": "array"
+    },
+    "scan": {
+      "$ref": "#/$defs/ScanInfo"
+    },
+    "schema": {
+      "const": "fifthnine.result/v1",
+      "default": "fifthnine.result/v1",
+      "title": "Schema",
+      "type": "string"
+    },
+    "simulated": {
+      "default": false,
+      "description": "True only for M0 mock output. Real scans never set it.",
+      "title": "Simulated",
+      "type": "boolean"
+    },
+    "status": {
+      "$ref": "#/$defs/ScanStatus"
+    },
+    "status_reason": {
+      "title": "Status Reason",
+      "type": "string"
+    },
+    "summary": {
+      "$ref": "#/$defs/Summary"
+    },
+    "tool": {
+      "$ref": "#/$defs/ToolInfo"
+    }
+  },
+  "required": [
+    "tool",
+    "scan",
+    "status",
+    "status_reason",
+    "inventory",
+    "summary"
+  ],
+  "title": "ScanResult",
+  "type": "object"
+}

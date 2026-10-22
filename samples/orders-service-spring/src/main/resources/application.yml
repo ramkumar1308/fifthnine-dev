@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: orders-service
+  lifecycle:
+    timeout-per-shutdown-phase: 45s
+  http:
+    client:
+      connect-timeout: 1s
+      read-timeout: 2s
+
+server:
+  port: 8080
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: never
+
+clients:
+  payment:
+    base-url: ${PAYMENT_BASE_URL:http://localhost:9090}
+  inventory:
+    base-url: ${INVENTORY_BASE_URL:http://localhost:9091}
+  shipping:
+    base-url: ${SHIPPING_BASE_URL:http://localhost:9092}
+
+resilience4j:
+  retry:
+    instances:
+      payment:
+        max-attempts: 4
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+      inventory:
+        max-attempts: 3
+        wait-duration: 200ms

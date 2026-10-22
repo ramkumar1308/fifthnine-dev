@@ -1,0 +1,85 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fifthnine"
+dynamic = ["version"]
+description = "Local-first, evidence-backed production-readiness review for application repositories"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "FifthNine contributors" }]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "click>=8.1,<9",
+    "pydantic>=2.7,<3",
+    "ruamel.yaml>=0.18,<0.19",
+    "pathspec>=0.12,<1",
+    "packaging>=23",
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "jsonschema>=4.21",
+    "pyyaml>=6",
+    "ruff>=0.6",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+fifthnine = "fifthnine.cli:main"
+
+[tool.hatch.version]
+path = "src/fifthnine/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fifthnine"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/fifthnine", "tests", "schemas", "README.md", "LICENSE", "CHANGELOG.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"
+
+[tool.ruff]
+line-length = 160
+target-version = "py310"
+extend-exclude = ["samples", "benchmarks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "BLE", "PTH"]
+ignore = ["S101", "UP007", "UP045"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "PTH"]
+# M0-approved artifacts are kept byte-for-byte as approved; long lines there are data, not style choices.
+"scripts/**" = ["S", "PTH", "E501"]
+"tests/m0/**" = ["E501"]
+"src/fifthnine/schema/**" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+packages = ["fifthnine"]
+mypy_path = "src"
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["ruamel.*", "pathspec.*", "tomli"]
+ignore_missing_imports = true

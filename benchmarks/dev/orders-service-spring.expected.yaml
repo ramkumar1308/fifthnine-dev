@@ -1,0 +1,152 @@
+# Development answer key for samples/orders-service-spring.
+# Dev fixture only. Authored by the CTO. Not a held-out benchmark case and must never be reported as one.
+# Two modes are keyed:
+#   default  = `fifthnine scan .` with no .fifthnine.yml (linkage inferred, E4: advisory)
+#   accepted = after `fifthnine links accept` writes the proposed linkage as declared
+#   declared = accepted, plus the team declares external_overrides: none and platform.admission_defaults: none
+# Verdicts assume the detected versions are tested (D9). With today's support matrix every failing
+# check is CONDITIONAL (untested_version). Schema revision 2 (D2): an open material assumption about
+# external configuration makes a failing check CONDITIONAL, never VIOLATION.
+# No rule is blocking-capable until promoted under D5, so blocking_eligible is false everywhere.
+sample: orders-service-spring
+stack: {spring_boot: "3.4.13", spring_framework: "6.2.15", java: 21, resilience4j: "2.4.0"}
+compiled_in_m0: false   # Maven Central unreachable from the M0 environment; semantics verified from tagged source instead
+expected_status: {default: FAIL_VERIFIED, accepted: FAIL_VERIFIED, declared: FAIL_VERIFIED, today_untested: REVIEW_REQUIRED}
+expected_exit_code_report_only: 0
+
+findings:
+  - id: A1
+    rule: FN-RES-001
+    subject: PaymentClient.restTemplate
+    evidence: [{path: src/main/java/com/acme/orders/client/PaymentClient.java, line: 12}]
+    verdict: {default: VIOLATION, accepted: VIOLATION, declared: VIOLATION}
+    severity: high
+    needs_linkage: false
+    reason: >
+      `new RestTemplate()` uses HttpAccessor's default SimpleClientHttpRequestFactory (spring-framework
+      v6.1.15 and v6.2.19 HttpAccessor.java:56) whose connectTimeout/readTimeout default to -1, i.e. not set,
+      so HttpURLConnection waits indefinitely. Independent of classpath and of spring.http.client.*.
+
+  - id: A2
+    rule: FN-RES-001
+    subject: ShippingQuoteClient.restClient
+    evidence: [{path: src/main/java/com/acme/orders/client/ShippingQuoteClient.java, line: 13}]
+    verdict: {default: CONDITIONAL, accepted: CONDITIONAL, declared: CONDITIONAL}   # classpath_unresolved
+    severity: medium
+    needs_linkage: false
+    reason: >
+      Static RestClient.builder() bypasses Boot's builder and spring.http.client.*. Spring Framework 6.2
+      DefaultRestClientBuilder picks HttpComponents > Jetty > ReactorNetty > JDK > Simple by classpath. Direct
+      dependencies contain none of the first three, so the JDK client (no read timeout) is likely, but the
+      transitive classpath is not resolved offline.
+
+  - id: A3
+    rule: FN-RES-001
+    subject: InventoryClient.restClient
+    evidence:
+      - {path: src/main/java/com/acme/orders/client/InventoryClient.java, line: 15}
+      - {path: src/main/resources/application.yml, line: 9}
+    verdict: {default: SATISFIED, accepted: SATISFIED, declared: SATISFIED}
+    reason: >
+      Injected RestClient.Builder receives spring.http.client.read-timeout=2s (property exists from Boot 3.4,
+      HttpClientProperties). Trap: on Boot 3.2/3.3 the same YAML is ignored; see version matrix FN-RES-001.
+
+  - id: A4
+    rule: FN-DEP-003
+    subject: orders-service shutdown budget
+    evidence:
+      - {path: src/main/resources/application.yml, line: 5}
+      - {path: k8s/deployment.yaml, line: 59}
+    verdict: {default: CONDITIONAL, accepted: CONDITIONAL, declared: VIOLATION}   # linkage, then external_override_env
+    severity: medium
+    needs_linkage: true
+    computation: "preStop sleep 10s + timeout-per-shutdown-phase 45s = 55s > terminationGracePeriodSeconds 30s (k8s default, field absent)"
+    reason: >
+      Graceful shutdown is the Boot 3.4 default (ServerProperties shutdown = GRACEFUL from v3.4.x; IMMEDIATE on
+      3.2/3.3). k8s counts preStop time inside the grace period. Image eclipse-temurin:21-jre has /bin/sh so the
+      exec preStop runs.
+    assumptions: ["out-of-repo Secret orders-service-secrets does not set SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE or SERVER_SHUTDOWN"]
+
+  - id: A5
+    rule: FN-DEP-002
+    subject: readinessProbe
+    evidence:
+      - {path: k8s/deployment.yaml, line: 47}
+      - {path: src/main/resources/application.yml, line: 16}
+    verdict: {default: CONDITIONAL, accepted: CONDITIONAL, declared: VIOLATION}
+    severity: high
+    needs_linkage: true
+    reason: >
+      management.server.port=8081 differs from server.port=8080 (ManagementPortType.get -> DIFFERENT), so
+      /actuator/** is served only on 8081. Probe targets 8080/actuator/health/readiness -> 404 -> pod never Ready.
+      add-additional-paths is not set, so /readyz is not available on 8080 either.
+    assumptions: ["out-of-repo Secret does not set SERVER_PORT or MANAGEMENT_SERVER_PORT (open until declared)"]
+
+  - id: A5b
+    rule: FN-DEP-002
+    subject: livenessProbe
+    verdict: {default: SATISFIED, accepted: SATISFIED, declared: SATISFIED}
+    reason: "named port management -> 8081, /actuator/health/liveness; probes group auto-enabled on Kubernetes (CloudPlatform.KUBERNETES)"
+
+  - id: A6
+    rule: FN-CFG-001
+    subject: actuator exposure in prod profile
+    evidence:
+      - {path: src/main/resources/application-prod.yml, line: 7}
+      - {path: k8s/deployment.yaml, line: 33}
+    verdict: {default: CONDITIONAL, accepted: CONDITIONAL, declared: VIOLATION}
+    severity: medium
+    needs_linkage: true
+    reason: >
+      SPRING_PROFILES_ACTIVE=prod in the Deployment activates application-prod.yml, which exposes all web
+      endpoints (heapdump, env, configprops, loggers). Severity medium, not high: management port is reachable
+      only through a ClusterIP Service (see A10).
+
+  - id: A7
+    rule: FN-CAP-002a
+    subject: HPA orders-service cpu utilization
+    evidence:
+      - {path: k8s/hpa.yaml, line: 19}
+      - {path: k8s/deployment.yaml, line: 40}
+    verdict: {default: CONDITIONAL, accepted: CONDITIONAL, declared: VIOLATION}   # cluster_admission_default (LimitRange)
+    severity: high
+    needs_linkage: false
+    reason: "Utilization target on cpu; container declares no cpu request; HPA cannot compute utilization and takes no action for that metric (k8s HPA docs)."
+
+  - id: A8
+    rule: FN-CAP-002b
+    subject: spec.replicas with HPA
+    evidence: [{path: k8s/deployment.yaml, line: 9}]
+    verdict: {default: CONDITIONAL, accepted: CONDITIONAL, declared: CONDITIONAL}   # platform_behavior
+    severity: low
+    reason: "kubectl apply resets replicas to 4; GitOps tools may be configured to ignore the field, so CONDITIONAL."
+
+  - id: A9
+    rule: FN-DEP-001
+    subject: rollout vs PDB minAvailable
+    evidence:
+      - {path: k8s/deployment.yaml, line: 13}
+      - {path: k8s/pdb.yaml, line: 7}
+      - {path: k8s/hpa.yaml, line: 11}
+    verdict: {default: VIOLATION, accepted: VIOLATION, declared: VIOLATION}
+    severity: medium
+    computation: "for n in [4..10]: available_min = n - floor(0.5n); pdb_required = ceil(0.75n); n=4: 2<3, n=10: 5<8; violated at every n"
+
+  - id: A10
+    rule: FN-NET-001
+    subject: management port exposure
+    verdict: {default: SATISFIED, accepted: SATISFIED, declared: SATISFIED}   # out_of_repo_routing assumption listed
+    trap: true
+    reason: "8081 only behind ClusterIP orders-service-metrics; Ingress routes /orders to port http (8080); management port is DIFFERENT so /actuator is not on 8080."
+
+non_findings:
+  - {trap: "application-dev.yml exposure * and include-stacktrace always", reason: "dev profile not active"}
+  - {trap: "FN-RES-002 payment/inventory retries", reason: "no outer deadline declared in repo; worst-case windows reported as derived facts only (payment unbounded via A1, inventory 3x2s + 2x0.2s = 6.4s)"}
+  - {trap: "clients.*.base-url localhost fallbacks", reason: "overridden by in-repo ConfigMap orders-service-endpoints; FN-CFG-002 deferred"}
+
+out_of_wave_observations:
+  - "PaymentClient.charge is a POST retried 4 times with no idempotency key: FN-RES-003 candidate (C2), not emitted by the first wave."
+
+coverage_notices:
+  - "Transitive Maven classpath not resolved (no network, no build execution)."
+  - "envFrom secretRef orders-service-secrets is not in the repository: Spring keys carry an env-override assumption."

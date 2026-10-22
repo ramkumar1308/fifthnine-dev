@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orders-service-endpoints
+  namespace: commerce
+data:
+  PAYMENT_BASE_URL: http://payments.commerce.svc.cluster.local
+  INVENTORY_BASE_URL: http://inventory.commerce.svc.cluster.local
+  SHIPPING_BASE_URL: http://shipping-quotes.logistics.svc.cluster.local

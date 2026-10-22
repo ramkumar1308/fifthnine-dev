@@ -1,0 +1,93 @@
+# Development answer key for samples/catalog-api-fastapi.
+# Dev fixture only. Authored by the CTO. Not a held-out benchmark case.
+# Modes and version assumption as in orders-service-spring.expected.yaml (schema revision 2, D2/D5/D9).
+# DELEGATED is an answer-key label, not a schema verdict: no finding is emitted; a COV-DELEGATED coverage notice is expected.
+sample: catalog-api-fastapi
+stack: {python: "3.12", fastapi: "0.159.1", httpx: "0.28.1", requests: "2.34.2", tenacity: "9.2.1", gunicorn: "26.2.0", uvicorn: "0.54.0"}
+runtime_confirmed: benchmarks/dev/runtime_checks/catalog_api_runtime_check.out.txt
+expected_status: {default: FAIL_VERIFIED, accepted: FAIL_VERIFIED}   # B2 and B4 remain VIOLATION
+expected_exit_code_report_only: 0
+
+findings:
+  # SATISFIED results also expected: FN-DEP-002 livenessProbe /healthz (with linkage assumption), FN-CFG-001 effective command has no --reload
+  - id: B1
+    rule: FN-RES-001
+    subject: recommendations._client
+    evidence: [{path: app/clients/recommendations.py, line: 6}]
+    verdict: {default: DELEGATED, accepted: DELEGATED}
+    severity: high
+    needs_linkage: false
+    reason: >
+      Real defect (runtime check: call still pending at 10s). M0 incumbent runs show Ruff 0.17.1 S113 and
+      Bandit 1.9.4 B113 both flag httpx with timeout=None, so FifthNine v0.1 does not duplicate it. It appears
+      as a COV-DELEGATED coverage notice; the fact (read timeout unbounded) is still extracted for FN-RES-002.
+
+  - id: B2
+    rule: FN-RES-004
+    subject: inventory.fetch_warehouses
+    evidence: [{path: app/clients/inventory.py, line: 21}]
+    verdict: {default: VIOLATION, accepted: VIOLATION}
+    severity: high
+    needs_linkage: false
+    reason: "@retry without stop= uses tenacity's default stop_never (tenacity/__init__.py, 8.2.3 and 9.2.1). Reached from GET /v1/products/{sku}/availability. Runtime check: still retrying after 12s."
+
+  - id: B3
+    rule: FN-RES-002
+    subject: inventory.fetch_stock under product_page deadline
+    evidence:
+      - {path: app/clients/inventory.py, line: 9}
+      - {path: app/clients/inventory.py, line: 6}
+      - {path: app/routes/products.py, line: 13}
+      - {path: app/settings.py, line: 8}
+    verdict: {default: CONDITIONAL, accepted: CONDITIONAL}   # external_override_env on the deadline; computation kept
+    severity: medium
+    needs_linkage: false
+    computation: "worst case 3 attempts x 2.0s httpx timeout + 2 waits x 1s = 8.0s > asyncio.timeout(4.0)"
+    reason: "The outer deadline cancels the call during the second attempt; the third configured attempt can never run. Runtime check: cancelled at 4.0s after 2 attempts."
+    assumptions: ["PRODUCT_PAGE_BUDGET_SECONDS is not set at runtime (pydantic-settings field; workload has an out-of-repo envFrom Secret)"]
+
+  - id: B4
+    rule: FN-DEP-003
+    subject: gunicorn graceful timeout vs pod grace period
+    evidence:
+      - {path: k8s/deployment.yaml, line: 27}
+      - {path: k8s/deployment.yaml, line: 17}
+    verdict: {default: VIOLATION, accepted: VIOLATION}
+    severity: medium
+    needs_linkage: false
+    computation: "gunicorn --graceful-timeout 60s > terminationGracePeriodSeconds 30s; no preStop"
+    reason: >
+      Both values are declared in the Deployment, so no image linkage is needed. Gunicorn applies CLI arguments
+      after GUNICORN_CMD_ARGS and config files (gunicorn/app/base.py load_config), so the external Secret cannot
+      override the literal flag. Workers still draining at 30s are SIGKILLed.
+    blocking_eligible: {default: false, accepted: false}   # no override exposure; false only because FN-DEP-003 is not yet promoted (D5)
+
+  - id: B5
+    rule: FN-DEP-002
+    subject: readinessProbe path
+    evidence:
+      - {path: k8s/deployment.yaml, line: 42}
+      - {path: app/routes/health.py, line: 11}
+    verdict: {default: CONDITIONAL, accepted: VIOLATION}
+    severity: high
+    needs_linkage: true
+    reason: "Probe GET /readyz; app.main:app (named in the Deployment command) registers /healthz and /ready only. TestClient: /readyz -> 404."
+
+  - id: B7
+    rule: FN-CAP-002b
+    subject: spec.replicas with HPA
+    evidence: [{path: k8s/deployment.yaml, line: 8}]
+    verdict: {default: CONDITIONAL, accepted: CONDITIONAL}
+    severity: low
+
+non_findings:
+  - {trap: "inventory._client httpx.Timeout(2.0)", reason: "FN-RES-001 is Java-only in v0.1; Python client timeouts are extracted as facts (used by FN-RES-002) but not judged"}
+  - {trap: "pricing.py:7 requests.get without timeout", reason: "Delegated to Ruff S113 / Bandit B113. FifthNine lists the delegation in coverage, emits no finding."}
+  - {trap: "pricing.py:20 httpx.get without timeout", reason: "httpx default is 5s: bounded. Ruff 0.17.1 and Bandit 1.9.4 do not flag it either (INCUMBENT_RUNS.md)."}
+  - {trap: "Dockerfile:11 uvicorn --reload", reason: "Deployment command/args replace the image CMD; --reload never runs in the cluster."}
+  - {trap: "HPA cpu AverageValue with no cpu request", reason: "AverageValue does not need requests; FN-CAP-002a applies to Utilization targets only."}
+  - {trap: "PDB maxUnavailable: 1 with default 25% rollout", reason: "FN-DEP-001 treats only minAvailable as a declared capacity floor (see rule evidence)."}
+  - {trap: "Service type LoadBalancer on port 80", reason: "public API port, not administrative"}
+
+coverage_notices:
+  - "envFrom secretRef catalog-api-env is not in the repository: env-bindable settings carry an override assumption."

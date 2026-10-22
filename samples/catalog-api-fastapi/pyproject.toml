@@ -1,0 +1,25 @@
+[project]
+name = "catalog-api"
+version = "2.3.1"
+description = "Product catalog API: product pages, stock and pricing aggregation"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.159.1",
+    "uvicorn==0.54.0",
+    "uvicorn-worker==0.4.0",
+    "gunicorn==26.2.0",
+    "httpx==0.28.1",
+    "requests==2.34.2",
+    "tenacity==9.2.1",
+    "pydantic-settings==2.11.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.2", "respx==0.22.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]

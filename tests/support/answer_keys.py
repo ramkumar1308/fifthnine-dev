@@ -31,6 +31,7 @@ PRECEDENCE = frozenset({
     "docker.entrypoint", "k8s.container.command", "gunicorn.cli",
     "spring.os_environment", "spring.packaged_application_file", "spring.packaged_profile_file:prod",
     "spring.placeholder:os_environment", "spring.actuator.path_algorithm", "spring.boot_builder_customizer",
+    "k8s.container.args", "docker.cmd", "k8s.env", "k8s.env_from",
 })
 MILESTONE_ORDER = {"M2-1": 1, "M2-2": 2, "M2-3": 3, "M2-4": 4, "M2-5": 5}
 
@@ -210,10 +211,11 @@ def violates(forbid: Forbid, fact: LabelledFact) -> bool:
             return False
     if forbid.value_is_null is not None and (fact.value is None) != forbid.value_is_null:
         return False
-    if forbid.status_not is not None and fact.status is forbid.status_not:
+    if forbid.status_not is not None and getattr(fact.status, "value", fact.status) == forbid.status_not.value:
         return False
     if forbid.input_fact is not None and not any(
-        i.fact == forbid.input_fact and (forbid.input_role is None or i.role is forbid.input_role) for i in fact.inputs
+        i.fact == forbid.input_fact and (forbid.input_role is None or getattr(i.role, "value", i.role) == forbid.input_role.value)
+        for i in fact.inputs
     ):
         return False
     return True
@@ -316,6 +318,7 @@ class CorpusEntry(_Model):
     in_supported_range: Literal["yes", "no", "unknown"]
     deployment_shape: Literal["plain", "plain+kustomize", "plain+helm", "helm-only"]
     linkage_expectation: Literal["in-repo-app", "partial", "none"]
+    linkage_expectation_corrected: str | None = None
     rationale: str = Field(min_length=40)
     m1_baseline: str
 

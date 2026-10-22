@@ -431,10 +431,16 @@ def _dockerfile(entry: FileEntry, text: str, out: DetectionResult) -> bool:
 # ---------------------------------------------------------------- Kubernetes and Helm
 
 
+def is_helm_template(path: str, text: str) -> bool:
+    """A Helm template, which is not YAML until rendered. A `{{TOKEN}}` placeholder inside a quoted value of an
+    otherwise plain manifest does not make it one."""
+    return "{{" in text and ("/templates/" in f"/{path}" or ".Values" in text or "{{-" in text)
+
+
 def _yaml(entry: FileEntry, text: str, out: DetectionResult) -> bool:
     """Inventory Kubernetes objects. Returns False (not parsed) for Helm templates and for YAML without top-level
     apiVersion and kind lines, which are therefore never fed to the parser."""
-    if "{{" in text and ("/templates/" in f"/{entry.path}" or ".Values" in text or "{{-" in text):
+    if is_helm_template(entry.path, text):
         out.helm_templates.append(entry.path)
         return False
     if not (K8S_HINT.search(text) and K8S_KIND_HINT.search(text)):

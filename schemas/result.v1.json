@@ -293,6 +293,19 @@
       "additionalProperties": false,
       "description": "Citation for a value that comes from a framework default rather than the repository.",
       "properties": {
+        "applied_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Component version the default was looked up for (revision 3)",
+          "title": "Applied Version"
+        },
         "framework": {
           "title": "Framework",
           "type": "string"
@@ -300,7 +313,20 @@
         "reference": {
           "$ref": "#/$defs/Reference"
         },
+        "upstream": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UpstreamRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Exact upstream line (revision 3)"
+        },
         "version_range": {
+          "description": "Versions the citation covers; for a version-independent default, the verified span",
           "title": "Version Range",
           "type": "string"
         }
@@ -326,9 +352,65 @@
       "title": "Domain",
       "type": "string"
     },
+    "ExposureSource": {
+      "additionalProperties": false,
+      "description": "The out-of-repository mechanism behind override_exposure (revision 3).",
+      "properties": {
+        "from_fact_ids": {
+          "description": "For via=inherited",
+          "items": {
+            "type": "string"
+          },
+          "title": "From Fact Ids",
+          "type": "array"
+        },
+        "object": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "e.g. k8s:Secret/commerce/orders-service-secrets",
+          "title": "Object"
+        },
+        "variables": {
+          "description": "Example variables or keys that could carry the override",
+          "items": {
+            "type": "string"
+          },
+          "title": "Variables",
+          "type": "array"
+        },
+        "via": {
+          "enum": [
+            "envFrom",
+            "valueFrom",
+            "volume",
+            "inherited"
+          ],
+          "title": "Via",
+          "type": "string"
+        }
+      },
+      "required": [
+        "via"
+      ],
+      "title": "ExposureSource",
+      "type": "object"
+    },
     "Fact": {
       "additionalProperties": false,
       "properties": {
+        "absent": {
+          "default": false,
+          "description": "Established as not set in the cited object",
+          "title": "Absent",
+          "type": "boolean"
+        },
         "default_ref": {
           "anyOf": [
             {
@@ -340,6 +422,13 @@
           ],
           "default": null
         },
+        "exposure_sources": {
+          "items": {
+            "$ref": "#/$defs/ExposureSource"
+          },
+          "title": "Exposure Sources",
+          "type": "array"
+        },
         "extractor": {
           "description": "extractor id and version, e.g. spring-config-v1",
           "title": "Extractor",
@@ -349,10 +438,26 @@
           "title": "Fact Id",
           "type": "string"
         },
+        "inputs": {
+          "description": "Every location or fact that contributed",
+          "items": {
+            "$ref": "#/$defs/FactInput"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
         "kind": {
           "description": "Namespaced fact kind, e.g. spring.property, k8s.probe.readiness, http_client.read_timeout",
           "title": "Kind",
           "type": "string"
+        },
+        "link_ids": {
+          "description": "Linkages this fact's applicability depends on",
+          "items": {
+            "type": "string"
+          },
+          "title": "Link Ids",
+          "type": "array"
         },
         "overridden_by": {
           "anyOf": [
@@ -370,6 +475,19 @@
         "override_exposure": {
           "$ref": "#/$defs/OverrideExposure",
           "default": "none"
+        },
+        "precedence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Precedence level of the winning source, from the documented vocabulary",
+          "title": "Precedence"
         },
         "scope": {
           "additionalProperties": {
@@ -433,6 +551,42 @@
         "extractor"
       ],
       "title": "Fact",
+      "type": "object"
+    },
+    "FactInput": {
+      "additionalProperties": false,
+      "properties": {
+        "fact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fact Id"
+        },
+        "role": {
+          "$ref": "#/$defs/InputRole"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "FactInput",
       "type": "object"
     },
     "FactStatus": {
@@ -630,6 +784,21 @@
       ],
       "title": "Finding",
       "type": "object"
+    },
+    "InputRole": {
+      "description": "How an input contributed to a fact (revision 3).",
+      "enum": [
+        "value_source",
+        "placeholder",
+        "env_attachment",
+        "profile_activation",
+        "property_reference",
+        "version_basis",
+        "reference",
+        "absence"
+      ],
+      "title": "InputRole",
+      "type": "string"
     },
     "Inventory": {
       "additionalProperties": false,
@@ -1223,6 +1392,58 @@
         "version"
       ],
       "title": "ToolInfo",
+      "type": "object"
+    },
+    "UpstreamRef": {
+      "additionalProperties": false,
+      "description": "Exact upstream location of a cited default (revision 3).",
+      "properties": {
+        "anchor": {
+          "description": "Text that appears on the cited line",
+          "title": "Anchor",
+          "type": "string"
+        },
+        "commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Commit",
+          "type": "string"
+        },
+        "line": {
+          "minimum": 1,
+          "title": "Line",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "repository": {
+          "description": "owner/repo on GitHub",
+          "title": "Repository",
+          "type": "string"
+        },
+        "tag": {
+          "title": "Tag",
+          "type": "string"
+        },
+        "verified_at": {
+          "description": "Releases where the default was checked identical (CEO decision M2-0-D3)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Verified At",
+          "type": "array"
+        }
+      },
+      "required": [
+        "repository",
+        "tag",
+        "commit",
+        "path",
+        "line",
+        "anchor"
+      ],
+      "title": "UpstreamRef",
       "type": "object"
     },
     "Verdict": {

@@ -1,6 +1,7 @@
 """FifthNine Scan result, fact and finding schema, version 1.
 
-Frozen at M0, revision 2 (D2, D3, D9; see docs/fifthnine/m0/SCHEMA_CHANGES_R2.md). Changes that remove or rename fields, or change the meaning of an enum value,
+Frozen at M0, revision 2 (D2, D3, D9; see docs/fifthnine/m0/SCHEMA_CHANGES_R2.md). Revision 3 (M2-1, CEO decision
+M2-0-D2) adds optional provenance fields only; see docs/fifthnine/m0/SCHEMAS.md. Changes that remove or rename fields, or change the meaning of an enum value,
 require a new schema version and CEO approval (contract section 14). Additive optional fields
 are allowed within v1 and must be listed in docs/fifthnine/m0/SCHEMAS.md.
 
@@ -135,12 +136,34 @@ class Reference(_Model):
     source_path: str | None = Field(default=None, description="Pinned upstream source file, e.g. tag + path.")
 
 
+class UpstreamRef(_Model):
+    """Exact upstream location of a cited default (revision 3)."""
+
+    repository: str = Field(description="owner/repo on GitHub")
+    tag: str
+    commit: str = Field(pattern=r"^[0-9a-f]{40}$")
+    path: str
+    line: int = Field(ge=1)
+    anchor: str = Field(description="Text that appears on the cited line")
+    verified_at: list[str] = Field(default_factory=list, description="Releases where the default was checked identical (CEO decision M2-0-D3)")
+
+
 class DefaultRef(_Model):
     """Citation for a value that comes from a framework default rather than the repository."""
 
     framework: str
-    version_range: str
+    version_range: str = Field(description="Versions the citation covers; for a version-independent default, the verified span")
     reference: Reference
+    applied_version: str | None = Field(default=None, description="Component version the default was looked up for (revision 3)")
+    upstream: UpstreamRef | None = Field(default=None, description="Exact upstream line (revision 3)")
+
+    @model_validator(mode="after")
+    def _version_or_verified(self) -> DefaultRef:
+        if self.upstream and self.applied_version is None and (
+            len(self.upstream.verified_at) < 2 or self.upstream.tag not in self.upstream.verified_at
+        ):
+            raise ValueError("a version-independent default must be verified at two or more releases, including the cited tag")
+        return self
 
 
 class Subject(_Model):
@@ -176,6 +199,48 @@ class ComponentSupport(_Model):
 # ---------------------------------------------------------------- facts and links
 
 
+class InputRole(str, Enum):
+    """How an input contributed to a fact (revision 3)."""
+
+    VALUE_SOURCE = "value_source"  # a literal or fact whose value is used
+    PLACEHOLDER = "placeholder"  # ${VAR:default} expression that was resolved
+    ENV_ATTACHMENT = "env_attachment"  # env / envFrom entry that makes a variable visible to the container
+    PROFILE_ACTIVATION = "profile_activation"
+    PROPERTY_REFERENCE = "property_reference"  # build-file ${prop} use site
+    VERSION_BASIS = "version_basis"  # the resolved component version a default lookup used
+    REFERENCE = "reference"  # selector, backend, scaleTargetRef, named port, call or decorator binding
+    ABSENCE = "absence"  # identity line of the object where a field is not set
+
+
+class FactInput(_Model):
+    role: InputRole
+    source: SourceRef | None = None
+    fact_id: str | None = None
+
+    @model_validator(mode="after")
+    def _one_target(self) -> FactInput:
+        if (self.source is None) == (self.fact_id is None):
+            raise ValueError("an input names exactly one of source or fact_id")
+        return self
+
+
+class ExposureSource(_Model):
+    """The out-of-repository mechanism behind override_exposure (revision 3)."""
+
+    via: Literal["envFrom", "valueFrom", "volume", "inherited"]
+    object: str | None = Field(default=None, description="e.g. k8s:Secret/commerce/orders-service-secrets")
+    variables: list[str] = Field(default_factory=list, description="Example variables or keys that could carry the override")
+    from_fact_ids: list[str] = Field(default_factory=list, description="For via=inherited")
+
+    @model_validator(mode="after")
+    def _shape(self) -> ExposureSource:
+        if (self.via == "inherited") != bool(self.from_fact_ids):
+            raise ValueError("inherited exposure names from_fact_ids, and only inherited exposure does")
+        if self.via != "inherited" and not self.object:
+            raise ValueError("a direct exposure source names the out-of-repository object")
+        return self
+
+
 class Fact(_Model):
     fact_id: str
     kind: str = Field(description="Namespaced fact kind, e.g. spring.property, k8s.probe.readiness, http_client.read_timeout")
@@ -190,6 +255,22 @@ class Fact(_Model):
     overridden_by: str | None = Field(default=None, description="fact_id of the winning fact")
     unresolved_reason: str | None = None
     extractor: str = Field(description="extractor id and version, e.g. spring-config-v1")
+    # revision 3 (all optional)
+    inputs: list[FactInput] = Field(default_factory=list, description="Every location or fact that contributed")
+    exposure_sources: list[ExposureSource] = Field(default_factory=list)
+    link_ids: list[str] = Field(default_factory=list, description="Linkages this fact's applicability depends on")
+    precedence: str | None = Field(default=None, description="Precedence level of the winning source, from the documented vocabulary")
+    absent: bool = Field(default=False, description="Established as not set in the cited object")
+
+    @model_validator(mode="after")
+    def _revision3(self) -> Fact:
+        if self.absent and (self.status is not FactStatus.DECLARED or self.value is not None):
+            raise ValueError("an absent fact is declared with a null value")
+        if self.exposure_sources and self.override_exposure is OverrideExposure.NONE:
+            raise ValueError("exposure_sources require override_exposure other than none")
+        # Revision 2 documents stay valid: a fact with override_exposure but no exposure_sources is accepted here.
+        # The M2 engine always names its sources; tests/unit/test_engine_facts.py enforces that on engine output.
+        return self
 
 
 class Linkage(_Model):
@@ -414,6 +495,7 @@ def derive_verdict(
     how much of that result can be stated. Returns (verdict, assumptions, verdict_if_assumptions_hold).
 
     - A material value that does not exist (unresolved fact, unresolved linkage) or an indeterminate check: UNKNOWN.
+      A declared fact with absent=True is established (the field is known not to be set) and does not give UNKNOWN.
     - A material value that exists but could be replaced from outside the repository, an inferred or stale
       linkage, or an untested version: the computation still runs, the assumption is recorded, and a failing
       check is CONDITIONAL with verdict_if_assumptions_hold = VIOLATION.

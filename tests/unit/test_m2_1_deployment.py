@@ -656,3 +656,21 @@ def test_yaml_depth_check_accumulates_compact_tokens_across_lines() -> None:
             compose_yaml_documents("\n".join(lines) + "\n")
     ordinary = "items:\n" + "".join(f"  - name: n{i}\n    tags:\n      - a\n      - b\n" for i in range(500))
     assert compose_yaml_documents(ordinary)
+
+
+KUBERNETES_DEFAULT_KEYS = {
+    "pod.termination_grace_period", "deployment.strategy_type", "deployment.max_unavailable", "deployment.max_surge",
+    "service.type", "service.target_port", "hpa.min_replicas", "container.request_from_limit", "probe.httpget_path",
+}
+
+
+def test_kubernetes_defaults_table_has_exactly_the_nine_cited_entries() -> None:
+    """The count is pinned: adding or dropping an entry is a deliberate change that needs a citation and a verified release set."""
+    from fifthnine.resolve.defaults import kubernetes_defaults
+
+    table = kubernetes_defaults()
+    assert set(table) == KUBERNETES_DEFAULT_KEYS
+    for key, entry in table.items():
+        up = entry.ref.upstream
+        assert up is not None and up.line > 0 and up.anchor and up.path, key
+        assert len(up.verified_at) >= 2 and up.tag in up.verified_at, key

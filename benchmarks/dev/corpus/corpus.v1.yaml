@@ -221,11 +221,16 @@ entries:
     licence: {spdx: Apache-2.0, file: LICENSE}
     in_supported_range: "no"
     deployment_shape: plain+helm
-    linkage_expectation: in-repo-app
+    linkage_expectation: partial
+    linkage_expectation_corrected: >
+      M2-1 (2026-10-22): was in-repo-app. The Dockerfile in distribution/docker/server does not sit in the seata-server
+      module root and copies only `ADD target`, `bin/`, `lib/` and `conf/` from a build context that the repository does
+      not connect to server/pom.xml, so the evidence rule (Dockerfile in the module root, or a COPY naming the artifact)
+      is not met. The M2-0 label judged the layout by reading, not by the rule. The rule is unchanged.
     rationale: >
       Distributed transaction server with a plain manifest for seataio/seata-server and a Helm chart. One Dockerfile
-      (distribution/docker/server) builds the server whose artifactId is seata-server. Mixed Boot versions across
-      modules (2.7.18, 4.0.6), all outside the supported range.
+      (distribution/docker/server) packages a distribution assembly for the server whose artifactId is seata-server.
+      Mixed Boot versions across modules (2.7.18, 4.0.6), all outside the supported range.
     m1_baseline: "4255/110; spring-boot 2.7.18 and 4.0.6 unsupported, one module not determined; java 17, 21 untested; 8, 25 unsupported"
   - id: SB-15
     repository: flowable/flowable-engine

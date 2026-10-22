@@ -52,3 +52,4 @@ Derived by `derive_status()`: any unsuppressed VIOLATION gives `FAIL_VERIFIED`; 
 | Date | Schema | Change |
 |---|---|---|
 | 2026-10-21 (M1) | support-matrix v1 | `ComponentEntry.specifier` (PEP 440) and `ComponentEntry.allowed_versions` (exact or leading-component matches) give approved ranges a machine-readable form |
+| 2026-10-22 (M2-1) | result v1, revision 3 | `Fact.inputs` (role, source or fact id), `Fact.exposure_sources` (via, object, variables), `Fact.link_ids`, `Fact.precedence`, `Fact.absent`; `DefaultRef.applied_version` and `DefaultRef.upstream` (repository, tag, commit, path, line, anchor, `verified_at`). All optional. **Strict-consumer note:** a consumer that rejects unknown properties must be updated; revision 2 documents remain valid under the revision 3 schema. `exposure_sources` is required on engine output whenever exposure is not `none`; the model does not enforce this, so that revision 2 documents still load. |

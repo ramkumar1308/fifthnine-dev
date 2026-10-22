@@ -107,3 +107,11 @@ components:
     other_evidence:
       - {version: "docs main 2026-10-21", kind: source_review, detail: "grace period incl. preStop, HPA requests, PDB vs rollouts, rounding", rules: [FN-DEP-003, FN-CAP-002a, FN-CAP-002b, FN-DEP-001], recorded: "2026-10-21"}
     limits: ["No cluster behaviour exercised (kind/minikube fixtures planned for M3)", "preStop sleep action needs a cluster version that supports it"]
+  - id: kubernetes-server
+    component: kubernetes-server
+    approved_range: "1.34 to 1.37 (M2-0-D3): API-server defaults in data/defaults/kubernetes.v1.yaml are verified identical at each release"
+    specifier: ">=1.34,<1.38"
+    tested_versions: []
+    other_evidence:
+      - {version: "v1.34.12, v1.35.9, v1.36.5, v1.37.1", kind: source_review, detail: "defaulting functions for termination grace period, Deployment strategy, Service type and targetPort, HPA minReplicas, request from limit", rules: [], recorded: "2026-10-22"}
+    limits: ["The cluster version is not in the repository; defaults apply only if the cluster runs a release in this range", "Admission webhooks and LimitRanges can change values after apply"]

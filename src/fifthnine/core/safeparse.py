@@ -129,6 +129,7 @@ def load_yaml_documents(text: str) -> list[YamlDocument]:
     """Load documents with ruamel's round-trip loader (plain mappings, sequences and scalars; no arbitrary Python
     objects; aliases stay shared references). Used for .fifthnine.yml and packaged data. Convert with to_plain()
     before handing data to anything that copies it."""
+    _check_yaml_depth(text)
     yaml = YAML(typ="rt", pure=True)
     yaml.allow_duplicate_keys = False
     docs: list[YamlDocument] = []
@@ -145,11 +146,84 @@ def load_yaml_documents(text: str) -> list[YamlDocument]:
     return docs
 
 
+MAX_YAML_DEPTH = 200
+_BLOCK_SCALAR_HEADER = re.compile(r"(^|:\s+|-\s+)((&|!)\S*\s+)*[|>][-+0-9]*\s*$")
+_NEST_TOKENS = ("- ", "? ", ": ")
+
+
+def _flow_brackets(line: str) -> tuple[int, int]:
+    """(opened, closed) flow brackets on one line, ignoring quoted text and a trailing comment."""
+    opened = closed = 0
+    quote = ""
+    prev = " "
+    for ch in line:
+        if quote:
+            if ch == quote:
+                quote = ""
+        elif ch in "\"'" and prev in " \t[{,:-?":
+            quote = ch
+        elif ch == "#" and prev in " \t":
+            break
+        elif ch in "[{":
+            opened += 1
+        elif ch in "]}":
+            closed += 1
+        prev = ch
+    return opened, closed
+
+
+def _check_yaml_depth(text: str) -> None:
+    """Refuse deeply nested YAML before the parser sees it. Deep nesting can exhaust the C stack of the composer
+    (a hard crash, not a RecursionError), so depth is bounded by a linear scan: flow brackets (outside quotes and
+    comments), block indentation, and compact nesting tokens (`- `, `? `, `: `) at the start of a line. Block scalar
+    bodies are skipped, and the count restarts at each document marker."""
+    flow = 0
+    stack: list[tuple[int, int]] = []  # open block structures: (column, depth), depth including every enclosing line
+    scalar_indent: int | None = None  # inside a block scalar whose header is at this indent
+    for line in text.splitlines():
+        body = line.lstrip(" ")
+        if not body:
+            continue
+        indent = len(line) - len(body)
+        if scalar_indent is not None:
+            if indent > scalar_indent:
+                continue
+            scalar_indent = None
+        if body.startswith("#"):
+            continue
+        if indent == 0 and (body.startswith("---") or body.startswith("...")):
+            flow = 0
+            stack.clear()
+            body = body[3:].lstrip(" ")
+            if not body:
+                continue
+        col = indent
+        marks: list[int] = []  # columns of the compact nesting tokens that open this line: "- - - a", "? ? ? a"
+        while body[:2] in _NEST_TOKENS:
+            marks.append(col)
+            rest = body[2:]
+            body = rest.lstrip(" ")
+            col += 2 + len(rest) - len(body)
+        opened, closed = _flow_brackets(body)
+        while stack and stack[-1][0] >= indent:
+            stack.pop()
+        depth = stack[-1][1] if stack else 0
+        for c in marks or [indent]:  # a line that opens with tokens is a sibling at its first token's column
+            depth += 1
+            stack.append((c, depth))
+        flow = max(0, flow + opened - closed)
+        if depth + flow + opened > MAX_YAML_DEPTH:
+            raise ParseError("YAML nesting too deep")
+        if _BLOCK_SCALAR_HEADER.search(body.split(" #", 1)[0]):
+            scalar_indent = indent
+
+
 def compose_yaml_documents(text: str) -> list[Node]:
     """Compose (parse without constructing) every document. Uses the libyaml-based C parser when available and
     the pure-Python parser otherwise. Nothing is constructed, so tags never run and aliases are never expanded;
     every node carries its start line. Used to inventory Kubernetes objects, where only a few top-level scalars
     are needed and manifests can be large."""
+    _check_yaml_depth(text)
     try:
         yaml = YAML(typ="safe", pure=False)
         nodes: list[Node] = []

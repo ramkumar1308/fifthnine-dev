@@ -1,6 +1,6 @@
-"""Scan orchestration for M1: discover, detect, classify support, report coverage honestly.
+"""Scan orchestration: discover, detect, classify support, extract deployment facts (M2-1), report coverage honestly.
 
-M1 ships no reliability rules. Every scan therefore reports status INCOMPLETE with a blocking coverage
+Until M3 there are no reliability rules. Every scan therefore reports status INCOMPLETE with a blocking coverage
 notice saying so, never a pass (CEO condition C2).
 """
 
@@ -27,6 +27,7 @@ from fifthnine.core.workspace import (
     Workspace,
     discover,
 )
+from fifthnine.resolve.deployment import resolve_deployment
 from fifthnine.schema.config_v1 import FifthNineConfig
 from fifthnine.schema.v1 import (
     AssessmentLimits,
@@ -36,6 +37,7 @@ from fifthnine.schema.v1 import (
     Fact,
     Finding,
     Inventory,
+    LinkStatus,
     ScanInfo,
     ScanResult,
     ScanStatus,
@@ -47,7 +49,7 @@ from fifthnine.schema.v1 import (
     derive_status,
 )
 
-RULE_PACK = {"fifthnine-core": "0.0.0 (no rules in M1)"}
+RULE_PACK = {"fifthnine-core": "0.0.0 (no rules before M3)"}
 
 
 class FifthNineError(Exception):
@@ -123,8 +125,9 @@ def _stacks(result: DetectionResult) -> list[ComponentSupport]:
 def _coverage(ws: Workspace, result: DetectionResult, stacks: list[ComponentSupport]) -> list[CoverageNotice]:
     notes: list[CoverageNotice] = [CoverageNotice(
         code="COV-NO-RULES", scope="repository", blocks_assessment=True,
-        message="This build contains no reliability rules (milestone M1: CLI foundation). Nothing about the repository's "
-                "production readiness was assessed. The scan only inventories files and detects supported stacks and versions.",
+        message="This build contains no reliability rules (Phase 1 milestone M2: fact extraction). Nothing about the repository's "
+                "production readiness was assessed. The scan inventories files, detects supported stacks and versions, and extracts "
+                "Docker and Kubernetes facts with provenance (--facts all).",
     )]
     if ws.file_limit_reached:
         notes.append(CoverageNotice(code="COV-LIMIT", scope="repository", blocks_assessment=True,
@@ -222,35 +225,44 @@ def run_scan(opts: ScanOptions) -> ScanResult:
     result = detect(ws)
     stacks = _stacks(result)
     coverage = _coverage(ws, result, stacks)
+    deployment = resolve_deployment(ws)
+    coverage += deployment.coverage
     if config is not None and config.integrations:
         coverage.append(CoverageNotice(code="COV-IGNORED-CONFIG", scope=config_shown or ".fifthnine.yml",
                                        message="integrations is reserved (SARIF import, E8 stretch) and ignored in v0.1."))
 
-    all_facts: list[Fact] = detection_facts(result)
-    facts = all_facts if opts.facts == "all" else []  # no findings in M1, so no facts are referenced
+    all_facts: list[Fact] = sorted(detection_facts(result) + deployment.facts.facts(),
+                                   key=lambda f: (f.kind, f.subject.key, sorted(f.scope.items()), f.fact_id))
+    facts = all_facts if opts.facts == "all" else []  # no findings yet, so no facts are referenced
+    linkages = sorted(deployment.linkages, key=lambda lk: lk.link_id)
 
     inventoried = {f.path for f in ws.files}
-    parsed = set(result.parsed) | ({config_shown} if config_shown in inventoried else set())
+    parsed = set(result.parsed) | set(deployment.parsed) | ({config_shown} if config_shown in inventoried else set())
     skipped = sorted(ws.skipped + result.parse_errors, key=lambda s: (s.path, s.reason))
     findings: list[Finding] = []
     status = derive_status(findings, coverage, rules_evaluated=0)
-    if status is not ScanStatus.INCOMPLETE:  # M1 invariant: no rules, never a pass
-        raise RuntimeError(f"M1 scan produced status {status.value}; expected INCOMPLETE")
+    if status is not ScanStatus.INCOMPLETE:  # invariant until M3: no rules, never a pass
+        raise RuntimeError(f"scan produced status {status.value}; expected INCOMPLETE")
     return ScanResult(
         tool=ToolInfo(version=__version__, rule_pack_versions=RULE_PACK),
         scan=ScanInfo(mode="full", profile=profile, profile_source=profile_source, config_file=config_shown,
                       policy_mode=policy_mode, fail_on=fail_on),
         status=status,
-        status_reason="No reliability rules are implemented in this build (M1). The repository was inventoried; it was not assessed.",
+        status_reason="No reliability rules are implemented in this build (M2). The repository was inventoried and its "
+                      "deployment facts extracted; it was not assessed.",
         inventory=Inventory(files_considered=len(ws.files), files_parsed=len(parsed), skipped=skipped,
                             detected_stacks=stacks),
-        linkages=[],
+        linkages=linkages,
         findings=findings,
         coverage=coverage,
         facts=facts,
         summary=Summary(by_verdict={v: 0 for v in Verdict}, by_severity={s: 0 for s in Severity}, blocking=0, new=0, suppressed=0,
                         rules_evaluated=0, rules_not_applicable=0,
-                        assessment_limits=AssessmentLimits(results_unknown_unresolved_value=0, rules_not_assessable=0)),
+                        assessment_limits=AssessmentLimits(
+                            linkages_declared=0,
+                            linkages_inferred=sum(lk.status is LinkStatus.INFERRED for lk in linkages),
+                            linkages_unresolved=sum(lk.status is LinkStatus.UNRESOLVED for lk in linkages),
+                            results_unknown_unresolved_value=0, rules_not_assessable=0)),
     )
 
 

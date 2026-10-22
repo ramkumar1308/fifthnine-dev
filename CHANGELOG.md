@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0.dev0 (unreleased): M2-1 deployment facts
+
+- Result schema revision 3 within `fifthnine.result/v1`: optional `inputs`, `exposure_sources`, `link_ids`, `precedence` and `absent` on facts, and `upstream` citations on defaults. Revision 2 documents stay valid.
+- Dockerfile facts (stages, base image, `WORKDIR`, `EXPOSE`, `ENV`, `ENTRYPOINT`, `CMD`, `COPY --from`, `USER`) with `ARG` and `ENV` substitution; default target and unresolved build target kept apart.
+- Kubernetes facts for Deployment, Service, Ingress, HPA, PDB and ConfigMap, with selector, namespace and port relationships; unset namespaces and unresolved selectors stay unresolved.
+- Kubernetes defaults table, each entry cited at v1.37.1 and verified at four releases from 1.34 to 1.37.
+- Container environment model with override exposure, effective container command, and container-to-source link proposals under the unchanged evidence rule.
+- `--facts all` emits these facts and links; the console shows a deployment summary.
+- Dev dependency `dockerfile==3.4.0` (BuildKit parser) for the provenance oracle; no new runtime dependency.
+
 ## 0.1.0.dev0 (unreleased): M1 CLI foundation
 
 - Installable `fifthnine` package and console script (`pip install .`, `pipx install .`, `python -m fifthnine`).

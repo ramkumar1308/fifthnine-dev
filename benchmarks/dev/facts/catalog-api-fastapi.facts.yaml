@@ -25,6 +25,9 @@ links:
       - {path: pyproject.toml, line: 2, anchor: 'name = "catalog-api"'}
       - {path: k8s/deployment.yaml, line: 23, anchor: '"app.main:app"'}
       - {path: app/main.py, line: 5, anchor: 'app = FastAPI(title="catalog-api")'}
+      - {path: Dockerfile, line: 1, anchor: "FROM python:3.12-slim"}
+      # COPY pyproject.toml (line 4) is not evidence: a build descriptor alone is not the module (M2-1 review R3).
+      - {path: Dockerfile, line: 6, anchor: "COPY app ./app"}
       - {path: Dockerfile, line: 9, anchor: "EXPOSE 8000"}
       - {path: k8s/deployment.yaml, line: 31, anchor: "containerPort: 8000"}
     milestone: M2-1
@@ -122,6 +125,26 @@ facts:
     note: >
       Image-level facts stay declared, as SP-D04 does. CA-K06 supersedes it for the Deployment container, which sets
       command (RULES.md F13 trap); the image CMD would still run in any container that sets neither command nor args.
+
+  - id: CA-D06
+    kind: docker.default_target
+    subject: docker:Dockerfile
+    value: {stage_index: 0, stage_name: null}
+    status: declared
+    source: {path: Dockerfile, line: 1, anchor: "FROM python:3.12-slim"}
+    milestone: M2-1
+    note: >
+      CEO clarification (M2-1): the final stage is Docker's default build target, built when no --target is given. Whether
+      the deployed image was built from it is not in the repository; that stays unresolved.
+  - id: CA-D07
+    kind: docker.build_target
+    subject: docker:Dockerfile
+    value: null
+    status: unresolved
+    unresolved_reason: The build target used to produce the deployed image is not in the repository.
+    inputs:
+      - {role: reference, fact: CA-D06}
+    milestone: M2-1
 
   # ---------------------------------------------------------------- Kubernetes objects and graph
   - id: CA-K01

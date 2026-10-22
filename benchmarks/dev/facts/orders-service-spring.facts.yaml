@@ -23,6 +23,7 @@ links:
     evidence:
       - {path: k8s/deployment.yaml, line: 25, anchor: "image: ghcr.io/acme/orders-service:1.8.0"}
       - {path: pom.xml, line: 15, anchor: "<artifactId>orders-service</artifactId>"}
+      - {path: Dockerfile, line: 8, anchor: "FROM eclipse-temurin:21-jre"}
       - {path: Dockerfile, line: 10, anchor: "COPY --from=build /src/target/orders-service-*.jar /app/app.jar"}
       - {path: Dockerfile, line: 12, anchor: "EXPOSE 8080 8081"}
       - {path: k8s/deployment.yaml, line: 28, anchor: "containerPort: 8080"}
@@ -90,7 +91,9 @@ facts:
     status: declared
     source: {path: Dockerfile, line: 8, anchor: "FROM eclipse-temurin:21-jre"}
     milestone: M2-1
-    note: Stage index 1 is the final (runtime) stage. Stage 0 (maven build) is not the runtime image.
+    note: >
+      Stage 1 is the final stage, Docker's default build target (SP-D06). Whether the deployed image was built from it is
+      not in the repository (SP-D07).
   - id: SP-D02
     kind: docker.workdir
     subject: docker:Dockerfile#1
@@ -114,10 +117,29 @@ facts:
     milestone: M2-1
   - id: SP-D05
     kind: docker.copy_from_stage
-    subject: docker:Dockerfile#1
+    subject: docker:Dockerfile#1>/app/app.jar
     value: {from_stage: build, src: /src/target/orders-service-*.jar, dest: /app/app.jar}
     status: declared
     source: {path: Dockerfile, line: 10, anchor: "COPY --from=build /src/target/orders-service-*.jar /app/app.jar"}
+    milestone: M2-1
+  - id: SP-D06
+    kind: docker.default_target
+    subject: docker:Dockerfile
+    value: {stage_index: 1, stage_name: null}
+    status: declared
+    source: {path: Dockerfile, line: 8, anchor: "FROM eclipse-temurin:21-jre"}
+    milestone: M2-1
+    note: >
+      CEO clarification (M2-1): the final stage is Docker's default build target, built when no --target is given. Whether
+      the deployed image was built from it is not in the repository; that stays unresolved.
+  - id: SP-D07
+    kind: docker.build_target
+    subject: docker:Dockerfile
+    value: null
+    status: unresolved
+    unresolved_reason: The build target used to produce the deployed image is not in the repository.
+    inputs:
+      - {role: reference, fact: SP-D06}
     milestone: M2-1
 
   # ---------------------------------------------------------------- Kubernetes objects and graph
@@ -175,15 +197,19 @@ facts:
     kind: k8s.container.effective_command
     subject: k8s:Deployment/commerce/orders-service/orders-service
     value: [java, "-XX:MaxRAMPercentage=75", "-jar", /app/app.jar]
-    status: declared
+    status: inferred
     source: {path: Dockerfile, line: 13, anchor: 'ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]'}
     inputs:
       - {role: absence, loc: {path: k8s/deployment.yaml, line: 24, anchor: "- name: orders-service"}}
+      - {role: reference, fact: SP-D06}
+      - {role: reference, fact: SP-D07}
       - {role: value_source, fact: SP-D04}
     precedence: docker.entrypoint
     link_ids: [SP-L01]
     milestone: M2-1
-    note: The container sets neither command nor args, so the image ENTRYPOINT runs. Applies only through the image link.
+    note: >
+      The container sets neither command nor args, so the image ENTRYPOINT runs (its CMD is cleared by ENTRYPOINT). This
+      holds only through the inferred image link and only if the deployed image was built from the default target (SP-D06). The build target is unresolved (SP-D07), so the fact is inferred, not declared (independent review of M2-1, 2026-10-22).
   - id: SP-K09
     kind: k8s.container.env
     subject: k8s:Deployment/commerce/orders-service/orders-service#SPRING_PROFILES_ACTIVE

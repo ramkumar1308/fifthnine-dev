@@ -39,6 +39,8 @@ dev = [
     "pyyaml>=6",
     "ruff>=0.6",
     "mypy>=1.10",
+    # Test-only oracle: Docker's BuildKit Dockerfile parser, used to cross-check M2 Dockerfile facts. Never a runtime dependency.
+    "dockerfile>=3.4",
 ]
 
 [project.scripts]

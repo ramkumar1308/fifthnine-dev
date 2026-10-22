@@ -32,6 +32,13 @@ def render_console(result: ScanResult, color: bool = False) -> str:
         where = f"{c.version_source.path}:{c.version_source.line_start}" if c.version_source else ""
         level = style(f"[{c.support.value}]", fg=LEVEL_COLOR[c.support])
         lines.append(f"  {c.component:<16} {c.version or '(version not determined)':<40} {level:<12} {where}")
+    if result.linkages or result.facts:
+        lines += ["", "Deployment facts and source links"]
+        lines.append(f"  {len(result.facts)} facts ({sum(f.status.value == 'unresolved' for f in result.facts)} unresolved, "
+                     f"{sum(f.status.value == 'default' for f in result.facts)} framework defaults); see --format json --facts all")
+    for lk in result.linkages:
+        reason = next((e[len("reason: "):] for e in lk.evidence if e.startswith("reason: ")), None)
+        lines.append(f"  link {lk.status.value:<10} {lk.from_ref} -> {lk.to_ref}" + (f"  ({reason})" if reason else ""))
     lines += ["", "Coverage and limits"]
     for n in result.coverage:
         lines.append(f"  {n.code:<24} {n.scope}")

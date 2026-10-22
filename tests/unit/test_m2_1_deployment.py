@@ -123,7 +123,7 @@ def test_engine_output_names_exposure_sources_and_validates_against_json_schema(
         result = run_scan(ScanOptions(path=ROOT / "samples" / sample, facts="all"))
         assert all(f.exposure_sources for f in result.facts if f.override_exposure is not OverrideExposure.NONE)
         doc = json.loads(render_json(result))
-        jsonschema.validate(doc, json.loads((ROOT / "schemas" / "result.v1.json").read_text()))
+        jsonschema.validate(doc, json.loads((ROOT / "schemas" / "result.v1.json").read_text(encoding="utf-8")))
         assert doc["status"] == "INCOMPLETE" and doc["linkages"]
 
 

@@ -623,7 +623,7 @@ def check_links(root: Path, links: list[Linkage], facts: list[Fact], rep: Oracle
             elif base in ("settings.gradle", "settings.gradle.kts"):
                 ok = bool(re.search(r"rootProject\.name\s*=\s*['\"][^'\"]+['\"]", text))
             elif base == "pyproject.toml":
-                ok = "name" in text and tomllib.loads((root / path).read_text())["project"]["name"] in text
+                ok = "name" in text and tomllib.loads((root / path).read_text(encoding="utf-8"))["project"]["name"] in text
             elif path.endswith(".py"):
                 ok = isinstance(ast.parse(text.strip()).body[0], (ast.Assign, ast.AnnAssign))
             elif link.from_ref in images and images[link.from_ref].source and images[link.from_ref].source.line_start == line:  # type: ignore[union-attr]

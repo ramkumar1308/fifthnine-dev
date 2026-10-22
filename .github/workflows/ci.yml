@@ -39,6 +39,11 @@ jobs:
         run: mypy
       - name: Tests
         run: python -m pytest -q
+      - name: Failure diagnostics (temporary)
+        if: failure()
+        shell: bash
+        run: |
+          python -m pytest -q --tb=line -p no:cacheprovider 2>&1 | grep -E "^(FAILED|E  |/|[A-Za-z]:)" | head -20 | while IFS= read -r l; do echo "::error::${l:0:400}"; done
 
   package:
     name: package and offline smoke test

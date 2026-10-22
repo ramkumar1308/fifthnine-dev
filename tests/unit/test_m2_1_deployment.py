@@ -618,6 +618,8 @@ def test_yaml_depth_check_covers_complex_key_nesting_and_has_no_false_rejects() 
             compose_yaml_documents(deep)
     ok = [
         "k: |\n" + "  [INFO line {x\n" * 300,
+        "k: &a |\n" + "  - [x {\n" * 300,
+        "k: !!str >-\n" + "  - [x {\n" * 300,
         "k: \"" + "[" * 500 + "\"\n",
         "# " + "{[" * 400 + "\n" * 1 + "".join("# {[ {[\n" for _ in range(400)) + "k: 1\n",
         "".join("k: \"[ unmatched\"\n---\n" for _ in range(150)),

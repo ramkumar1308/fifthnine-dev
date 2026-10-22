@@ -147,7 +147,7 @@ def load_yaml_documents(text: str) -> list[YamlDocument]:
 
 
 MAX_YAML_DEPTH = 200
-_BLOCK_SCALAR_HEADER = re.compile(r"(^|:\s+|-\s+)[|>][-+0-9]*\s*$")
+_BLOCK_SCALAR_HEADER = re.compile(r"(^|:\s+|-\s+)((&|!)\S*\s+)*[|>][-+0-9]*\s*$")
 _NEST_TOKENS = ("- ", "? ", ": ")
 
 

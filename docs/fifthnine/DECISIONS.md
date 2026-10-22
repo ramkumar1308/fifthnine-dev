@@ -120,3 +120,20 @@ CTO implementation notes for M1 (reviewable in the PR):
 | M1-N3 | Virtualenvs are excluded by the presence of `pyvenv.cfg`, not by directory names such as `env`, to avoid hiding per-environment manifests |
 | M1-N4 | One detected-stack entry per distinct component version, preferring lockfile, then build descriptor, then Dockerfile as the cited source |
 | M1-N5 | Dev corpus publication (M0-D8) is not part of this PR; it is the first M2 preparation item and will be proposed separately |
+
+---
+
+## 2026-10-21: M1 merged; M2 approved with conditions
+
+| ID | Decision | Status |
+|---|---|---|
+| M1-D | PR #1 merged to `main` with a merge commit (`d58bcbe`); post-merge CI 7/7. Approved with it: Kubernetes-only YAML parsing in M1, architecture text matching actual parser and timeout behaviour, pinned CI tool versions, additive support-matrix fields | APPROVED (CEO) |
+| M2-D1 | M2 plan (`docs/fifthnine/M2_PLAN.md`), acceptance criteria and six-PR sequence M2-0 to M2-5. Each PR needs independent review and CEO merge approval. Two-to-three-week estimate accepted | APPROVED (CEO) |
+| M2-D2 | tree-sitter with tree-sitter-java for Java syntax, pinned and tested on Linux, macOS and Windows. Parsing never executes repository code | APPROVED (CEO) |
+| M2-D3 | Separate Spring runtime-fixture CI job with controlled network access for dependency retrieval and framework behaviour checks. The CLI stays offline-capable; no production credentials or secrets | APPROVED (CEO) |
+| M2-D4 | Public development corpus of about 20 repositories, submitted in M2-0 with commits, licence notes and rationale; not frozen before review | APPROVED IN PRINCIPLE (CEO) |
+| M2-R1 | Keep repository-resolved values distinct from production-effective configuration; external overrides, unresolved profiles and conflicting sources stay visible as assumptions or unresolved facts | REQUIREMENT (CEO) |
+| M2-R2 | Preserve provenance for derived values (inputs, precedence, framework-version semantics); propose a minimal schema change before implementing one if v1 cannot express it | REQUIREMENT (CEO) |
+| M2-R3 | Strict separation between the offline scanner and network-enabled fixtures; M1 security, resource-limit and determinism guarantees preserved | REQUIREMENT (CEO) |
+
+Open from M2-0 (`docs/fifthnine/M2-0.md`): corpus approval, schema revision 3 (additive provenance fields), K1 Kubernetes defaults policy, and awareness of the Spring Boot 3.5 open-source end of line ahead of M3 planning.

@@ -1,0 +1,803 @@
+# Fact answer key for samples/orders-service-spring (M2-0).
+# Development data, labelled by the CTO. Not a held-out benchmark case; never report it as one.
+# Locations are relative to samples/orders-service-spring. Every `anchor` must appear on its line;
+# tests/unit/test_fact_answer_keys.py checks that for repository locations.
+# Format and scoring: docs/fifthnine/M2-0.md.
+schema: fifthnine.devkey.facts/v1
+sample: orders-service-spring
+mode: default
+mode_note: >
+  `fifthnine scan .` with no .fifthnine.yml and no --profile. The container-to-source link is proposed
+  (inferred), so every Spring fact that depends on the container's environment carries link SP-L01.
+  Values are repository-resolved. None of them is a claim about production-effective configuration:
+  the out-of-repository Secret orders-service-secrets is attached through envFrom.
+labelled_by: claude-cto
+reviewed_by: null
+
+links:
+  - id: SP-L01
+    kind: workload_container_to_source_root
+    status: inferred
+    from_ref: k8s:Deployment/commerce/orders-service/orders-service
+    to_ref: source:.
+    evidence:
+      - {path: k8s/deployment.yaml, line: 25, anchor: "image: ghcr.io/acme/orders-service:1.8.0"}
+      - {path: pom.xml, line: 15, anchor: "<artifactId>orders-service</artifactId>"}
+      - {path: Dockerfile, line: 10, anchor: "COPY --from=build /src/target/orders-service-*.jar /app/app.jar"}
+      - {path: Dockerfile, line: 12, anchor: "EXPOSE 8080 8081"}
+      - {path: k8s/deployment.yaml, line: 28, anchor: "containerPort: 8080"}
+      - {path: k8s/deployment.yaml, line: 30, anchor: "containerPort: 8081"}
+    milestone: M2-5
+
+facts:
+  # ---------------------------------------------------------------- build and versions
+  - id: SP-B01
+    kind: build.identity
+    subject: maven:pom.xml
+    value: {group: com.acme, artifact: orders-service}
+    status: declared
+    source: {path: pom.xml, line: 15, anchor: "<artifactId>orders-service</artifactId>"}
+    milestone: M2-5
+  - id: SP-B02
+    kind: stack.version
+    subject: component:spring-boot
+    value: "3.4.13"
+    status: declared
+    source: {path: pom.xml, line: 10, anchor: "<version>3.4.13</version>"}
+    milestone: M2-2
+    note: Already produced by M1; repeated here so M2 scoring covers it.
+  - id: SP-B03
+    kind: stack.version
+    subject: component:java
+    value: "21"
+    status: declared
+    source: {path: pom.xml, line: 20, anchor: "<java.version>21</java.version>"}
+    milestone: M2-2
+  - id: SP-B04
+    kind: stack.version
+    subject: component:resilience4j
+    value: "2.4.0"
+    status: declared
+    source: {path: pom.xml, line: 21, anchor: "<resilience4j.version>2.4.0</resilience4j.version>"}
+    inputs:
+      - {role: property_reference, loc: {path: pom.xml, line: 40, anchor: "<version>${resilience4j.version}</version>"}}
+    milestone: M2-2
+  - id: SP-B05
+    kind: stack.version
+    subject: component:spring-framework
+    value: "6.2.15"
+    status: default
+    inputs:
+      - {role: version_basis, fact: SP-B02}
+    default:
+      framework: spring-boot
+      applied_version: "3.4.13"
+      repository: spring-projects/spring-boot
+      tag: v3.4.13
+      commit: 96f3fe7953b609b9be4ada70ee562d97d89092a1
+      path: gradle.properties
+      line: 22
+      anchor: springFrameworkVersion=6.2.15
+    milestone: M2-2
+    note: Managed by the Boot parent. M1 does not report it; M2 derives it from the versioned defaults table.
+
+  # ---------------------------------------------------------------- Dockerfile
+  - id: SP-D01
+    kind: docker.stage.base_image
+    subject: docker:Dockerfile#1
+    value: eclipse-temurin:21-jre
+    status: declared
+    source: {path: Dockerfile, line: 8, anchor: "FROM eclipse-temurin:21-jre"}
+    milestone: M2-1
+    note: Stage index 1 is the final (runtime) stage. Stage 0 (maven build) is not the runtime image.
+  - id: SP-D02
+    kind: docker.workdir
+    subject: docker:Dockerfile#1
+    value: /app
+    status: declared
+    source: {path: Dockerfile, line: 9, anchor: "WORKDIR /app"}
+    milestone: M2-1
+  - id: SP-D03
+    kind: docker.expose
+    subject: docker:Dockerfile#1
+    value: [8080, 8081]
+    status: declared
+    source: {path: Dockerfile, line: 12, anchor: "EXPOSE 8080 8081"}
+    milestone: M2-1
+  - id: SP-D04
+    kind: docker.entrypoint
+    subject: docker:Dockerfile#1
+    value: {form: exec, argv: [java, "-XX:MaxRAMPercentage=75", "-jar", /app/app.jar]}
+    status: declared
+    source: {path: Dockerfile, line: 13, anchor: 'ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]'}
+    milestone: M2-1
+  - id: SP-D05
+    kind: docker.copy_from_stage
+    subject: docker:Dockerfile#1
+    value: {from_stage: build, src: /src/target/orders-service-*.jar, dest: /app/app.jar}
+    status: declared
+    source: {path: Dockerfile, line: 10, anchor: "COPY --from=build"}
+    milestone: M2-1
+
+  # ---------------------------------------------------------------- Kubernetes objects and graph
+  - id: SP-K01
+    kind: k8s.deployment.replicas
+    subject: k8s:Deployment/commerce/orders-service
+    value: 4
+    status: declared
+    source: {path: k8s/deployment.yaml, line: 9, anchor: "replicas: 4"}
+    milestone: M2-1
+  - id: SP-K02
+    kind: k8s.deployment.max_unavailable
+    subject: k8s:Deployment/commerce/orders-service
+    value: 50%
+    status: declared
+    source: {path: k8s/deployment.yaml, line: 13, anchor: "maxUnavailable: 50%"}
+    milestone: M2-1
+  - id: SP-K03
+    kind: k8s.deployment.max_surge
+    subject: k8s:Deployment/commerce/orders-service
+    value: 25%
+    status: declared
+    source: {path: k8s/deployment.yaml, line: 14, anchor: "maxSurge: 25%"}
+    milestone: M2-1
+  - id: SP-K04
+    kind: k8s.container.image
+    subject: k8s:Deployment/commerce/orders-service/orders-service
+    value: ghcr.io/acme/orders-service:1.8.0
+    status: declared
+    source: {path: k8s/deployment.yaml, line: 25, anchor: "image: ghcr.io/acme/orders-service:1.8.0"}
+    milestone: M2-1
+  - id: SP-K05
+    kind: k8s.container.port
+    subject: k8s:Deployment/commerce/orders-service/orders-service#http
+    value: 8080
+    status: declared
+    source: {path: k8s/deployment.yaml, line: 28, anchor: "containerPort: 8080"}
+    milestone: M2-1
+  - id: SP-K06
+    kind: k8s.container.port
+    subject: k8s:Deployment/commerce/orders-service/orders-service#management
+    value: 8081
+    status: declared
+    source: {path: k8s/deployment.yaml, line: 30, anchor: "containerPort: 8081"}
+    milestone: M2-1
+  - id: SP-K07
+    kind: k8s.container.effective_command
+    subject: k8s:Deployment/commerce/orders-service/orders-service
+    value: [java, "-XX:MaxRAMPercentage=75", "-jar", /app/app.jar]
+    status: declared
+    source: {path: Dockerfile, line: 13, anchor: "ENTRYPOINT"}
+    inputs:
+      - {role: absence, loc: {path: k8s/deployment.yaml, line: 24, anchor: "- name: orders-service"}}
+      - {role: value_source, fact: SP-D04}
+    precedence: docker.entrypoint
+    link: SP-L01
+    milestone: M2-1
+    note: The container sets neither command nor args, so the image ENTRYPOINT runs. Applies only through the image link.
+  - id: SP-K08
+    kind: k8s.container.env
+    subject: k8s:Deployment/commerce/orders-service/orders-service#SPRING_PROFILES_ACTIVE
+    value: prod
+    status: declared
+    source: {path: k8s/deployment.yaml, line: 33, anchor: "value: prod"}
+    inputs:
+      - {role: env_attachment, loc: {path: k8s/deployment.yaml, line: 32, anchor: "- name: SPRING_PROFILES_ACTIVE"}}
+    milestone: M2-1
+    note: An explicit env entry wins over envFrom for the same variable name, so the Secret cannot replace this variable.
+  - id: SP-K09
+    kind: k8s.container.env_from
+    subject: k8s:Deployment/commerce/orders-service/orders-service#configmap:orders-service-endpoints
+    value: {kind: ConfigMap, name: orders-service-endpoints, in_repository: true, defined_at: k8s/configmap.yaml}
+    status: declared
+    source: {path: k8s/deployment.yaml, line: 36, anchor: "name: orders-service-endpoints"}
+    inputs:
+      - {role: reference, loc: {path: k8s/configmap.yaml, line: 4, anchor: "name: orders-service-endpoints"}}
+    milestone: M2-1
+  - id: SP-K10
+    kind: k8s.container.env_from
+    subject: k8s:Deployment/commerce/orders-service/orders-service#secret:orders-service-secrets
+    value: {kind: Secret, name: orders-service-secrets, in_repository: false}
+    status: unresolved
+    unresolved_reason: Secret orders-service-secrets is not defined in the repository; its keys are unknown (RULES.md X3).
+    source: {path: k8s/deployment.yaml, line: 38, anchor: "name: orders-service-secrets"}
+    milestone: M2-1
+  - id: SP-K11
+    kind: k8s.container.resources.requests.memory
+    subject: k8s:Deployment/commerce/orders-service/orders-service
+    value: 768Mi
+    status: declared
+    source: {path: k8s/deployment.yaml, line: 41, anchor: "memory: 768Mi"}
+    milestone: M2-1
+  - id: SP-K12
+    kind: k8s.container.resources.requests.cpu
+    subject: k8s:Deployment/commerce/orders-service/orders-service
+    value: null
+    status: unresolved
+    unresolved_reason: Not set in the repository. A namespace LimitRange or admission webhook may set it at admission (RULES.md H6).
+    inputs:
+      - {role: absence, loc: {path: k8s/deployment.yaml, line: 40, anchor: "requests:"}}
+    milestone: M2-1
+  - id: SP-K13
+    kind: k8s.container.probe.readiness
+    subject: k8s:Deployment/commerce/orders-service/orders-service
+    value: {type: httpGet, path: /actuator/health/readiness, port: 8080}
+    status: declared
+    source: {path: k8s/deployment.yaml, line: 46, anchor: "path: /actuator/health/readiness"}
+    inputs:
+      - {role: value_source, loc: {path: k8s/deployment.yaml, line: 47, anchor: "port: 8080"}}
+    milestone: M2-1
+  - id: SP-K14
+    kind: k8s.container.probe.liveness
+    subject: k8s:Deployment/commerce/orders-service/orders-service
+    value: {type: httpGet, path: /actuator/health/liveness, port: 8081}
+    status: declared
+    source: {path: k8s/deployment.yaml, line: 52, anchor: "path: /actuator/health/liveness"}
+    inputs:
+      - {role: reference, loc: {path: k8s/deployment.yaml, line: 53, anchor: "port: management"}}
+      - {role: value_source, fact: SP-K06}
+    milestone: M2-1
+    note: The named port `management` resolves to containerPort 8081.
+  - id: SP-K15
+    kind: k8s.container.lifecycle.prestop
+    subject: k8s:Deployment/commerce/orders-service/orders-service
+    value: {type: exec, command: [sh, -c, sleep 10]}
+    status: declared
+    source: {path: k8s/deployment.yaml, line: 59, anchor: 'command: ["sh", "-c", "sleep 10"]'}
+    milestone: M2-1
+  - id: SP-K16
+    kind: k8s.container.lifecycle.prestop_sleep
+    subject: k8s:Deployment/commerce/orders-service/orders-service
+    value: 10
+    unit: s
+    status: inferred
+    source: {path: k8s/deployment.yaml, line: 59, anchor: "sleep 10"}
+    inputs:
+      - {role: value_source, fact: SP-K15}
+    milestone: M2-1
+    note: Read from a shell string, so inferred. Whether the image has `sh` is not known from the repository.
+  - id: SP-K17
+    kind: k8s.pod.termination_grace_period
+    subject: k8s:Deployment/commerce/orders-service
+    value: 30
+    unit: s
+    status: default
+    inputs:
+      - {role: absence, loc: {path: k8s/deployment.yaml, line: 22, anchor: "spec:"}}
+    default:
+      framework: kubernetes
+      applied_version: null
+      repository: kubernetes/kubernetes
+      tag: v1.34.0
+      commit: f28b4c9efbca5c5c0af716d9f2d5702667ee8a45
+      path: staging/src/k8s.io/api/core/v1/types.go
+      line: 3722
+      anchor: DefaultTerminationGracePeriodSeconds = 30
+      note: >
+        Cluster version is not in the repository. Proposed policy (M2-0 decision K1): core/v1 defaults that have not
+        changed across supported Kubernetes releases are cited at one pinned release with applied_version null.
+    milestone: M2-1
+  - id: SP-K18
+    kind: k8s.service.selects
+    subject: k8s:Service/commerce/orders-service
+    value: {type: ClusterIP, workloads: [k8s:Deployment/commerce/orders-service]}
+    status: declared
+    source: {path: k8s/service.yaml, line: 9, anchor: "app: orders-service"}
+    inputs:
+      - {role: reference, loc: {path: k8s/deployment.yaml, line: 21, anchor: "app: orders-service"}}
+      - {role: value_source, loc: {path: k8s/service.yaml, line: 7, anchor: "type: ClusterIP"}}
+    milestone: M2-1
+  - id: SP-K19
+    kind: k8s.service.port
+    subject: k8s:Service/commerce/orders-service#http
+    value: {port: 80, target_port: http, container_port: 8080}
+    status: declared
+    source: {path: k8s/service.yaml, line: 12, anchor: "port: 80"}
+    inputs:
+      - {role: reference, loc: {path: k8s/service.yaml, line: 13, anchor: "targetPort: http"}}
+      - {role: value_source, fact: SP-K05}
+    milestone: M2-1
+  - id: SP-K20
+    kind: k8s.service.port
+    subject: k8s:Service/commerce/orders-service-metrics#management
+    value: {port: 8081, target_port: management, container_port: 8081}
+    status: declared
+    source: {path: k8s/service.yaml, line: 28, anchor: "port: 8081"}
+    inputs:
+      - {role: reference, loc: {path: k8s/service.yaml, line: 29, anchor: "targetPort: management"}}
+      - {role: value_source, fact: SP-K06}
+    milestone: M2-1
+  - id: SP-K21
+    kind: k8s.ingress.route
+    subject: k8s:Ingress/commerce/orders-service#orders.acme.example/orders
+    value: {host: orders.acme.example, path: /orders, path_type: Prefix, service: orders-service, service_port: 80, container_port: 8080}
+    status: declared
+    source: {path: k8s/ingress.yaml, line: 12, anchor: "- path: /orders"}
+    inputs:
+      - {role: value_source, loc: {path: k8s/ingress.yaml, line: 9, anchor: "host: orders.acme.example"}}
+      - {role: value_source, loc: {path: k8s/ingress.yaml, line: 13, anchor: "pathType: Prefix"}}
+      - {role: reference, loc: {path: k8s/ingress.yaml, line: 16, anchor: "name: orders-service"}}
+      - {role: reference, loc: {path: k8s/ingress.yaml, line: 18, anchor: "name: http"}}
+      - {role: value_source, fact: SP-K19}
+    milestone: M2-1
+    note: Controller-specific annotations would make this UNKNOWN (RULES.md N6); this Ingress has none.
+  - id: SP-K22
+    kind: k8s.hpa.target
+    subject: k8s:HorizontalPodAutoscaler/commerce/orders-service
+    value: {workload: k8s:Deployment/commerce/orders-service, min: 4, max: 10}
+    status: declared
+    source: {path: k8s/hpa.yaml, line: 10, anchor: "name: orders-service"}
+    inputs:
+      - {role: value_source, loc: {path: k8s/hpa.yaml, line: 11, anchor: "minReplicas: 4"}}
+      - {role: value_source, loc: {path: k8s/hpa.yaml, line: 12, anchor: "maxReplicas: 10"}}
+    milestone: M2-1
+  - id: SP-K23
+    kind: k8s.hpa.metric
+    subject: k8s:HorizontalPodAutoscaler/commerce/orders-service#cpu
+    value: {type: Resource, resource: cpu, target_type: Utilization, average_utilization: 70}
+    status: declared
+    source: {path: k8s/hpa.yaml, line: 19, anchor: "averageUtilization: 70"}
+    inputs:
+      - {role: value_source, loc: {path: k8s/hpa.yaml, line: 18, anchor: "type: Utilization"}}
+    milestone: M2-1
+  - id: SP-K24
+    kind: k8s.pdb
+    subject: k8s:PodDisruptionBudget/commerce/orders-service
+    value: {min_available: 75%, workloads: [k8s:Deployment/commerce/orders-service]}
+    status: declared
+    source: {path: k8s/pdb.yaml, line: 7, anchor: "minAvailable: 75%"}
+    inputs:
+      - {role: reference, loc: {path: k8s/pdb.yaml, line: 10, anchor: "app: orders-service"}}
+    milestone: M2-1
+
+  # ---------------------------------------------------------------- Spring effective configuration
+  - id: SP-S01
+    kind: spring.active_profiles
+    subject: spring:.
+    value: [prod]
+    status: declared
+    override_exposure: env_possible
+    exposure_sources:
+      - "Secret commerce/orders-service-secrets (envFrom, not in repository) may set SPRING_APPLICATION_JSON or JAVA_TOOL_OPTIONS, which Spring reads above OS environment variables"
+    source: {path: k8s/deployment.yaml, line: 33, anchor: "value: prod"}
+    inputs:
+      - {role: profile_activation, fact: SP-K08}
+    precedence: spring.os_environment
+    link: SP-L01
+    milestone: M2-2
+    note: No --profile and no .fifthnine.yml, so the Deployment env is the authority (M2_PLAN.md scope item 2).
+  - id: SP-S02
+    kind: spring.property
+    subject: spring:.:management.endpoints.web.exposure.include
+    scope: {profile: prod}
+    value: ["*"]
+    status: declared
+    override_exposure: env_possible
+    exposure_sources:
+      - "Secret commerce/orders-service-secrets may set MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE (relaxed binding) or SPRING_APPLICATION_JSON"
+    source: {path: src/main/resources/application-prod.yml, line: 7, anchor: 'include: "*"'}
+    inputs:
+      - {role: profile_activation, fact: SP-S01}
+    precedence: spring.packaged_profile_file:prod
+    supersedes: [SP-S03]
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S03
+    kind: spring.property
+    subject: spring:.:management.endpoints.web.exposure.include
+    scope: {profile: default}
+    value: [health, info, prometheus]
+    status: overridden
+    overridden_by: SP-S02
+    source: {path: src/main/resources/application.yml, line: 20, anchor: "include: health,info,prometheus"}
+    precedence: spring.packaged_application_file
+    link: SP-L01
+    milestone: M2-2
+    note: Overridden only because prod is active through the Deployment env (SP-S01). Without the link this would be the effective value.
+  - id: SP-S04
+    kind: spring.property
+    subject: spring:.:server.port
+    scope: {profile: prod}
+    value: 8080
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set SERVER_PORT or SPRING_APPLICATION_JSON"]
+    source: {path: src/main/resources/application.yml, line: 12, anchor: "port: 8080"}
+    precedence: spring.packaged_application_file
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S05
+    kind: spring.property
+    subject: spring:.:management.server.port
+    scope: {profile: prod}
+    value: 8081
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set MANAGEMENT_SERVER_PORT or SPRING_APPLICATION_JSON"]
+    source: {path: src/main/resources/application.yml, line: 16, anchor: "port: 8081"}
+    precedence: spring.packaged_application_file
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S06
+    kind: spring.property
+    subject: spring:.:spring.lifecycle.timeout-per-shutdown-phase
+    scope: {profile: prod}
+    value: 45
+    unit: s
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set SPRING_LIFECYCLE_TIMEOUTPERSHUTDOWNPHASE or SPRING_APPLICATION_JSON"]
+    source: {path: src/main/resources/application.yml, line: 5, anchor: "timeout-per-shutdown-phase: 45s"}
+    precedence: spring.packaged_application_file
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S07
+    kind: spring.property
+    subject: spring:.:server.shutdown
+    scope: {profile: prod}
+    value: graceful
+    status: default
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set SERVER_SHUTDOWN or SPRING_APPLICATION_JSON"]
+    inputs:
+      - {role: version_basis, fact: SP-B02}
+    link: SP-L01
+    default:
+      framework: spring-boot
+      applied_version: "3.4.13"
+      repository: spring-projects/spring-boot
+      tag: v3.4.13
+      commit: 96f3fe7953b609b9be4ada70ee562d97d89092a1
+      path: spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ServerProperties.java
+      line: 117
+      anchor: private Shutdown shutdown = Shutdown.GRACEFUL;
+      note: IMMEDIATE on 3.2 and 3.3 (RULES.md FN-DEP-003). The same repository on Boot 3.3 must yield immediate.
+    milestone: M2-2
+  - id: SP-S08
+    kind: spring.property
+    subject: spring:.:spring.http.client.read-timeout
+    scope: {profile: prod}
+    value: 2
+    unit: s
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set SPRING_HTTP_CLIENT_READTIMEOUT or SPRING_APPLICATION_JSON"]
+    source: {path: src/main/resources/application.yml, line: 9, anchor: "read-timeout: 2s"}
+    precedence: spring.packaged_application_file
+    link: SP-L01
+    milestone: M2-2
+    note: The property exists from Boot 3.4. On 3.2 and 3.3 the same line binds to nothing.
+  - id: SP-S09
+    kind: spring.property
+    subject: spring:.:spring.http.client.connect-timeout
+    scope: {profile: prod}
+    value: 1
+    unit: s
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set SPRING_HTTP_CLIENT_CONNECTTIMEOUT or SPRING_APPLICATION_JSON"]
+    source: {path: src/main/resources/application.yml, line: 8, anchor: "connect-timeout: 1s"}
+    precedence: spring.packaged_application_file
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S10
+    kind: spring.property
+    subject: spring:.:clients.payment.base-url
+    scope: {profile: prod}
+    value: http://payments.commerce.svc.cluster.local
+    status: declared
+    override_exposure: env_possible
+    exposure_sources:
+      - "Secret commerce/orders-service-secrets is attached after the ConfigMap in envFrom, so a PAYMENT_BASE_URL key in it would win"
+    source: {path: k8s/configmap.yaml, line: 7, anchor: "PAYMENT_BASE_URL: http://payments.commerce.svc.cluster.local"}
+    inputs:
+      - {role: placeholder, loc: {path: src/main/resources/application.yml, line: 27, anchor: "${PAYMENT_BASE_URL:http://localhost:9090}"}}
+      - {role: env_attachment, fact: SP-K09}
+    precedence: spring.placeholder:os_environment
+    link: SP-L01
+    milestone: M2-2
+    note: The placeholder default http://localhost:9090 is not used because the ConfigMap defines the variable.
+  - id: SP-S11
+    kind: spring.property
+    subject: spring:.:clients.inventory.base-url
+    scope: {profile: prod}
+    value: http://inventory.commerce.svc.cluster.local
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets is attached after the ConfigMap in envFrom, so an INVENTORY_BASE_URL key in it would win"]
+    source: {path: k8s/configmap.yaml, line: 8, anchor: "INVENTORY_BASE_URL: http://inventory.commerce.svc.cluster.local"}
+    inputs:
+      - {role: placeholder, loc: {path: src/main/resources/application.yml, line: 29, anchor: "${INVENTORY_BASE_URL:http://localhost:9091}"}}
+      - {role: env_attachment, fact: SP-K09}
+    precedence: spring.placeholder:os_environment
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S12
+    kind: spring.property
+    subject: spring:.:clients.shipping.base-url
+    scope: {profile: prod}
+    value: http://shipping-quotes.logistics.svc.cluster.local
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets is attached after the ConfigMap in envFrom, so a SHIPPING_BASE_URL key in it would win"]
+    source: {path: k8s/configmap.yaml, line: 9, anchor: "SHIPPING_BASE_URL: http://shipping-quotes.logistics.svc.cluster.local"}
+    inputs:
+      - {role: placeholder, loc: {path: src/main/resources/application.yml, line: 31, anchor: "${SHIPPING_BASE_URL:http://localhost:9092}"}}
+      - {role: env_attachment, fact: SP-K09}
+    precedence: spring.placeholder:os_environment
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S13
+    kind: spring.property
+    subject: spring:.:resilience4j.retry.instances.payment.max-attempts
+    scope: {profile: prod}
+    value: 4
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set SPRING_APPLICATION_JSON"]
+    source: {path: src/main/resources/application.yml, line: 37, anchor: "max-attempts: 4"}
+    precedence: spring.packaged_application_file
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S14
+    kind: spring.property
+    subject: spring:.:resilience4j.retry.instances.payment.wait-duration
+    scope: {profile: prod}
+    value: 500
+    unit: ms
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set SPRING_APPLICATION_JSON"]
+    source: {path: src/main/resources/application.yml, line: 38, anchor: "wait-duration: 500ms"}
+    precedence: spring.packaged_application_file
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S15
+    kind: spring.property
+    subject: spring:.:resilience4j.retry.instances.payment.enable-exponential-backoff
+    scope: {profile: prod}
+    value: true
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set SPRING_APPLICATION_JSON"]
+    source: {path: src/main/resources/application.yml, line: 39, anchor: "enable-exponential-backoff: true"}
+    precedence: spring.packaged_application_file
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S16
+    kind: spring.property
+    subject: spring:.:resilience4j.retry.instances.payment.exponential-backoff-multiplier
+    scope: {profile: prod}
+    value: 2
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set SPRING_APPLICATION_JSON"]
+    source: {path: src/main/resources/application.yml, line: 40, anchor: "exponential-backoff-multiplier: 2"}
+    precedence: spring.packaged_application_file
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S17
+    kind: spring.property
+    subject: spring:.:resilience4j.retry.instances.inventory.max-attempts
+    scope: {profile: prod}
+    value: 3
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set SPRING_APPLICATION_JSON"]
+    source: {path: src/main/resources/application.yml, line: 42, anchor: "max-attempts: 3"}
+    precedence: spring.packaged_application_file
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S18
+    kind: spring.property
+    subject: spring:.:resilience4j.retry.instances.inventory.wait-duration
+    scope: {profile: prod}
+    value: 200
+    unit: ms
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set SPRING_APPLICATION_JSON"]
+    source: {path: src/main/resources/application.yml, line: 43, anchor: "wait-duration: 200ms"}
+    precedence: spring.packaged_application_file
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S19
+    kind: spring.property
+    subject: spring:.:management.endpoint.health.show-details
+    scope: {profile: prod}
+    value: never
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set MANAGEMENT_ENDPOINT_HEALTH_SHOWDETAILS or SPRING_APPLICATION_JSON"]
+    source: {path: src/main/resources/application.yml, line: 23, anchor: "show-details: never"}
+    precedence: spring.packaged_application_file
+    link: SP-L01
+    milestone: M2-2
+  - id: SP-S20
+    kind: spring.property
+    subject: spring:.:management.endpoints.web.base-path
+    scope: {profile: prod}
+    value: /actuator
+    status: default
+    override_exposure: env_possible
+    exposure_sources: ["Secret commerce/orders-service-secrets may set MANAGEMENT_ENDPOINTS_WEB_BASEPATH or SPRING_APPLICATION_JSON"]
+    inputs:
+      - {role: version_basis, fact: SP-B02}
+    link: SP-L01
+    default:
+      framework: spring-boot
+      applied_version: "3.4.13"
+      repository: spring-projects/spring-boot
+      tag: v3.4.13
+      commit: 96f3fe7953b609b9be4ada70ee562d97d89092a1
+      path: spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java
+      line: 47
+      anchor: private String basePath = "/actuator";
+    milestone: M2-2
+  - id: SP-S21
+    kind: spring.actuator.endpoint
+    subject: spring:.:health/readiness
+    scope: {profile: prod}
+    value: {port: 8081, path: /actuator/health/readiness, port_type: DIFFERENT}
+    status: inferred
+    override_exposure: env_possible
+    exposure_sources: ["Inherits the exposure of SP-S04, SP-S05 and SP-S20"]
+    source: {path: src/main/resources/application.yml, line: 16, anchor: "port: 8081"}
+    inputs:
+      - {role: value_source, fact: SP-S04}
+      - {role: value_source, fact: SP-S05}
+      - {role: value_source, fact: SP-S20}
+    precedence: spring.actuator.path_algorithm
+    link: SP-L01
+    milestone: M2-2
+    note: >
+      Derived with the RULES.md FN-DEP-002 path algorithm: management port 8081 differs from server port 8080, so the
+      group is served on 8081 under management.server.base-path (empty) + /actuator. The readiness group exists
+      because probes are auto-enabled on Kubernetes (RULES.md FN-DEP-002 semantics, ProbesCondition); that depends on
+      the runtime platform, hence inferred. The probe in SP-K13 targets 8080.
+  - id: SP-S22
+    kind: spring.actuator.endpoint
+    subject: spring:.:health/liveness
+    scope: {profile: prod}
+    value: {port: 8081, path: /actuator/health/liveness, port_type: DIFFERENT}
+    status: inferred
+    override_exposure: env_possible
+    exposure_sources: ["Inherits the exposure of SP-S04, SP-S05 and SP-S20"]
+    source: {path: src/main/resources/application.yml, line: 16, anchor: "port: 8081"}
+    inputs:
+      - {role: value_source, fact: SP-S04}
+      - {role: value_source, fact: SP-S05}
+      - {role: value_source, fact: SP-S20}
+    precedence: spring.actuator.path_algorithm
+    link: SP-L01
+    milestone: M2-2
+
+  # ---------------------------------------------------------------- Java source facts
+  - id: SP-J01
+    kind: java.http_client.construction
+    subject: java:com.acme.orders.client.PaymentClient#restTemplate
+    value: {type: RestTemplate, how: new RestTemplate()}
+    status: declared
+    source: {path: src/main/java/com/acme/orders/client/PaymentClient.java, line: 12, anchor: "private final RestTemplate restTemplate = new RestTemplate();"}
+    milestone: M2-4
+  - id: SP-J02
+    kind: java.http_client.read_timeout
+    subject: java:com.acme.orders.client.PaymentClient#restTemplate
+    value: null
+    status: default
+    inputs:
+      - {role: value_source, fact: SP-J01}
+      - {role: version_basis, fact: SP-B05}
+    default:
+      framework: spring-framework
+      applied_version: "6.2.15"
+      repository: spring-projects/spring-framework
+      tag: v6.2.15
+      commit: cf74ce007d85fa242ae51c90d6801ec33c0c08fb
+      path: spring-web/src/main/java/org/springframework/http/client/SimpleClientHttpRequestFactory.java
+      line: 52
+      anchor: private int readTimeout = -1;
+      note: HttpAccessor.java line 56 at the same tag makes SimpleClientHttpRequestFactory the default factory. -1 means not set; HttpURLConnection then waits indefinitely.
+    milestone: M2-4
+  - id: SP-J03
+    kind: java.http_client.connect_timeout
+    subject: java:com.acme.orders.client.PaymentClient#restTemplate
+    value: null
+    status: default
+    inputs:
+      - {role: value_source, fact: SP-J01}
+      - {role: version_basis, fact: SP-B05}
+    default:
+      framework: spring-framework
+      applied_version: "6.2.15"
+      repository: spring-projects/spring-framework
+      tag: v6.2.15
+      commit: cf74ce007d85fa242ae51c90d6801ec33c0c08fb
+      path: spring-web/src/main/java/org/springframework/http/client/SimpleClientHttpRequestFactory.java
+      line: 50
+      anchor: private int connectTimeout = -1;
+    milestone: M2-4
+  - id: SP-J04
+    kind: java.http_client.construction
+    subject: java:com.acme.orders.client.ShippingQuoteClient#restClient
+    value: {type: RestClient, how: RestClient.builder() (static, bypasses the Boot-configured builder)}
+    status: declared
+    source: {path: src/main/java/com/acme/orders/client/ShippingQuoteClient.java, line: 13, anchor: "RestClient.builder()"}
+    milestone: M2-4
+  - id: SP-J05
+    kind: java.http_client.read_timeout
+    subject: java:com.acme.orders.client.ShippingQuoteClient#restClient
+    value: null
+    status: unresolved
+    unresolved_reason: >
+      The request factory is chosen from the runtime classpath (Spring Framework DefaultRestClientBuilder). The
+      transitive classpath is not resolved offline, so the default timeout cannot be cited.
+    inputs:
+      - {role: value_source, fact: SP-J04}
+    milestone: M2-4
+  - id: SP-J06
+    kind: java.http_client.construction
+    subject: java:com.acme.orders.client.InventoryClient#restClient
+    value: {type: RestClient, how: injected RestClient.Builder}
+    status: declared
+    source: {path: src/main/java/com/acme/orders/client/InventoryClient.java, line: 15, anchor: "builder.baseUrl(baseUrl).build()"}
+    inputs:
+      - {role: reference, loc: {path: src/main/java/com/acme/orders/client/InventoryClient.java, line: 14, anchor: "RestClient.Builder builder"}}
+    milestone: M2-4
+  - id: SP-J07
+    kind: java.http_client.read_timeout
+    subject: java:com.acme.orders.client.InventoryClient#restClient
+    value: 2
+    unit: s
+    status: declared
+    override_exposure: env_possible
+    exposure_sources: ["Inherits the exposure of SP-S08"]
+    source: {path: src/main/resources/application.yml, line: 9, anchor: "read-timeout: 2s"}
+    inputs:
+      - {role: value_source, fact: SP-J06}
+      - {role: value_source, fact: SP-S08}
+      - {role: version_basis, fact: SP-B02}
+    precedence: spring.boot_builder_customizer
+    link: SP-L01
+    milestone: M2-4
+    note: Boot applies spring.http.client.* to the injected builder from 3.4. On 3.2 and 3.3 this would be unresolved.
+  - id: SP-J08
+    kind: java.retry.binding
+    subject: java:com.acme.orders.client.PaymentClient#charge
+    value: {library: resilience4j, annotation: Retry, instance: payment}
+    status: declared
+    source: {path: src/main/java/com/acme/orders/client/PaymentClient.java, line: 20, anchor: '@Retry(name = "payment")'}
+    inputs:
+      - {role: reference, loc: {path: src/main/resources/application.yml, line: 36, anchor: "payment:"}}
+    milestone: M2-4
+  - id: SP-J09
+    kind: java.retry.binding
+    subject: java:com.acme.orders.client.InventoryClient#reserve
+    value: {library: resilience4j, annotation: Retry, instance: inventory}
+    status: declared
+    source: {path: src/main/java/com/acme/orders/client/InventoryClient.java, line: 18, anchor: '@Retry(name = "inventory")'}
+    inputs:
+      - {role: reference, loc: {path: src/main/resources/application.yml, line: 41, anchor: "inventory:"}}
+    milestone: M2-4
+
+negative:
+  - id: SP-N01
+    statement: No fact scoped to the prod profile is sourced from application-dev.yml (RULES.md F3 trap).
+    forbid: {scope: {profile: prod}, source_path: src/main/resources/application-dev.yml}
+    milestone: M2-2
+  - id: SP-N02
+    statement: No fact takes its value from Secret orders-service-secrets, which is not in the repository.
+    forbid: {value_from: k8s:Secret/commerce/orders-service-secrets}
+    milestone: M2-1
+  - id: SP-N03
+    statement: The base-file exposure list (SP-S03) is never reported as the effective prod value.
+    forbid: {id: SP-S03, status: declared}
+    milestone: M2-2
+  - id: SP-N04
+    statement: No profile other than prod is reported active, and no code-level profile activation is invented (no setAdditionalProfiles in source).
+    forbid: {kind: spring.active_profiles, value_not: [prod]}
+    milestone: M2-2
+  - id: SP-N05
+    statement: No component version is reported as tested (support matrix lists none).
+    forbid: {support: tested}
+    milestone: M2-2

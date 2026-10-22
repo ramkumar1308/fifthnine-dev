@@ -145,6 +145,7 @@ class ModuleInfo:
     boot_detection: Detection | None
     detections: list[Detection]
     resources_dirs: list[str]
+    kube_config: tuple[str, int] | None = None  # spring-cloud-kubernetes config dependency (path, line)
 
     @property
     def label(self) -> str:
@@ -211,6 +212,7 @@ class _Run:
         self.version = mod.boot_version
         self.parsed, self.consumed, self.cache = parsed, consumed, cache
         self.model: EnvModel | None = dep.env_models.get(csub) if csub else None
+        self.mounts = [f for f in dep.facts.facts() if f.kind == "k8s.container.volume_mount"] if csub else []
         self.link_ids = [link.link_id] if link is not None else []
         self.docker_env: dict[str, Any] = {}
         self.docker_path: str | None = None
@@ -520,8 +522,6 @@ class _Run:
             if dmat[1] is not None:
                 return raw, status, inputs, pvars, dmat[1], None, None
             out.append(dmat[0])
-            if self.csub is None:
-                status = _worst([status, FactStatus.INFERRED])  # no container: the environment that could set the variable is unknown
             if len(uses) == 1 and raw == raw[u.start:u.end]:
                 prec = "spring.placeholder:default"
         out.append(raw[last:])
@@ -557,9 +557,35 @@ class _Run:
 
     # -- exposure
 
-    def exposure(self, key: str, layer: str, placeholder_vars: list[str] = (), var: str | None = None) -> tuple[OverrideExposure, list[ExposureSource]]:  # type: ignore[assignment]
+    def _file_sources(self) -> list[ExposureSource]:
+        """Out-of-repository files that Spring reads before the packaged ones: a volume mounted where the application looks
+        for `./config`, and `spring.config.import` targets."""
+        out: list[ExposureSource] = []
+        if self.csub is not None:
+            ns = self.csub.split("/")[1] if self.csub.count("/") >= 2 else "_"
+            for f in self.mounts:
+                v = f.value
+                if f.subject.key.startswith(self.csub + "#") and isinstance(v, dict) and v.get("config_location") is True \
+                        and v.get("source_kind") in ("ConfigMap", "Secret", "PersistentVolumeClaim", "projected"):
+                    out.append(ExposureSource(via="volume", object=f"k8s:{v['source_kind']}/{ns}/{v.get('source_name') or '?'}",
+                                              variables=["application.yml", "application.properties"]))
+        for var in ("SPRING_CONFIG_LOCATION", "SPRING_CONFIG_ADDITIONAL_LOCATION", "SPRING_CONFIG_IMPORT"):
+            for h in self.env_get(var)[:1]:
+                out.append(ExposureSource(via="volume", object=f"{var}:{h.raw if h.raw is not None else 'unresolved'}", variables=[]))
+        if self.mod.kube_config is not None:
+            out.append(ExposureSource(via="volume", object="spring-cloud-kubernetes-config:ConfigMap and Secret read from the Kubernetes API",
+                                      variables=[]))
+        for doc in self.included_docs:
+            for value, _line in doc.imports:
+                if not value.strip():
+                    continue
+                out.append(ExposureSource(via="volume", object=f"spring.config.import:{value}", variables=[]))
+        return out
+
+    def exposure(self, key: str, layer: str, placeholder_vars: Sequence[str] = (), var: str | None = None) -> tuple[OverrideExposure, list[ExposureSource]]:
+        files = self._file_sources() if layer in ("file", "default") else []
         if self.model is None:
-            return OverrideExposure.ENV_POSSIBLE, []  # no container is linked: what the environment sets is unknown
+            return OverrideExposure.ENV_POSSIBLE, files  # no container is linked: what the environment sets is unknown
         names: list[str] = []
         if layer in ("file", "default"):
             names += [*placeholder_vars, env_name(key)]
@@ -574,13 +600,18 @@ class _Run:
             for src in self.model.exposure_for(n):
                 k = (src.via, src.object)
                 if k in merged:
-                    merged[k] = merged[k].model_copy(update={"variables": [*merged[k].variables, *[v for v in src.variables if v not in merged[k].variables]]})
+                    known = merged[k].variables
+                    merged[k] = merged[k].model_copy(update={"variables": [*known, *[v for v in src.variables if v not in known]]})
                 else:
                     merged[k] = src
             if n in OVERRIDE_VARS and n in self.model.explicit and self.model.explicit[n].status is FactStatus.UNRESOLVED:
                 merged[("valueFrom", f"{self.csub}#{n}")] = ExposureSource(via="valueFrom", object=f"{self.csub}#{n}", variables=[n])
-        srcs = list(merged.values())
-        return (OverrideExposure.ENV_POSSIBLE if srcs else OverrideExposure.NONE), srcs
+        env_srcs = list(merged.values())
+        if env_srcs:
+            return OverrideExposure.ENV_POSSIBLE, [*env_srcs, *files]
+        if files:
+            return OverrideExposure.FILE_POSSIBLE, files
+        return OverrideExposure.NONE, []
 
     # -- profiles
 
@@ -699,9 +730,13 @@ class _Run:
         self.active_fid = self.fb.add("spring.active_profiles", subject, list(self.profiles), st, source=source, inputs=inputs,
                                       exposure=expo, exposure_sources=srcs, link_ids=self.link_ids, precedence=prec)
         if not self.profiles:
+            prefixes = tuple(d + "/" for d in self.mod.resources_dirs)
+            inactive = sorted(f.path for f in self.ws.files
+                              if f.kind == KIND_SPRING_CONFIG and f.path.startswith(prefixes) and f.path.rpartition("/")[2].startswith("application-"))
+            tail = f" Profile-specific files not applied: {', '.join(inactive)}." if inactive else ""
             self.cov.append(CoverageNotice(code="FN-OPS-002", scope=subject,
-                                           message="No profile is activated in the repository, so Spring Boot uses the default profile. Profile-specific "
-                                                   "files are not applied" + (" (an attached Secret or ConfigMap could still activate one)." if srcs else ".")))
+                                           message="No profile is activated in the repository, so Spring Boot uses the default profile." + tail
+                                                   + (" An attached Secret or ConfigMap could still activate one." if srcs else "")))
 
     def _primary_location(self) -> tuple[str, int]:
         for doc in self.included_docs:
@@ -1136,10 +1171,13 @@ def resolve_spring(ws: Workspace, detection: DetectionResult, dep: DeploymentRes
     option = ([p.strip() for p in profile.split(",") if p.strip()], profile_source) if profile else None
     for root in sorted(modules):
         mod = modules[root]
+        mod.kube_config = _kube_config_dependency(ws, mod)
         boot_fid = _build_facts(ws, mod, root, fb, result)
         contexts: list[tuple[str | None, Linkage | None]] = [
             (csub, link) for csub, link in sorted(dep.container_links.items()) if link.to_ref == f"source:{root}"]
         if not contexts:
+            if not any(f.kind == KIND_SPRING_CONFIG and f.path.startswith(tuple(d + "/" for d in mod.resources_dirs)) for f in ws.files):
+                continue  # no packaged configuration and no container: nothing Spring-specific to resolve for this module
             contexts = [(None, None)]
         for csub, link in contexts:
             subject_root = root if len(contexts) == 1 else f"{root}@{csub or '-'}"
@@ -1202,6 +1240,24 @@ def _build_facts(ws: Workspace, mod: ModuleInfo, root: str, fb: FactBuilder, res
     return boot_fid
 
 
+KUBE_CONFIG_DEP = re.compile(r"spring-cloud-(?:starter-)?kubernetes[\w-]*config")
+
+
+def _kube_config_dependency(ws: Workspace, mod: ModuleInfo) -> tuple[str, int] | None:
+    paths = sorted({d.source.path for d in mod.detections if d.source is not None})
+    for path in paths:
+        entry = next((f for f in ws.files if f.path == path), None)
+        if entry is None:
+            continue
+        try:
+            for n, text in enumerate(ws.read_text(entry).splitlines(), start=1):
+                if KUBE_CONFIG_DEP.search(text):
+                    return path, n
+        except OSError:
+            continue
+    return None
+
+
 def _property_use(ws: Workspace, path: str, token: str, definition_line: int) -> int | None:
     entry = next((f for f in ws.files if f.path == path), None)
     if entry is None:
@@ -1228,6 +1284,8 @@ def _coverage(run: _Run, mod: ModuleInfo, result: SpringResult) -> None:
                                                       "(3.2 to 3.5). Defaults and facts derived from them are not produced."))
     for doc in run.included_docs:
         for value, line in doc.imports:
+            if not value.strip():
+                continue
             result.coverage.append(CoverageNotice(
                 code="FN-OPS-002", scope=f"{doc.path}:{line}",
                 message=f"spring.config.import {value!r} is not followed. Values it supplies are unknown and could replace values read here."))

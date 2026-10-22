@@ -26,7 +26,7 @@ links:
       - {path: k8s/deployment.yaml, line: 23, anchor: '"app.main:app"'}
       - {path: app/main.py, line: 5, anchor: 'app = FastAPI(title="catalog-api")'}
       - {path: Dockerfile, line: 1, anchor: "FROM python:3.12-slim"}
-      - {path: Dockerfile, line: 4, anchor: "COPY pyproject.toml ."}
+      # COPY pyproject.toml (line 4) is not evidence: a build descriptor alone is not the module (M2-1 review R3).
       - {path: Dockerfile, line: 6, anchor: "COPY app ./app"}
       - {path: Dockerfile, line: 9, anchor: "EXPOSE 8000"}
       - {path: k8s/deployment.yaml, line: 31, anchor: "containerPort: 8000"}

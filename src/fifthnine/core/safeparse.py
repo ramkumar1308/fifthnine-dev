@@ -163,8 +163,20 @@ def _check_yaml_depth(text: str) -> None:
             depth -= 1
     if deepest > MAX_YAML_DEPTH:
         raise ParseError("YAML nesting too deep")
+    stack: list[int] = []  # block nesting: one entry per increase of indentation
     for line in text.splitlines():
-        if len(line) - len(line.lstrip(" ")) > 4 * MAX_YAML_DEPTH:
+        body = line.lstrip(" ")
+        if not body or body.startswith("#"):
+            continue
+        indent = len(line) - len(body)
+        dashes = 0
+        while body.startswith("- "):  # compact nesting: "- - - a"
+            dashes += 1
+            body = body[2:].lstrip(" ")
+        while stack and indent <= stack[-1]:
+            stack.pop()
+        stack.append(indent)
+        if len(stack) + dashes > MAX_YAML_DEPTH or dashes > MAX_YAML_DEPTH:
             raise ParseError("YAML nesting too deep")
 
 

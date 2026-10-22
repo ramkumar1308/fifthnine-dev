@@ -536,3 +536,75 @@ def test_two_different_images_do_not_both_link_to_one_module(tmp_path: Path) -> 
     links = _resolve(root).linkages
     assert links and all(lk.status is LinkStatus.UNRESOLVED for lk in links)
     assert any("several workload images" in e for lk in links for e in lk.evidence)
+
+
+# ---------------------------------------------------------------- findings of the focused re-review (2026-10-22)
+
+MODULE = {"pom.xml": "<project><artifactId>orders-service</artifactId></project>\n", "src/main/java/App.java": "class App {}\n"}
+
+
+def _orders(tmp: Path, dockerfile: str, extra: dict[str, str] | None = None) -> Path:
+    deploy = _deploy("ports:\n  - containerPort: 8080\n").replace("registry.example/web:1.0", "registry.example/orders-service:1.0")
+    return _repo(tmp, {**MODULE, "Dockerfile": dockerfile, "k8s/deploy.yaml": deploy, **(extra or {})})
+
+
+@pytest.mark.parametrize("dockerfile", [
+    "FROM temurin\nCOPY target/*.jar app.jar\nEXPOSE 8080\nENTRYPOINT [\"java\", \"-jar\", \"app.jar\"]\n",  # R2 t1: build output
+    "FROM maven AS build\nCOPY . .\nRUN mvn -q package\nFROM temurin\nCOPY --from=build /w/target/*.jar /app.jar\nEXPOSE 8080\n"
+    "ENTRYPOINT [\"java\", \"-jar\", \"/app.jar\"]\n",  # R2 t2: build output taken from a stage that copied the source
+])
+def test_common_build_patterns_link_when_the_module_output_is_copied(tmp_path: Path, dockerfile: str) -> None:
+    root = _orders(tmp_path, dockerfile)
+    r = _resolve(root)
+    (link,) = r.linkages
+    assert link.status is LinkStatus.INFERRED, link.evidence
+    _oracle_clean(root, r)
+
+
+@pytest.mark.parametrize("dockerfile", [
+    "FROM temurin\nCOPY pom.xml /opt/pom-for-audit.xml\nCMD [\"sleep\", \"infinity\"]\nEXPOSE 8080\n",  # R3: a build file is not the module
+    "FROM maven AS build\nRUN true\nFROM temurin\nCOPY --from=build /w/target/*.jar /app.jar\nEXPOSE 8080\n",  # stage never copied the source
+])
+def test_build_descriptor_or_unsourced_output_does_not_link(tmp_path: Path, dockerfile: str) -> None:
+    root = _orders(tmp_path, dockerfile)
+    r = _resolve(root)
+    (link,) = r.linkages
+    assert link.status is LinkStatus.UNRESOLVED
+    _oracle_clean(root, r)
+
+
+def test_oracle_catches_a_link_the_engine_should_not_have_proposed(tmp_path: Path) -> None:
+    root = _orders(tmp_path, "FROM temurin\nCOPY target/*.jar app.jar\nEXPOSE 8080\n")
+    r = _resolve(root)
+    (root / "Dockerfile").write_text("FROM temurin\nCOPY pom.xml /x.xml\nEXPOSE 8080\n", encoding="utf-8")  # the repository changed
+    rep = run_oracle(root, r.facts.facts(), r.linkages)
+    assert any("oracle finds Dockerfiles" in m or "COPY" in m for m in rep.mismatches), rep.mismatches
+
+
+def test_service_ports_are_unresolved_when_the_selector_is_ambiguous(tmp_path: Path) -> None:
+    other = _deploy().replace("name: web", "name: other").replace("namespace: shop\n", "")
+    root = _repo(tmp_path, {
+        "k8s/deploy.yaml": _deploy("ports:\n  - name: http\n    containerPort: 8080\n"), "k8s/other.yaml": other,
+        "k8s/svc.yaml": "apiVersion: v1\nkind: Service\nmetadata: {name: svc}\nspec:\n  selector: {app: web}\n  ports:\n"
+                        "    - name: http\n      port: 80\n      targetPort: http\n",
+        "k8s/ing.yaml": "apiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata: {name: ing}\nspec:\n  rules:\n"
+                        "    - host: a.example\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n"
+                        "            backend:\n              service:\n                name: svc\n                port: {number: 80}\n",
+    })
+    r = _resolve(root)
+    assert _facts(r, "k8s.service.selects")["k8s:Service/_/svc"].status is FactStatus.UNRESOLVED
+    assert _facts(r, "k8s.service.port")["k8s:Service/_/svc#http"].status is FactStatus.UNRESOLVED
+    route = next(iter(_facts(r, "k8s.ingress.route").values()))
+    assert route.value["container_port"] is None
+    _oracle_clean(root, r)
+
+
+def test_yaml_depth_check_accepts_ordinary_text_and_rejects_deep_nesting() -> None:
+    from fifthnine.core.safeparse import ParseError, compose_yaml_documents
+
+    logs = "apiVersion: v1\nkind: ConfigMap\nmetadata: {name: a}\ndata:\n  log: |\n    [INFO] one\n    [WARN] two\n" + "    [x\n" * 50
+    assert compose_yaml_documents(logs)
+    for deep in ("a: " + "[" * 300 + "]" * 300 + "\n", "a: " + "{b: " * 300 + "1" + "}" * 300 + "\n", "- " * 400 + "a\n",
+                 "".join(" " * i + "k:\n" for i in range(300)) + " " * 300 + "v: 1\n"):
+        with pytest.raises(ParseError, match="nesting"):
+            compose_yaml_documents(deep)

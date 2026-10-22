@@ -733,7 +733,10 @@ def _service(d: K8sDoc, fb: FactBuilder, workloads: list[_Workload], out: Deploy
             pin.append(via(R.VALUE_SOURCE, tpid))
         container_port: Any = None
         status, reason = FactStatus.DECLARED, None
-        if isinstance(target, int):
+        if ambiguous:
+            status = FactStatus.UNRESOLVED
+            reason = f"selector matches {', '.join(ambiguous)}, but one side sets a namespace and the other does not"
+        elif isinstance(target, int):
             container_port = target
         else:
             numbers: set[int] = set()
@@ -935,43 +938,70 @@ def _python_module_target(ws: Workspace, root: str, ref_text: str) -> tuple[str,
 # A COPY names a module's artifact only when the path ends like a build output. A directory that merely carries the
 # module's name (for example /opt/shenyu-admin inside an image) is not evidence that the module was built there.
 _ARTIFACT_SUFFIXES = (".jar", ".war", ".whl", ".tar.gz", ".tgz", ".zip")
-_SOURCE_SUFFIXES = (".py", ".java", ".kt", ".jar", ".war", ".whl", ".gradle", ".kts")
-_BUILD_FILES = {"pom.xml", "pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", "uv.lock", "poetry.lock", "gradlew"}
+_SOURCE_SUFFIXES = (".py", ".java", ".kt")  # source files; a build descriptor alone (pom.xml, requirements.txt) is not the module
+_OUTPUT_DIRS = ("target/", "build/libs/", "build/", "dist/")
 
 
 def _is_module_content(rel: str, files: list[str]) -> bool:
-    """True when the path (relative to the repository) is, or contains, source or build material of an application:
-    a configuration file such as nginx.conf in the module directory is not the module."""
+    """True when the path (relative to the repository) is, or contains, application source files: a configuration
+    file such as nginx.conf, or a bare pom.xml, in the module directory is not the module."""
     for f in files:
-        if f == rel or rel in ("", ".") or f.startswith(rel + "/"):
-            if f.endswith(_SOURCE_SUFFIXES) or posixpath.basename(f) in _BUILD_FILES:
-                return True
+        if (f == rel or rel in ("", ".") or f.startswith(rel + "/")) and f.endswith(_SOURCE_SUFFIXES):
+            return True
     return False
 
 
+def _stage_by_ref(model: DockerfileModel, ref_: str) -> Any:
+    for st in model.stages:
+        if (st.name is not None and st.name.lower() == ref_.lower()) or str(st.index) == ref_:
+            return st
+    return None
+
+
 def _builds(model: DockerfileModel, ident: BuildIdentity, files: list[str]) -> list[int]:
-    """Lines of COPY or ADD instructions in the default target's chain that copy this module's artifact or its source
-    and build files. A Dockerfile builds the module only when such an instruction exists; sitting next to the module
-    is not enough, and a repository-root module is not copied by an unrelated file."""
+    """Lines of COPY or ADD instructions in the default target's chain that copy this module's artifact or its source.
+    A Dockerfile builds the module only when such an instruction exists; sitting next to the module is not enough.
+    Counted: a path ending like a build output that names the module, or a build-output path (target/, build/libs/)
+    under the module, or application source inside the module, or a build output taken --from a stage that copied
+    the module's source."""
     target = model.default_target
     if target is None:
         return []
     ddir = posixpath.dirname(model.path)
     lines: list[int] = []
     artifact = re.compile(rf"(^|/){re.escape(ident.name)}(?=[-.*]|$)")
+    root_prefix = "" if ident.root in ("", ".") else ident.root + "/"
+
+    def inside(rel: str) -> bool:
+        return rel == ident.root or ident.root in ("", ".") or rel.startswith(ident.root + "/")
+
+    def copies_module_source(stage: Any) -> bool:
+        for st in model.chain(stage):
+            for frm2, sources2, _d, _l in st.copies:
+                for s2 in sources2:
+                    rel2 = posixpath.normpath(posixpath.join(ddir, s2.rstrip("/"))) if s2 not in (".", "./") else ddir
+                    if frm2 is None and inside(rel2) and rel2 != "." and _is_module_content(rel2, files):
+                        return True
+        return False
+
     for st in model.chain(target):
         for frm, sources, _dest, line in st.copies:
             for s in sources:
-                # the build context is not in the repository, so a COPY that names the module's artifact (e.g.
-                # target/web-1.0.jar) counts wherever the Dockerfile sits
-                if artifact.search(s) and s.lower().endswith(_ARTIFACT_SUFFIXES):
-                    lines.append(line)
+                is_output = s.lower().endswith(_ARTIFACT_SUFFIXES)
+                if is_output and artifact.search(s):
+                    lines.append(line)  # the build context is not in the repository, so naming the artifact counts
                     continue
                 if frm is not None:
+                    src_stage = _stage_by_ref(model, frm)
+                    if is_output and src_stage is not None and copies_module_source(src_stage):
+                        lines.append(line)
                     continue
                 rel = posixpath.normpath(posixpath.join(ddir, s.rstrip("/"))) if s not in (".", "./") else ddir
-                inside = rel == ident.root or ident.root in ("", ".") or rel.startswith(ident.root + "/")
-                if inside and rel != "." and _is_module_content(rel, files):
+                if not inside(rel) or rel == ".":
+                    continue
+                if is_output and any(rel.startswith(root_prefix + d) for d in _OUTPUT_DIRS):
+                    lines.append(line)
+                elif _is_module_content(rel, files):
                     lines.append(line)
     return sorted(set(lines))
 

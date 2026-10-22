@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import posixpath
 import re
 import shlex
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -190,6 +192,7 @@ def check_k8s(root: Path, files: list[str], facts: list[Fact], rep: OracleReport
         elif k == "k8s.service.port":
             sel = spec.get("selector") or {}
             matched = [o for o in deploys if _selects(sel, o, obj.ns)]
+            split = [o for o in deploys if _selects(sel, o, o.ns) and o.ns != obj.ns and "_" in (o.ns, obj.ns)]
             for p in spec.get("ports") or []:
                 key = str(p.get("name") or p.get("port"))
                 if key != frag:
@@ -201,7 +204,7 @@ def check_k8s(root: Path, files: list[str], facts: list[Fact], rep: OracleReport
                     nums = {_port_by_name(c, target) for o in matched for c in _containers(o).values()} - {None}
                     cport = nums.pop() if len(nums) == 1 else None
                 # a named targetPort that resolves to no single container port leaves the fact unresolved
-                expected = None if cport is None else {"port": p.get("port"), "target_port": target, "container_port": cport}
+                expected = None if (cport is None or split) else {"port": p.get("port"), "target_port": target, "container_port": cport}
                 rep.check(f, expected, _line(p, "port"))
         elif k == "k8s.ingress.route":
             _check_ingress(f, obj, by, deploys, rep)
@@ -398,11 +401,15 @@ def _check_ingress(f: Fact, obj: RtObj, by: dict[str, RtObj], deploys: list[RtOb
                     if str(sp.get("name")) == str(pref.get("name")) or sp.get("port") == pref.get("number"):
                         sport = sp.get("port")
                         target = sp.get("targetPort", sp.get("port"))
-                        if isinstance(target, int):
+                        sel = sspec.get("selector") or {}
+                        # the Service's port fact is unresolved when its selector crosses a set/unset namespace boundary
+                        split = [o for o in deploys if _selects(sel, o, o.ns) and o.ns != svc.ns and "_" in (o.ns, svc.ns)]
+                        if split:
+                            cport = None
+                        elif isinstance(target, int):
                             cport = target
                         else:
-                            sel = sspec.get("selector") or {}
-                            nums = {_port_by_name(c, target) for o in deploys if _selects(sel, o, obj.ns) for c in _containers(o).values()} - {None}
+                            nums = {_port_by_name(c, target) for o in deploys if _selects(sel, o, svc.ns) for c in _containers(o).values()} - {None}
                             cport = nums.pop() if len(nums) == 1 else None
             rep.check(f, {"host": host, "path": str(p.get("path", "/")), "path_type": p.get("pathType"), "service": sname,
                           "service_port": sport, "container_port": cport}, _line(p, "path"))
@@ -673,37 +680,210 @@ def _identity_name(root: Path, evidence: list[str]) -> str | None:
     return None
 
 
-def check_link_decisions(root: Path, links: list[Linkage], facts: list[Fact], rep: OracleReport) -> None:
-    """Re-decide each proposed link from the evidence rule, not just check that the cited lines exist: the module name
-    on the cited build line, the image basename (or a command module), a COPY or ADD in the default stage chain that
-    names the artifact or copies module content, exactly one Dockerfile cited, and container ports within EXPOSE."""
-    images = {f.subject.key: str(f.value) for f in facts if f.kind == "k8s.container.image" and f.value is not None}
-    for link in links:
-        if link.status.value != "inferred":
+_OUT_SUFFIXES = (".jar", ".war", ".whl", ".tar.gz", ".tgz", ".zip")
+_SRC_SUFFIXES = (".py", ".java", ".kt")
+_SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv"}
+
+
+def _repo_files(root: Path) -> list[str]:
+    out: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if d not in _SKIP_DIRS)
+        rel_dir = os.path.relpath(dirpath, root).replace(os.sep, "/")
+        out += [f if rel_dir == "." else f"{rel_dir}/{f}" for f in sorted(filenames)]
+    return out
+
+
+def _identities(root: Path, files: list[str]) -> list[tuple[str, str]]:
+    """(name, module root directory) for every Maven artifactId, Gradle rootProject.name literal and pyproject name,
+    read here with the standard library parsers."""
+    found: list[tuple[str, str]] = []
+    for f in files:
+        base = posixpath.basename(f)
+        d = posixpath.dirname(f)
+        try:
+            text = (root / f).read_text(encoding="utf-8-sig", errors="replace")
+            if base == "pom.xml":
+                el = ET.fromstring(text).find("{*}artifactId")
+                if el is not None and el.text and "$" not in el.text:
+                    found.append((el.text.strip(), d))
+            elif base in ("settings.gradle", "settings.gradle.kts"):
+                m = re.search(r"rootProject\.name\s*=\s*['\"]([^'\"$]+)['\"]", text)
+                if m:
+                    found.append((m.group(1), d))
+            elif base == "pyproject.toml":
+                name = tomllib.loads(text).get("project", {}).get("name")
+                if name:
+                    found.append((str(name), d))
+        except (ET.ParseError, tomllib.TOMLDecodeError, OSError):
             continue
-        rep.checked += 1
-        name = _identity_name(root, link.evidence)
-        dockerfiles = sorted({e.rsplit(":", 1)[0] for e in link.evidence if re.search(r"(^|/)[^/]*[Dd]ockerfile[^/:]*:\d+$", e)})
-        if name is None or len(dockerfiles) != 1:
-            rep.mismatches.append(f"link {link.from_ref}: expected one build identity and one Dockerfile in the evidence, found {name!r} and {dockerfiles}")
-            continue
-        basename = posixpath.basename(images.get(link.from_ref, "").split("@", 1)[0]).split(":")[0]
-        command_link = any(e.endswith(".py") or ".py:" in e for e in link.evidence)
-        if basename != name and not command_link:
-            rep.mismatches.append(f"link {link.from_ref}: image basename {basename!r} does not match the module name {name!r}")
-        stages = _bk_stages((root / dockerfiles[0]).read_text(encoding="utf-8-sig", errors="replace"))
+    return found
+
+
+def _substitute(text: str, env: dict[str, str]) -> str | None:
+    unknown = False
+
+    def repl(m: re.Match[str]) -> str:
+        nonlocal unknown
+        v = env.get(m.group(1) or m.group(2))
+        if v is None:
+            unknown = True
+            return ""
+        return v
+
+    out = re.sub(r"\$(?:\{(\w+)\}|(\w+))", repl, text)
+    return None if unknown else out
+
+
+def _oracle_builders(root: Path, files: list[str], name: str, mroot: str) -> dict[str, list[str]]:
+    """Dockerfiles whose default-stage chain copies the module's build output or application source. Decided here from
+    BuildKit's parse of each Dockerfile, with ARG and ENV defaults substituted."""
+    artifact = re.compile(rf"(^|/){re.escape(name)}(?=[-.*]|$)")
+    out: dict[str, list[str]] = {}
+
+    def inside(rel: str) -> bool:
+        return rel == mroot or mroot in ("", ".") or rel.startswith(mroot + "/")
+
+    def source_in(rel: str) -> bool:
+        return any((f == rel or rel in ("", ".") or f.startswith(rel + "/")) and f.endswith(_SRC_SUFFIXES) for f in files)
+
+    def decide(df: str) -> list[str]:
+        try:
+            stages = _bk_stages((root / df).read_text(encoding="utf-8-sig", errors="replace"))
+        except dockerfile.GoParseError:
+            return []
+        if not stages:
+            return []
         names = {st.name.lower(): st.index for st in stages if st.name}
         chain = [stages[-1]]
         while chain[0].base.lower() in names and names[chain[0].base.lower()] < chain[0].index:
             chain.insert(0, stages[names[chain[0].base.lower()]])
-        cited = {int(e.rsplit(":", 1)[1]) for e in link.evidence if e.startswith(dockerfiles[0] + ":")}
-        copies = [c for st in chain for c in st.cmds if c.cmd.upper() in ("COPY", "ADD") and c.start_line in cited]
-        if not copies:
-            rep.mismatches.append(f"link {link.from_ref}: no COPY or ADD in the default stage chain of {dockerfiles[0]} is cited as copying the module")
+        env: dict[str, str] = {}
+        ddir = posixpath.dirname(df)
+        hits: list[str] = []
+
+        def copies(st: BkStage) -> list[tuple[Any, str | None, list[str]]]:
+            res = []
+            for c in st.cmds:
+                n = c.cmd.upper()
+                if n in ("ARG", "ENV"):
+                    vals = list(c.value)
+                    if n == "ARG":
+                        for v in vals:
+                            k, eq, d = v.partition("=")
+                            if eq:
+                                env.setdefault(k, d)
+                    else:
+                        for k in range(0, len(vals) - 1, 2):
+                            env[vals[k]] = vals[k + 1].strip("\"'")
+                elif n in ("COPY", "ADD"):
+                    frm = next((fl.split("=", 1)[1] for fl in c.flags if fl.startswith("--from=")), None)
+                    srcs = [x for x in (_substitute(v, env) for v in c.value[:-1]) if x is not None]
+                    res.append((c, frm, srcs))
+            return res
+
+        def stage_has_source(ref_: str) -> bool:
+            idx = names.get(ref_.lower(), int(ref_) if ref_.isdigit() else None)
+            if idx is None or idx >= len(stages):
+                return False
+            local: list[tuple[Any, str | None, list[str]]] = []
+            for st in [stages[idx]]:
+                local += copies(st)
+            for _c, frm2, srcs2 in local:
+                for s2 in srcs2:
+                    rel2 = posixpath.normpath(posixpath.join(ddir, s2.rstrip("/"))) if s2 not in (".", "./") else ddir
+                    if frm2 is None and inside(rel2) and rel2 != "." and source_in(rel2):
+                        return True
+            return False
+
+        for st in chain:
+            for c, frm, srcs in copies(st):
+                for src in srcs:
+                    is_out = src.lower().endswith(_OUT_SUFFIXES)
+                    rel = posixpath.normpath(posixpath.join(ddir, src.rstrip("/"))) if src not in (".", "./") else ddir
+                    if is_out and artifact.search(src):
+                        hits.append(f"{df}:{c.start_line}")
+                    elif frm is not None:
+                        if is_out and stage_has_source(frm):
+                            hits.append(f"{df}:{c.start_line}")
+                    elif inside(rel) and rel != "." and (
+                            (is_out and any(rel.startswith((mroot + "/" if mroot else "") + d) for d in ("target/", "build/libs/", "build/", "dist/")))
+                            or source_in(rel)):
+                        hits.append(f"{df}:{c.start_line}")
+        return sorted(set(hits))
+
+    for df in [f for f in files if re.search(r"(^|/)[^/]*[Dd]ockerfile[^/]*$", f) and not f.endswith(".md")]:
+        hits = decide(df)
+        if hits:
+            out[df] = sorted(set(hits))
+    return out
+
+
+def check_link_decisions(root: Path, links: list[Linkage], facts: list[Fact], rep: OracleReport) -> None:
+    """Re-decide every link from the repository, in both directions. For a proposed link: the image basename or the
+    command names exactly one module; exactly one Dockerfile in the repository builds it and it is the cited one;
+    container ports are within EXPOSE; no other image repository claims the same module. For an unresolved link that
+    says no Dockerfile (or several) builds a module, the repository must agree."""
+    files = _repo_files(root)
+    idents = _identities(root, files)
+    images = {f.subject.key: str(f.value) for f in facts if f.kind == "k8s.container.image" and f.value is not None}
+    ports: dict[str, set[int]] = {}
+    for f in facts:
+        if f.kind == "k8s.container.port" and isinstance(f.value, int):
+            ports.setdefault(f.subject.key.split("#", 1)[0], set()).add(f.value)
+    claimed: dict[str, set[str]] = {}
+    for link in links:
+        reason = next((e[len("reason: "):] for e in link.evidence if e.startswith("reason: ")), "")
+        m = re.match(r"no Dockerfile in the repository builds (\S+);", reason) or re.match(r"several Dockerfiles could build (\S+):", reason)
+        if link.status.value == "unresolved" and m:
+            rep.checked += 1
+            name = m.group(1)
+            mods = sorted({d for n, d in idents if n == name})
+            builders = {df: h for d in mods for df, h in _oracle_builders(root, files, name, d).items()}
+            if reason.startswith("no Dockerfile") and builders:
+                rep.mismatches.append(f"link {link.from_ref}: engine finds no Dockerfile for {name}, oracle finds {sorted(builders)}")
+            if reason.startswith("several") and len(builders) < 2:
+                rep.mismatches.append(f"link {link.from_ref}: engine finds several Dockerfiles for {name}, oracle finds {sorted(builders)}")
             continue
-        artifact = re.compile(rf"(^|/){re.escape(name)}(?=[-.*]|$)")
-        if not any(artifact.search(src) or not any(fl.startswith("--from=") for fl in c.flags) for c in copies for src in c.value[:-1]):
-            rep.mismatches.append(f"link {link.from_ref}: the cited COPY instructions neither name {name} nor copy module content")
+        if link.status.value != "inferred":
+            continue
+        rep.checked += 1
+        name = _identity_name(root, link.evidence)
+        cited = sorted({e.rsplit(":", 1)[0] for e in link.evidence if re.search(r"(^|/)[^/]*[Dd]ockerfile[^/:]*:\d+$", e)})
+        if name is None or len(cited) != 1:
+            rep.mismatches.append(f"link {link.from_ref}: expected one build identity and one Dockerfile in the evidence, found {name!r} and {cited}")
+            continue
+        image = images.get(link.from_ref, "")
+        basename = posixpath.basename(image.split("@", 1)[0]).split(":")[0]
+        command_link = any(e.endswith(".py") or ".py:" in e for e in link.evidence)
+        if basename != name and not command_link:
+            rep.mismatches.append(f"link {link.from_ref}: image basename {basename!r} does not match the module name {name!r}")
+        mods = sorted({d for n, d in idents if n == name})
+        if len(mods) != 1:
+            rep.mismatches.append(f"link {link.from_ref}: {len(mods)} modules named {name!r} in the repository, expected exactly one")
+            continue
+        builders = _oracle_builders(root, files, name, mods[0])
+        if sorted(builders) != cited:
+            rep.mismatches.append(f"link {link.from_ref}: oracle finds Dockerfiles {sorted(builders)} building {name}, the link cites {cited}")
+            continue
+        cited_lines = {int(e.rsplit(":", 1)[1]) for e in link.evidence if e.startswith(cited[0] + ":")}
+        if not any(int(h.rsplit(":", 1)[1]) in cited_lines for h in builders[cited[0]]):
+            rep.mismatches.append(f"link {link.from_ref}: none of the COPY lines the oracle relies on is cited as evidence")
+        stages = _bk_stages((root / cited[0]).read_text(encoding="utf-8-sig", errors="replace"))
+        names = {st.name.lower(): st.index for st in stages if st.name}
+        chain = [stages[-1]]
+        while chain[0].base.lower() in names and names[chain[0].base.lower()] < chain[0].index:
+            chain.insert(0, stages[names[chain[0].base.lower()]])
+        exposed = {int(v.partition("/")[0]) for st in chain for c in st.cmds if c.cmd.upper() == "EXPOSE" for v in c.value
+                   if v.partition("/")[0].isdigit() and v.partition("/")[2].lower() in ("", "tcp")}
+        mine = ports.get(link.from_ref.rsplit("#", 1)[0], set())
+        if exposed and mine and not mine <= exposed:
+            rep.mismatches.append(f"link {link.from_ref}: container ports {sorted(mine - exposed)} are not in EXPOSE {sorted(exposed)}")
+        claimed.setdefault(link.to_ref, set()).add(image.split("@", 1)[0].rsplit(":", 1)[0] if ":" in image.split("@", 1)[0].rsplit("/", 1)[-1]
+                                                   else image.split("@", 1)[0])
+    for module, repos in sorted(claimed.items()):
+        if len(repos) > 1:
+            rep.mismatches.append(f"module {module}: {len(repos)} different image repositories are linked to it: {sorted(repos)}")
 
 
 def run_oracle(root: Path, facts: list[Fact], links: list[Linkage]) -> OracleReport:

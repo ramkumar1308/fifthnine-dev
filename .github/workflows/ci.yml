@@ -39,15 +39,6 @@ jobs:
         run: mypy
       - name: Tests
         run: python -m pytest -q
-      - name: Failure diagnostics (temporary)
-        if: failure()
-        shell: bash
-        run: |
-          set +e
-          PYTHONIOENCODING=utf-8 python -X faulthandler -m pytest -v -p no:cacheprovider > /tmp/diag.txt 2>&1
-          echo "pytest exit $?" >> /tmp/diag.txt
-          grep -n -m1 -A14 -E "fatal exception|Fatal Python" /tmp/diag.txt | while IFS= read -r l; do echo "::error::${l:0:300}"; done
-          grep -E "::" /tmp/diag.txt | tail -3 | while IFS= read -r l; do echo "::error::${l:0:300}"; done
 
   package:
     name: package and offline smoke test

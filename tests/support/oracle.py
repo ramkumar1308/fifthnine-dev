@@ -125,7 +125,7 @@ def _selects(selector: dict[str, Any], o: RtObj, ns: str) -> bool:
 def _port_by_name(c: Any, name: Any) -> int | None:
     for p in c.get("ports") or []:
         if str(p.get("name")) == str(name) or str(p.get("containerPort")) == str(name):
-            return int(p["containerPort"])
+            return int(p["containerPort"]) if str(p["containerPort"]).isdigit() else None
     return None
 
 
@@ -182,7 +182,7 @@ def check_k8s(root: Path, files: list[str], facts: list[Fact], rep: OracleReport
             split = [o for o in deploys if _selects(sel, o, o.ns) and o.ns != obj.ns and "_" in (o.ns, obj.ns)]
             stype = spec.get("type") or defaults["service.type"].value
             first = min((_line(sel, x) for x in sel), default=_line(d, "spec"))
-            rep.check(f, None if split and not matched else {"type": stype, "workloads": matched}, first)
+            rep.check(f, None if split else {"type": stype, "workloads": matched}, first)
         elif k == "k8s.service.target_port":
             rep.skip("k8s.service.target_port: default checked through k8s.service.port")
         elif k == "k8s.service.type":
@@ -236,6 +236,10 @@ def check_k8s(root: Path, files: list[str], facts: list[Fact], rep: OracleReport
         elif k == "k8s.pdb":
             sel = ((spec.get("selector") or {}).get("matchLabels")) or {}
             matched = sorted(o.subject for o in deploys if _selects(sel, o, obj.ns))
+            split = [o for o in deploys if _selects(sel, o, o.ns) and o.ns != obj.ns and "_" in (o.ns, obj.ns)]
+            if split:
+                rep.check(f, None, _line(spec, "minAvailable") if "minAvailable" in spec else _line(d["metadata"], "name"))
+                continue
             val = {"workloads": matched}
             line = _line(d["metadata"], "name")
             for fld, out_name in (("minAvailable", "min_available"), ("maxUnavailable", "max_unavailable")):
@@ -245,6 +249,10 @@ def check_k8s(root: Path, files: list[str], facts: list[Fact], rep: OracleReport
             rep.check(f, val, line)
         else:
             rep.skip(f"{k}: not covered")
+
+
+def defaults_path() -> str:
+    return str(kubernetes_defaults()["probe.httpget_path"].value)
 
 
 def _check_default(f: Fact, value: Any, rep: OracleReport) -> None:
@@ -268,7 +276,8 @@ def _check_container(f: Fact, obj: RtObj, cname: str, frag: str | None, by: dict
     elif k == "k8s.container.port":
         for p in c.get("ports") or []:
             if str(p.get("name") or p.get("containerPort")) == frag:
-                rep.check(f, p.get("containerPort"), _line(p, "containerPort"))
+                cp = p.get("containerPort")
+                rep.check(f, cp if isinstance(cp, int) and not isinstance(cp, bool) else None, _line(p, "containerPort"))
     elif k == "k8s.container.env":
         explicit = {str(e.get("name")): e for e in c.get("env") or []}
         if frag in explicit:
@@ -283,7 +292,7 @@ def _check_container(f: Fact, obj: RtObj, cname: str, frag: str | None, by: dict
                 else:
                     rep.check(f, None, _line(e, "valueFrom"))
             else:
-                rep.check(f, str(e.get("value", "")), _line(e, "value") if "value" in e else _line(e, "name"))
+                rep.check(f, "" if e.get("value") is None else str(e.get("value")), _line(e, "value") if "value" in e else _line(e, "name"))
             return
         winner = None
         for ef in c.get("envFrom") or []:  # later entries win duplicates
@@ -322,6 +331,12 @@ def _check_container(f: Fact, obj: RtObj, cname: str, frag: str | None, by: dict
             rep.checked += 1
             if not (f.absent and f.value is None and f.source is not None and f.source.line_start == line):
                 rep.mismatches.append(f"{k} {f.subject.key}: oracle says absent at line {line}")
+    elif k == "k8s.container.probe_path":
+        h = (c.get(f"{frag}Probe") or {}).get("httpGet") or {}
+        if "path" in h:
+            rep.mismatches.append(f"{k} {f.subject.key}: a default is emitted but the manifest sets path")
+        else:
+            _check_default(f, defaults_path(), rep)
     elif k.startswith("k8s.container.probe."):
         probe = c.get(f"{k.rsplit('.', 1)[1]}Probe")
         if probe is None:
@@ -591,7 +606,7 @@ def check_effective_command(root: Path, facts: list[Fact], links: list[Linkage],
         ep = next((c2 for c2 in reversed(st.cmds) if c2.cmd.upper() == "ENTRYPOINT"), None)
         cmd = next((c2 for c2 in reversed(st.cmds) if c2.cmd.upper() == "CMD"), None)
         if ep is None:
-            rep.skip("effective_command: ENTRYPOINT not set in the final stage")
+            rep.check(f, None, None)  # the base image's ENTRYPOINT is not in the repository, so the command is unknown
             continue
         # CMD set in the same stage survives ENTRYPOINT; otherwise ENTRYPOINT cleared the inherited CMD
         tail = [str(x) for x in args] if args is not None else (list(cmd.value) if cmd is not None else [])
@@ -638,6 +653,59 @@ def check_links(root: Path, links: list[Linkage], facts: list[Fact], rep: Oracle
                 rep.mismatches.append(f"link {link.from_ref}: evidence {e} does not show what it claims: {text.strip()!r}")
 
 
+def _identity_name(root: Path, evidence: list[str]) -> str | None:
+    """The module name stated on the cited build-descriptor line (pom artifactId, settings.gradle rootProject.name,
+    pyproject name), read here without the engine's code."""
+    for e in evidence:
+        m = re.match(r"^(.+):(\d+)$", e)
+        if not m:
+            continue
+        path, line = m.group(1), int(m.group(2))
+        base = posixpath.basename(path)
+        if base not in ("pom.xml", "settings.gradle", "settings.gradle.kts", "pyproject.toml"):
+            continue
+        text = (root / path).read_text(encoding="utf-8-sig", errors="replace")
+        if base == "pyproject.toml":
+            return str(tomllib.loads(text)["project"]["name"])
+        row = text.splitlines()[line - 1]
+        hit = re.search(r"<artifactId>\s*([^<\s]+)\s*</artifactId>", row) or re.search(r"rootProject\.name\s*=\s*['\"]([^'\"]+)['\"]", row)
+        return hit.group(1) if hit else None
+    return None
+
+
+def check_link_decisions(root: Path, links: list[Linkage], facts: list[Fact], rep: OracleReport) -> None:
+    """Re-decide each proposed link from the evidence rule, not just check that the cited lines exist: the module name
+    on the cited build line, the image basename (or a command module), a COPY or ADD in the default stage chain that
+    names the artifact or copies module content, exactly one Dockerfile cited, and container ports within EXPOSE."""
+    images = {f.subject.key: str(f.value) for f in facts if f.kind == "k8s.container.image" and f.value is not None}
+    for link in links:
+        if link.status.value != "inferred":
+            continue
+        rep.checked += 1
+        name = _identity_name(root, link.evidence)
+        dockerfiles = sorted({e.rsplit(":", 1)[0] for e in link.evidence if re.search(r"(^|/)[^/]*[Dd]ockerfile[^/:]*:\d+$", e)})
+        if name is None or len(dockerfiles) != 1:
+            rep.mismatches.append(f"link {link.from_ref}: expected one build identity and one Dockerfile in the evidence, found {name!r} and {dockerfiles}")
+            continue
+        basename = posixpath.basename(images.get(link.from_ref, "").split("@", 1)[0]).split(":")[0]
+        command_link = any(e.endswith(".py") or ".py:" in e for e in link.evidence)
+        if basename != name and not command_link:
+            rep.mismatches.append(f"link {link.from_ref}: image basename {basename!r} does not match the module name {name!r}")
+        stages = _bk_stages((root / dockerfiles[0]).read_text(encoding="utf-8-sig", errors="replace"))
+        names = {st.name.lower(): st.index for st in stages if st.name}
+        chain = [stages[-1]]
+        while chain[0].base.lower() in names and names[chain[0].base.lower()] < chain[0].index:
+            chain.insert(0, stages[names[chain[0].base.lower()]])
+        cited = {int(e.rsplit(":", 1)[1]) for e in link.evidence if e.startswith(dockerfiles[0] + ":")}
+        copies = [c for st in chain for c in st.cmds if c.cmd.upper() in ("COPY", "ADD") and c.start_line in cited]
+        if not copies:
+            rep.mismatches.append(f"link {link.from_ref}: no COPY or ADD in the default stage chain of {dockerfiles[0]} is cited as copying the module")
+            continue
+        artifact = re.compile(rf"(^|/){re.escape(name)}(?=[-.*]|$)")
+        if not any(artifact.search(src) or not any(fl.startswith("--from=") for fl in c.flags) for c in copies for src in c.value[:-1]):
+            rep.mismatches.append(f"link {link.from_ref}: the cited COPY instructions neither name {name} nor copy module content")
+
+
 def run_oracle(root: Path, facts: list[Fact], links: list[Linkage]) -> OracleReport:
     rep = OracleReport()
     yaml_files = sorted({f.source.path for f in facts if f.kind.startswith("k8s.") and f.source} |
@@ -647,6 +715,7 @@ def run_oracle(root: Path, facts: list[Fact], links: list[Linkage]) -> OracleRep
     check_docker(root, docker_files, facts, rep)
     check_effective_command(root, facts, links, rep)
     check_links(root, links, facts, rep)
+    check_link_decisions(root, links, facts, rep)
     return rep
 
 

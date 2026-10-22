@@ -104,6 +104,7 @@ class EnvModel:
     container: str
     explicit: dict[str, EnvResolution] = field(default_factory=dict)
     sources: list[EnvSource] = field(default_factory=list)
+    duplicates: list[str] = field(default_factory=list)  # repeated `env` names whose earlier entries are ignored
 
     def unknown_sources(self) -> list[EnvSource]:
         return [s for s in self.sources if not s.in_repository]
@@ -250,9 +251,9 @@ def _docker_facts(path: str, model: DockerfileModel, fb: FactBuilder) -> dict[st
             display=f"{path} default build target")
         ids["build_target"] = fb.add(
             "docker.build_target", base, None, FactStatus.UNRESOLVED, inputs=[via(R.REFERENCE, ids["default_target"])],
-            unresolved_reason="The build target used to produce the deployed image is not in the repository (CI or registry "
-                              "configuration). Docker builds the final stage when no --target is given; that is the default target, "
-                              "not a verified production build.")
+            unresolved_reason=("The build target used to produce the deployed image is not read from the repository (a CI --target "
+                               "flag, Compose file, workflow or registry configuration is not interpreted). Docker builds the final "
+                               "stage when no --target is given; that is the default target, not a verified production build."))
     return ids
 
 
@@ -261,6 +262,16 @@ def _docker_facts(path: str, model: DockerfileModel, fb: FactBuilder) -> dict[st
 
 def _num_or_str(v: Any) -> Any:
     return v if isinstance(v, int) and not isinstance(v, bool) else (str(v) if v is not None else None)
+
+
+def _int_fact(fb: FactBuilder, kind: str, subject: str, node: Y, path: str, unit: str | None = None) -> None:
+    """A field that must be an integer: a template or other non-integer text is unresolved, never a declared value."""
+    number = _port_number(node.value)
+    if number is None:
+        fb.add(kind, subject, None, FactStatus.UNRESOLVED, source=ref(path, node.key_line),
+               unresolved_reason=f"{node.value!r} is not an integer (a placeholder filled in at deploy time?)")
+    else:
+        fb.add(kind, subject, number, FactStatus.DECLARED, unit=unit, source=ref(path, node.key_line))
 
 
 def _labels(y: Y | None) -> dict[str, tuple[str, int]]:
@@ -280,7 +291,8 @@ def _seq(y: Y | None) -> list[Y]:
 def _argv(y: Y | None) -> list[str] | None:
     if y is None or not y.is_seq:
         return None
-    return [str(i.value) for i in y.seq()]
+    items = [str(i.value) for i in y.seq()]
+    return items or None  # Kubernetes treats an empty list as not set
 
 
 @dataclass
@@ -385,11 +397,14 @@ def resolve_deployment(ws: Workspace) -> DeploymentResult:
             _pdb(d, fb, workloads, out)
 
     # linkage, then effective command and config mounts that depend on it
+    proposed: list[tuple[_Workload, str, Y, Linkage | None]] = []
     for w in workloads:
         for csub, c in w.containers:
-            link = _linkage(ws, w, csub, c, identities, out, fb)
-            _effective_command(w, csub, c, link, out, docker_ids, fb)
-            _mounts(w, csub, c, link, out, fb)
+            proposed.append((w, csub, c, _linkage(ws, w, csub, c, identities, out, fb)))
+    proposed = _single_image_per_module(proposed, out)
+    for w, csub, c, link in proposed:
+        _effective_command(w, csub, c, link, out, docker_ids, fb)
+        _mounts(w, csub, c, link, out, docker_ids, fb)
     return out
 
 
@@ -403,7 +418,7 @@ def _deployment(d: K8sDoc, fb: FactBuilder, configmaps: dict[tuple[str, str], tu
     absence = (p, d.name_line)
     replicas = spec.get("replicas") if spec else None
     if replicas is not None:
-        fb.add("k8s.deployment.replicas", d.subject, _num_or_str(replicas.value), FactStatus.DECLARED, source=ref(p, replicas.key_line))
+        _int_fact(fb, "k8s.deployment.replicas", d.subject, replicas, p)
     else:
         fb.add("k8s.deployment.replicas", d.subject, None, FactStatus.DECLARED, absent=True, source=ref(p, d.name_line))
     strategy = spec.get("strategy") if spec else None
@@ -427,7 +442,7 @@ def _deployment(d: K8sDoc, fb: FactBuilder, configmaps: dict[tuple[str, str], tu
     labels = _labels(template.path("metadata", "labels") if template else None)
     grace = pod.get("terminationGracePeriodSeconds") if pod else None
     if grace is not None:
-        fb.add("k8s.pod.termination_grace_period", d.subject, _num_or_str(grace.value), FactStatus.DECLARED, unit="s", source=ref(p, grace.key_line))
+        _int_fact(fb, "k8s.pod.termination_grace_period", d.subject, grace, p, unit="s")
     else:
         _k8s_default(fb, "k8s.pod.termination_grace_period", d.subject, "pod.termination_grace_period", absence)
     w = _Workload(d, labels, [], {})
@@ -449,12 +464,20 @@ def _deployment(d: K8sDoc, fb: FactBuilder, configmaps: dict[tuple[str, str], tu
                 continue
             pname = port.scalar("name")
             key = str(pname) if pname else str(cp.value)
-            fid = fb.add("k8s.container.port", f"{csub}#{key}", _num_or_str(cp.value), FactStatus.DECLARED, source=ref(p, cp.key_line))
+            number = _port_number(cp.value)
+            if number is None:  # a template or other non-numeric value; the port is not known
+                fb.add("k8s.container.port", f"{csub}#{key}", None, FactStatus.UNRESOLVED, source=ref(p, cp.key_line),
+                       unresolved_reason=f"containerPort {cp.value!r} is not a port number (a placeholder filled in at deploy time?)")
+                continue
+            fid = fb.add("k8s.container.port", f"{csub}#{key}", number, FactStatus.DECLARED, source=ref(p, cp.key_line))
             if pname:
-                ports[str(pname)] = (int(cp.value), fid)
-            ports[str(cp.value)] = (int(cp.value), fid)
+                ports[str(pname)] = (number, fid)
+            ports[str(number)] = (number, fid)
         w.port_facts[csub] = ports
         env = _container_env(d, csub, c, fb, configmaps)
+        for dup in env.duplicates:
+            out.coverage.append(CoverageNotice(code="FN-OPS-002", scope=csub, message=f"env variable {dup} is repeated; the last entry applies "
+                                                                                     "and the earlier one is ignored."))
         out.env_models[csub] = env
         _resources(csub, c, p, name_line, fb)
         for probe in ("readiness", "liveness", "startup"):
@@ -484,11 +507,16 @@ def _container_env(d: K8sDoc, csub: str, c: Y, fb: FactBuilder,
             fid = fb.add("k8s.container.env_from", f"{csub}#{kind.lower()}:{name}", value, FactStatus.DECLARED,
                          source=ref(p, name_node.key_line if name_node else node.key_line), inputs=inputs)
             model.sources.append(EnvSource(order, kind, name, in_repo, dict(cm[1]) if cm else {}, fid, prefix))
-    for item in _seq(c.get("env")):
+    env_items = _seq(c.get("env"))
+    last_index = {str(i.scalar("name")): n for n, i in enumerate(env_items) if i.get("name") is not None}
+    for n, item in enumerate(env_items):
         name_node = item.get("name")
         if name_node is None:
             continue
         var = str(name_node.value)
+        if last_index[var] != n:  # Kubernetes applies the last entry for a repeated name
+            model.duplicates.append(f"{var} (line {name_node.key_line})")
+            continue
         attach = loc(R.ENV_ATTACHMENT, p, name_node.key_line)
         value_node, from_node = item.get("value"), item.get("valueFrom")
         if from_node is not None:
@@ -582,7 +610,10 @@ def _probe(probe: str, csub: str, c: Y, p: str, name_line: int, ports: dict[str,
         source_node = port_node
         if ptype == "httpGet":
             path_node = h.get("path")
-            value = {"type": ptype, "path": str(path_node.value) if path_node else "/", "port": port_val}
+            if path_node is None:  # the API server defaults an unset path to "/" (cited, verified default)
+                did, default_path = _k8s_default(fb, "k8s.container.probe_path", f"{csub}#{probe}", "probe.httpget_path", (p, h.key_line))
+                inputs.append(via(R.VALUE_SOURCE, did))
+            value = {"type": ptype, "path": str(path_node.value) if path_node else default_path, "port": port_val}
             source_node = path_node or port_node
         line = source_node.key_line if source_node is not None else h.key_line
         if status is FactStatus.UNRESOLVED:
@@ -641,6 +672,17 @@ def _same_ns(a: K8sDoc, b: K8sDoc) -> bool | None:
     return None
 
 
+def _port_number(v: Any) -> int | None:
+    """A port as an integer, or None for a template, a name or anything else that is not a plain number."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, int):
+        return v
+    if isinstance(v, str) and v.strip().isdigit():
+        return int(v.strip())
+    return None
+
+
 def _service(d: K8sDoc, fb: FactBuilder, workloads: list[_Workload], out: DeploymentResult) -> _ServiceInfo:
     spec = d.root.get("spec")
     p = d.path
@@ -667,7 +709,7 @@ def _service(d: K8sDoc, fb: FactBuilder, workloads: list[_Workload], out: Deploy
         for k in selector:
             inputs.append(loc(R.REFERENCE, w.doc.path, w.labels[k][1]))
     first = min((line for _, line in selector.values()), default=spec.key_line if spec else d.name_line)
-    if ambiguous and not matched:
+    if ambiguous:
         fb.add("k8s.service.selects", d.subject, None, FactStatus.UNRESOLVED, source=ref(p, first),
                unresolved_reason=f"selector matches {', '.join(ambiguous)}, but one side sets a namespace and the other does not")
     else:
@@ -708,13 +750,17 @@ def _service(d: K8sDoc, fb: FactBuilder, workloads: list[_Workload], out: Deploy
             else:
                 status = FactStatus.UNRESOLVED
                 reason = f"targetPort {target!r} resolves to {sorted(numbers) or 'no'} container port(s) on the selected workloads"
-        value = {"port": _num_or_str(pnode.value), "target_port": target, "container_port": container_port}
+        svc_port = _port_number(pnode.value)
+        if svc_port is None:
+            status, reason = FactStatus.UNRESOLVED, f"port {pnode.value!r} is not a port number (a placeholder filled in at deploy time?)"
+        value = {"port": svc_port, "target_port": target, "container_port": container_port}
         if status is FactStatus.UNRESOLVED:
             fid = fb.add("k8s.service.port", f"{d.subject}#{key}", None, status, source=ref(p, pnode.key_line), inputs=pin, unresolved_reason=reason)
         else:
             fid = fb.add("k8s.service.port", f"{d.subject}#{key}", value, status, source=ref(p, pnode.key_line), inputs=pin)
-        info.ports[key] = (int(pnode.value), fid)
-        info.ports[str(pnode.value)] = (int(pnode.value), fid)
+        if svc_port is not None:
+            info.ports[key] = (svc_port, fid)
+            info.ports[str(svc_port)] = (svc_port, fid)
     return info
 
 
@@ -789,8 +835,11 @@ def _hpa(d: K8sDoc, fb: FactBuilder, workloads: list[_Workload], out: Deployment
         inputs.append(loc(R.VALUE_SOURCE, p, mx.key_line))
     line = name_node.key_line if name_node is not None else d.name_line
     if target is None:
-        fb.add("k8s.hpa.target", d.subject, None, FactStatus.UNRESOLVED, source=ref(p, line), inputs=inputs,
-               unresolved_reason=f"scaleTargetRef {tkind}/{tname} is not in the repository in the same namespace (RULES.md H5)")
+        other = next((w for w in workloads if w.doc.kind == tkind and w.doc.name == tname), None)
+        why = (f"scaleTargetRef {tkind}/{tname} exists in {other.doc.path}, but one side sets a namespace and the other does not"
+               if other is not None and _same_ns(d, other.doc) is None
+               else f"scaleTargetRef {tkind}/{tname} is not in the repository in the same namespace (RULES.md H5)")
+        fb.add("k8s.hpa.target", d.subject, None, FactStatus.UNRESOLVED, source=ref(p, line), inputs=inputs, unresolved_reason=why)
     else:
         fb.add("k8s.hpa.target", d.subject, {"workload": target.doc.subject, "min": min_val, "max": _num_or_str(mx.value) if mx else None},
                FactStatus.DECLARED, source=ref(p, line), inputs=inputs)
@@ -834,6 +883,11 @@ def _pdb(d: K8sDoc, fb: FactBuilder, workloads: list[_Workload], out: Deployment
                unresolved_reason="selector uses matchExpressions, which M2-1 does not evaluate")
         return
     matched = sorted(w.doc.subject for w in workloads if _match(labels, w.labels) and _same_ns(d, w.doc))
+    ambiguous = sorted(w.doc.subject for w in workloads if _match(labels, w.labels) and _same_ns(d, w.doc) is None)
+    if ambiguous:
+        fb.add("k8s.pdb", d.subject, None, FactStatus.UNRESOLVED, source=ref(p, line), inputs=inputs,
+               unresolved_reason=f"selector matches {', '.join(ambiguous)}, but one side sets a namespace and the other does not")
+        return
     value: dict[str, Any] = {"workloads": matched}
     if node is not None and field_name:
         value[field_name] = _num_or_str(node.value)
@@ -878,9 +932,27 @@ def _python_module_target(ws: Workspace, root: str, ref_text: str) -> tuple[str,
     return None
 
 
-def _builds(model: DockerfileModel, ident: BuildIdentity, ws_paths: set[str]) -> list[int]:
-    """Lines of COPY instructions in the default target's chain that copy this module's artifact or sources.
-    A Dockerfile builds the module when it sits in the module's root directory or such a COPY exists."""
+# A COPY names a module's artifact only when the path ends like a build output. A directory that merely carries the
+# module's name (for example /opt/shenyu-admin inside an image) is not evidence that the module was built there.
+_ARTIFACT_SUFFIXES = (".jar", ".war", ".whl", ".tar.gz", ".tgz", ".zip")
+_SOURCE_SUFFIXES = (".py", ".java", ".kt", ".jar", ".war", ".whl", ".gradle", ".kts")
+_BUILD_FILES = {"pom.xml", "pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", "uv.lock", "poetry.lock", "gradlew"}
+
+
+def _is_module_content(rel: str, files: list[str]) -> bool:
+    """True when the path (relative to the repository) is, or contains, source or build material of an application:
+    a configuration file such as nginx.conf in the module directory is not the module."""
+    for f in files:
+        if f == rel or rel in ("", ".") or f.startswith(rel + "/"):
+            if f.endswith(_SOURCE_SUFFIXES) or posixpath.basename(f) in _BUILD_FILES:
+                return True
+    return False
+
+
+def _builds(model: DockerfileModel, ident: BuildIdentity, files: list[str]) -> list[int]:
+    """Lines of COPY or ADD instructions in the default target's chain that copy this module's artifact or its source
+    and build files. A Dockerfile builds the module only when such an instruction exists; sitting next to the module
+    is not enough, and a repository-root module is not copied by an unrelated file."""
     target = model.default_target
     if target is None:
         return []
@@ -892,16 +964,47 @@ def _builds(model: DockerfileModel, ident: BuildIdentity, ws_paths: set[str]) ->
             for s in sources:
                 # the build context is not in the repository, so a COPY that names the module's artifact (e.g.
                 # target/web-1.0.jar) counts wherever the Dockerfile sits
-                if artifact.search(s):
+                if artifact.search(s) and s.lower().endswith(_ARTIFACT_SUFFIXES):
                     lines.append(line)
                     continue
                 if frm is not None:
                     continue
                 rel = posixpath.normpath(posixpath.join(ddir, s.rstrip("/"))) if s not in (".", "./") else ddir
-                inside = rel == ident.root or (ident.root in ("", ".") or rel.startswith(ident.root + "/"))
-                if inside and (rel in ws_paths or any(x.startswith(rel + "/") for x in ws_paths)) and rel != ".":
+                inside = rel == ident.root or ident.root in ("", ".") or rel.startswith(ident.root + "/")
+                if inside and rel != "." and _is_module_content(rel, files):
                     lines.append(line)
     return sorted(set(lines))
+
+
+def _image_repository(image: str) -> str:
+    return image.split("@", 1)[0].rsplit(":", 1)[0] if ":" in image.split("@", 1)[0].rsplit("/", 1)[-1] else image.split("@", 1)[0]
+
+
+def _single_image_per_module(proposed: list[tuple[_Workload, str, Y, Linkage | None]],
+                             out: DeploymentResult) -> list[tuple[_Workload, str, Y, Linkage | None]]:
+    """ARCHITECTURE.md E4: exactly one workload image corresponds to a module. Containers that run the same image
+    repository (any tag) are one image. When two different image repositories would link to one module, none of those
+    links is proposed."""
+    by_module: dict[str, set[str]] = {}
+    for _w, csub, c, link in proposed:
+        if link is not None and link.status is LinkStatus.INFERRED:
+            image = c.get("image")
+            by_module.setdefault(link.to_ref, set()).add(_image_repository(str(image.value)) if image is not None else csub)
+    clashing = {m for m, repos in by_module.items() if len(repos) > 1}
+    if not clashing:
+        return proposed
+    result: list[tuple[_Workload, str, Y, Linkage | None]] = []
+    for w, csub, c, link in proposed:
+        if link is not None and link.status is LinkStatus.INFERRED and link.to_ref in clashing:
+            out.linkages.remove(link)
+            out.dockerfile_for_link.pop(link.link_id, None)
+            image_node = c.get("image")
+            image_line = f"{w.doc.path}:{image_node.key_line}" if image_node is not None else f"{w.doc.path}:{w.doc.name_line}"
+            others = sorted(by_module[link.to_ref])
+            link = _unresolved_link("workload_container_to_source_root", csub, [image_line], out,
+                                    f"ambiguous: several workload images ({', '.join(others)}) would link to {link.to_ref}")
+        result.append((w, csub, c, link))
+    return result
 
 
 def _unresolved_link(kind: str, csub: str, evidence: list[str], out: DeploymentResult, reason: str) -> Linkage:
@@ -950,11 +1053,11 @@ def _linkage(ws: Workspace, w: _Workload, csub: str, c: Y, identities: list[Buil
     if len(candidates) > 1:
         return unresolved("ambiguous: " + ", ".join(sorted(f"{i.kind} {i.name} ({i.path})" for i in candidates.values())))
     ident = next(iter(candidates.values()))
-    ws_paths = {f.path for f in ws.files} | {posixpath.dirname(f.path) for f in ws.files}
+    file_paths = sorted(f.path for f in ws.files)
     builders: dict[str, list[int]] = {}
     for path, model in out.dockerfiles.items():
-        copies = _builds(model, ident, ws_paths)
-        if posixpath.dirname(path) == ident.root or copies:
+        copies = _builds(model, ident, file_paths)
+        if copies:
             builders[path] = copies
     if not builders:
         return unresolved(f"no Dockerfile in the repository builds {ident.name}; the image may be built by buildpacks or a build plugin")
@@ -965,6 +1068,7 @@ def _linkage(ws: Workspace, w: _Workload, csub: str, c: Y, identities: list[Buil
     target = model.default_target
     assert target is not None
     exposed = {e.value[0] for st in model.chain(target) for e in st.expose if e.unresolved is None and isinstance(e.value, tuple) and e.value[1] == "tcp"}
+    expose_unresolved = any(e.unresolved is not None for st in model.chain(target) for e in st.expose)
     container_ports = {num: fid for _, (num, fid) in w.port_facts.get(csub, {}).items()}
     if exposed and container_ports and not set(container_ports) <= exposed:
         return unresolved(f"container ports {sorted(set(container_ports) - exposed)} are not exposed by {dpath}")
@@ -980,8 +1084,10 @@ def _linkage(ws: Workspace, w: _Workload, csub: str, c: Y, identities: list[Buil
         if src is not None:
             evidence.append(f"{src.path}:{src.line_start}")
     evidence = sorted(set(evidence), key=lambda e: (e.rsplit(":", 1)[0], int(e.rsplit(":", 1)[1]) if e.rsplit(":", 1)[1].isdigit() else 0))
+    if expose_unresolved:
+        evidence.append("port agreement was not fully checked: an EXPOSE instruction uses a variable with no value in the file")
     evidence.append("assumes the deployed image was built from the Dockerfile's default (final) stage; the build target "
-                    "used in production is not in the repository")
+                    "used in production is not read from the repository (a CI --target flag, Compose file or workflow is not interpreted)")
     root = ident.root or "."
     link = Linkage(link_id=_link_id(kind, csub, f"source:{root}"), kind=kind, status=LinkStatus.INFERRED, from_ref=csub, to_ref=f"source:{root}",
                    evidence=evidence, accept_command="fifthnine links accept (milestone M2-5)")
@@ -1023,7 +1129,9 @@ def _effective_command(w: _Workload, csub: str, c: Y, link: Linkage | None, out:
     target = model.default_target
     assert target is not None
     ids = docker_ids[dpath]
-    base_inputs = [loc(R.ABSENCE, p, name_node.key_line), via(R.REFERENCE, ids["default_target"])]
+    # Every value read through the link assumes the image was built from the Dockerfile's default stage, so the fact
+    # depends on the unresolved build target and is never declared.
+    base_inputs = [loc(R.ABSENCE, p, name_node.key_line), via(R.REFERENCE, ids["default_target"]), via(R.REFERENCE, ids["build_target"])]
     if target.entrypoint_state == "set" and target.entrypoint is not None:
         ep_form, ep_argv, ep_line = target.entrypoint
         tail = args if args is not None else (target.cmd[1] if target.cmd_state == "set" and target.cmd is not None else [])
@@ -1032,19 +1140,17 @@ def _effective_command(w: _Workload, csub: str, c: Y, link: Linkage | None, out:
             inputs.append(loc(R.VALUE_SOURCE, p, args_node.key_line))  # type: ignore[union-attr]
         elif target.cmd_state == "set":
             inputs.append(via(R.VALUE_SOURCE, ids["cmd"]))
-        fb.add(kind, csub, ep_argv + tail, FactStatus.DECLARED, source=ref(dpath, ep_line), inputs=inputs,
+        fb.add(kind, csub, ep_argv + tail, FactStatus.INFERRED, source=ref(dpath, ep_line), inputs=inputs,
                precedence="k8s.container.args" if args is not None else "docker.entrypoint", link_ids=[link.link_id])
         return
-    if args is None and target.cmd_state == "set" and target.cmd is not None:
-        fb.add(kind, csub, target.cmd[1], FactStatus.INFERRED, source=ref(dpath, target.cmd[2]),
-               inputs=[*base_inputs, via(R.VALUE_SOURCE, ids["cmd"]), via(R.REFERENCE, ids["entrypoint"])],
-               precedence="docker.cmd", link_ids=[link.link_id])
-        return
-    fb.add(kind, csub, None, FactStatus.UNRESOLVED, inputs=[*base_inputs, via(R.REFERENCE, ids["entrypoint"])], link_ids=[link.link_id],
-           unresolved_reason="the image ENTRYPOINT comes from the base image, which is not in the repository")
+    cmd_ref = [via(R.REFERENCE, ids["cmd"])] if target.cmd_state == "set" and "cmd" in ids else []
+    fb.add(kind, csub, None, FactStatus.UNRESOLVED, inputs=[*base_inputs, via(R.REFERENCE, ids["entrypoint"]), *cmd_ref], link_ids=[link.link_id],
+           unresolved_reason="the Dockerfile sets no ENTRYPOINT, so the image ENTRYPOINT comes from the base image, which is not in the repository "
+                             "(many base images, such as nginx, set one)")
 
 
-def _mounts(w: _Workload, csub: str, c: Y, link: Linkage | None, out: DeploymentResult, fb: FactBuilder) -> None:
+def _mounts(w: _Workload, csub: str, c: Y, link: Linkage | None, out: DeploymentResult, docker_ids: dict[str, dict[str, str]],
+            fb: FactBuilder) -> None:
     """Volume mounts, and whether an out-of-repository config file could sit where the application reads config
     (RULES.md X5: the image WORKDIR, WORKDIR/config or below)."""
     p = w.doc.path
@@ -1075,6 +1181,11 @@ def _mounts(w: _Workload, csub: str, c: Y, link: Linkage | None, out: Deployment
             reads_config = mount_path in (workdir, f"{workdir}/config") or mount_path.startswith(f"{workdir}/config/")
         value = {"mount_path": mount_path, "volume": m.scalar("name"), "source_kind": src_kind, "source_name": src_name,
                  "config_location": reads_config}
-        fb.add("k8s.container.volume_mount", f"{csub}#{mount_path}", value, FactStatus.DECLARED, source=ref(p, mp.key_line),
-               link_ids=[link.link_id] if reads_config is not None and link is not None else [])
+        if reads_config is not None and link is not None:
+            # config_location rests on the image WORKDIR of the default stage, which may not be the deployed image
+            ids = docker_ids[out.dockerfile_for_link[link.link_id]]
+            fb.add("k8s.container.volume_mount", f"{csub}#{mount_path}", value, FactStatus.INFERRED, source=ref(p, mp.key_line),
+                   inputs=[via(R.REFERENCE, ids["default_target"]), via(R.REFERENCE, ids["build_target"])], link_ids=[link.link_id])
+        else:
+            fb.add("k8s.container.volume_mount", f"{csub}#{mount_path}", value, FactStatus.DECLARED, source=ref(p, mp.key_line))
 

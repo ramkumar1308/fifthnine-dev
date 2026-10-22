@@ -129,6 +129,7 @@ def load_yaml_documents(text: str) -> list[YamlDocument]:
     """Load documents with ruamel's round-trip loader (plain mappings, sequences and scalars; no arbitrary Python
     objects; aliases stay shared references). Used for .fifthnine.yml and packaged data. Convert with to_plain()
     before handing data to anything that copies it."""
+    _check_yaml_depth(text)
     yaml = YAML(typ="rt", pure=True)
     yaml.allow_duplicate_keys = False
     docs: list[YamlDocument] = []
@@ -145,11 +146,34 @@ def load_yaml_documents(text: str) -> list[YamlDocument]:
     return docs
 
 
+MAX_YAML_DEPTH = 200
+
+
+def _check_yaml_depth(text: str) -> None:
+    """Refuse deeply nested YAML before the parser sees it. Deep nesting can exhaust the C stack of the composer on
+    some platforms (a hard crash on Windows, not a RecursionError), so the depth is bounded with a linear scan of
+    flow brackets and block indentation. The scan is conservative and ignores quoting."""
+    depth = deepest = 0
+    for ch in text:
+        if ch in "[{":
+            depth += 1
+            if depth > deepest:
+                deepest = depth
+        elif ch in "]}" and depth:
+            depth -= 1
+    if deepest > MAX_YAML_DEPTH:
+        raise ParseError("YAML nesting too deep")
+    for line in text.splitlines():
+        if len(line) - len(line.lstrip(" ")) > 4 * MAX_YAML_DEPTH:
+            raise ParseError("YAML nesting too deep")
+
+
 def compose_yaml_documents(text: str) -> list[Node]:
     """Compose (parse without constructing) every document. Uses the libyaml-based C parser when available and
     the pure-Python parser otherwise. Nothing is constructed, so tags never run and aliases are never expanded;
     every node carries its start line. Used to inventory Kubernetes objects, where only a few top-level scalars
     are needed and manifests can be large."""
+    _check_yaml_depth(text)
     try:
         yaml = YAML(typ="safe", pure=False)
         nodes: list[Node] = []

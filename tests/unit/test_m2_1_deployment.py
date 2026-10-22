@@ -213,9 +213,9 @@ def test_x5_config_mount_at_workdir(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(("command", "expected", "linked"), [
     ('command: ["gunicorn", "app.main:app"]', ["gunicorn", "app.main:app"], False),  # F13: command replaces image CMD
-    ("", ["uvicorn", "app.main:app", "--reload"], True),  # F14: image CMD runs, through the link
+    ("", None, True),  # F14: the image CMD runs, but the base image's ENTRYPOINT is not in the repository
 ])
-def test_f13_f14_effective_command(tmp_path: Path, command: str, expected: list[str], linked: bool) -> None:
+def test_f13_f14_effective_command(tmp_path: Path, command: str, expected: list[str] | None, linked: bool) -> None:
     root = _repo(tmp_path, {
         "pyproject.toml": '[project]\nname = "web"\nversion = "1"\n',
         "app/__init__.py": "", "app/main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
@@ -227,7 +227,8 @@ def test_f13_f14_effective_command(tmp_path: Path, command: str, expected: list[
     assert eff.value == expected
     assert bool(eff.link_ids) is linked
     if linked:
-        assert eff.status is FactStatus.INFERRED  # base image ENTRYPOINT is assumed absent, which is a heuristic
+        assert eff.status is FactStatus.UNRESOLVED and eff.unresolved_reason
+        assert any(i.fact_id for i in eff.inputs)  # the image CMD stays reachable for rules through the inputs
     _oracle_clean(root, r)
 
 
@@ -297,10 +298,14 @@ def test_command_with_variable_expansion_is_unresolved(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(("files", "reason"), [
     ({"pom.xml": "<project><artifactId>web</artifactId></project>\n"}, "buildpacks"),
-    ({"pom.xml": "<project><artifactId>web</artifactId></project>\n", "Dockerfile": "FROM a\nEXPOSE 8080\n",
+    ({"pom.xml": "<project><artifactId>web</artifactId></project>\n", "Dockerfile": "FROM a\nCOPY target/web.jar /a.jar\nEXPOSE 8080\n",
       "ops/Dockerfile": "FROM b\nCOPY target/web.jar /a.jar\n"}, "several Dockerfiles"),
     ({"pom.xml": "<project><artifactId>other</artifactId></project>\n", "Dockerfile": "FROM a\n"}, "no in-repository build identity"),
-    ({"pom.xml": "<project><artifactId>web</artifactId></project>\n", "Dockerfile": "FROM a\nEXPOSE 9000\n"}, "not exposed"),
+    ({"pom.xml": "<project><artifactId>web</artifactId></project>\n", "Dockerfile": "FROM a\nCOPY target/web.jar /a.jar\nEXPOSE 9000\n"}, "not exposed"),
+    ({"pyproject.toml": '[project]\nname = "web"\n', "Dockerfile": "FROM nginx\nCOPY nginx.conf /etc/nginx/\n", "nginx.conf": "x\n"},
+     "buildpacks"),  # a root module is not copied by an unrelated file
+    ({"pom.xml": "<project><artifactId>web</artifactId></project>\n", "Dockerfile": "FROM a\nEXPOSE 8080\n"},
+     "buildpacks"),  # a Dockerfile next to the module that copies nothing of it does not build it
 ])
 def test_linkage_requires_the_full_evidence_rule(tmp_path: Path, files: dict[str, str], reason: str) -> None:
     root = _repo(tmp_path, {**files, "k8s/deploy.yaml": _deploy("ports:\n  - containerPort: 8080\n")})
@@ -421,3 +426,113 @@ def test_invalid_utf8_dockerfile_and_manifest_do_not_crash(tmp_path: Path) -> No
     (tmp_path / "deploy.yaml").write_bytes(_deploy().encode() + b"          # \xff\n")
     r = _resolve(tmp_path)
     assert "Dockerfile" in r.parsed
+
+
+# ---------------------------------------------------------------- findings of the independent review (2026-10-22)
+
+DOCKER_THREE_STAGE = (
+    "FROM maven AS build\nRUN mvn package\nFROM temurin AS prod\nCOPY --from=build /t/web-1.jar /app.jar\nEXPOSE 8080\n"
+    'ENTRYPOINT ["java", "-jar", "/app.jar"]\nFROM prod AS debug\nENTRYPOINT ["java", "-agentlib:jdwp", "-jar", "/app.jar"]\n'
+)
+
+
+def _web_repo(tmp: Path, dockerfile: str, container: str = "ports:\n  - containerPort: 8080\n") -> Path:
+    return _repo(tmp, {"pom.xml": "<project><artifactId>web</artifactId></project>\n", "Dockerfile": dockerfile,
+                       "k8s/deploy.yaml": _deploy(container)})
+
+
+def test_facts_read_through_the_default_stage_are_inferred_and_depend_on_the_unresolved_build_target(tmp_path: Path) -> None:
+    root = _web_repo(tmp_path, DOCKER_THREE_STAGE)
+    r = _resolve(root)
+    eff = _facts(r, "k8s.container.effective_command")["k8s:Deployment/shop/web/web"]
+    target = next(iter(_facts(r, "docker.build_target").values()))
+    assert eff.value[:2] == ["java", "-agentlib:jdwp"]  # the default (final) stage, which may not be the deployed image
+    assert eff.status is FactStatus.INFERRED, "a value read through the default stage must not be declared"
+    assert target.status is FactStatus.UNRESOLVED and any(i.fact_id == target.fact_id for i in eff.inputs)
+
+
+def test_templated_ports_are_unresolved_and_do_not_crash(tmp_path: Path) -> None:
+    root = _repo(tmp_path, {
+        "k8s/deploy.yaml": _deploy("ports:\n  - name: http\n    containerPort: ${PORT}\n"),
+        "k8s/svc.yaml": "apiVersion: v1\nkind: Service\nmetadata: {name: web, namespace: shop}\nspec:\n  selector: {app: web}\n"
+                        "  ports:\n    - name: http\n      port: ${PORT}\n      targetPort: http\n",
+    })
+    r = _resolve(root)
+    assert _facts(r, "k8s.container.port")["k8s:Deployment/shop/web/web#http"].status is FactStatus.UNRESOLVED
+    assert _facts(r, "k8s.service.port")["k8s:Service/shop/web#http"].status is FactStatus.UNRESOLVED
+    _oracle_clean(root, r)
+
+
+def test_templated_replicas_are_unresolved(tmp_path: Path) -> None:
+    root = _repo(tmp_path, {"k8s/deploy.yaml": _deploy().replace("replicas: 2", "replicas: ${REPLICAS}")})
+    r = _resolve(root)
+    assert _facts(r, "k8s.deployment.replicas")["k8s:Deployment/shop/web"].status is FactStatus.UNRESOLVED
+
+
+def test_base_image_entrypoint_is_unknown_when_only_cmd_is_set(tmp_path: Path) -> None:
+    root = _web_repo(tmp_path, 'FROM nginx:1.25\nCOPY target/web-1.jar /a.jar\nCMD ["-g", "daemon off;"]\nEXPOSE 8080\n')
+    eff = _facts(_resolve(root), "k8s.container.effective_command")["k8s:Deployment/shop/web/web"]
+    assert eff.status is FactStatus.UNRESOLVED and eff.value is None  # nginx sets an ENTRYPOINT that the repository does not show
+
+
+def test_empty_command_and_args_lists_count_as_unset(tmp_path: Path) -> None:
+    root = _web_repo(tmp_path, 'FROM temurin\nCOPY target/web-1.jar /a.jar\nENTRYPOINT ["java", "-jar", "/a.jar"]\nEXPOSE 8080\n',
+                     "command: []\nargs: []\nports:\n  - containerPort: 8080\n")
+    eff = _facts(_resolve(root), "k8s.container.effective_command")["k8s:Deployment/shop/web/web"]
+    assert eff.value == ["java", "-jar", "/a.jar"]
+
+
+def test_repeated_env_name_uses_the_last_entry(tmp_path: Path) -> None:
+    root = _repo(tmp_path, {"k8s/deploy.yaml": _deploy("env:\n  - name: A\n    value: first\n  - name: A\n    value: second\n")})
+    r = _resolve(root)
+    assert _facts(r, "k8s.container.env")["k8s:Deployment/shop/web/web#A"].value == "second"
+    assert any("repeated" in c.message for c in r.coverage)
+    _oracle_clean(root, r)
+
+
+def test_namespace_ambiguity_is_unresolved_even_when_another_workload_matches(tmp_path: Path) -> None:
+    other = _deploy().replace("name: web", "name: other").replace("namespace: shop\n", "").replace("app: web", "app: web")
+    root = _repo(tmp_path, {
+        "k8s/deploy.yaml": _deploy(),
+        "k8s/other.yaml": other,
+        "k8s/svc.yaml": "apiVersion: v1\nkind: Service\nmetadata: {name: svc}\nspec:\n  selector: {app: web}\n  ports:\n    - port: 80\n",
+        "k8s/pdb.yaml": "apiVersion: policy/v1\nkind: PodDisruptionBudget\nmetadata: {name: pdb}\nspec:\n  minAvailable: 1\n"
+                        "  selector:\n    matchLabels: {app: web}\n",
+    })
+    r = _resolve(root)
+    assert _facts(r, "k8s.service.selects")["k8s:Service/_/svc"].status is FactStatus.UNRESOLVED
+    assert _facts(r, "k8s.pdb")["k8s:PodDisruptionBudget/_/pdb"].status is FactStatus.UNRESOLVED
+
+
+def test_shell_here_string_is_not_a_heredoc() -> None:
+    from fifthnine.extract.dockerfile import parse_dockerfile
+
+    m = parse_dockerfile("Dockerfile", 'FROM alpine\nRUN cat <<< hello > /tmp/x\nEXPOSE 80\nENTRYPOINT ["run"]\n')
+    st = m.stages[0]
+    assert [e.value for e in st.expose] == [(80, "tcp")] and st.entrypoint is not None
+    assert not m.unsupported and not st.unsupported
+    m2 = parse_dockerfile("Dockerfile", "FROM alpine\nRUN <<EOF\necho a\nEOF\nEXPOSE 81\n")
+    assert [e.value for e in m2.stages[0].expose] == [(81, "tcp")] and m2.unsupported
+
+
+def test_http_probe_without_path_cites_the_verified_default(tmp_path: Path) -> None:
+    root = _repo(tmp_path, {"k8s/deploy.yaml": _deploy("ports:\n  - containerPort: 8080\nreadinessProbe:\n  httpGet:\n    port: 8080\n")})
+    r = _resolve(root)
+    probe = _facts(r, "k8s.container.probe.readiness")["k8s:Deployment/shop/web/web"]
+    default = _facts(r, "k8s.container.probe_path")["k8s:Deployment/shop/web/web#readiness"]
+    assert probe.value["path"] == "/" and default.status is FactStatus.DEFAULT and default.default_ref is not None
+    assert any(i.fact_id == default.fact_id for i in probe.inputs)
+    _oracle_clean(root, r)
+
+
+def test_two_different_images_do_not_both_link_to_one_module(tmp_path: Path) -> None:
+    second = _deploy("ports:\n  - containerPort: 8080\n").replace("name: web", "name: web-sidecar").replace("image: registry.example/web:1.0",
+                                                                                                         "image: other.example/web:1.0")
+    root = _repo(tmp_path, {
+        "pom.xml": "<project><artifactId>web</artifactId></project>\n",
+        "Dockerfile": "FROM a\nCOPY target/web-1.jar /a.jar\nEXPOSE 8080\n",
+        "k8s/deploy.yaml": _deploy("ports:\n  - containerPort: 8080\n"), "k8s/second.yaml": second,
+    })
+    links = _resolve(root).linkages
+    assert links and all(lk.status is LinkStatus.UNRESOLVED for lk in links)
+    assert any("several workload images" in e for lk in links for e in lk.evidence)

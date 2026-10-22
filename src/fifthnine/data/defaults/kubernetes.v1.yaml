@@ -59,3 +59,11 @@ entries:
     note: >
       When a container sets a limit for a resource but no request, the Pod's request defaults to the limit
       (SetDefaults_Pod, applied to Pods created from the Deployment template).
+  probe.httpget_path:
+    value: /
+    path: pkg/apis/core/v1/defaults.go
+    line: 360
+    anchor: obj.Path = "/"
+    note: >
+      SetDefaults_HTTPGetAction. The function moved between releases (line 321 at v1.34.12, 318 at v1.35.9 and v1.36.5),
+      so the other releases are verified by the anchor text in the file, as for every entry.

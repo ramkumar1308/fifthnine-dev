@@ -197,18 +197,19 @@ facts:
     kind: k8s.container.effective_command
     subject: k8s:Deployment/commerce/orders-service/orders-service
     value: [java, "-XX:MaxRAMPercentage=75", "-jar", /app/app.jar]
-    status: declared
+    status: inferred
     source: {path: Dockerfile, line: 13, anchor: 'ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]'}
     inputs:
       - {role: absence, loc: {path: k8s/deployment.yaml, line: 24, anchor: "- name: orders-service"}}
       - {role: reference, fact: SP-D06}
+      - {role: reference, fact: SP-D07}
       - {role: value_source, fact: SP-D04}
     precedence: docker.entrypoint
     link_ids: [SP-L01]
     milestone: M2-1
     note: >
       The container sets neither command nor args, so the image ENTRYPOINT runs (its CMD is cleared by ENTRYPOINT). This
-      holds only through the inferred image link and only if the deployed image was built from the default target (SP-D06).
+      holds only through the inferred image link and only if the deployed image was built from the default target (SP-D06). The build target is unresolved (SP-D07), so the fact is inferred, not declared (independent review of M2-1, 2026-10-22).
   - id: SP-K09
     kind: k8s.container.env
     subject: k8s:Deployment/commerce/orders-service/orders-service#SPRING_PROFILES_ACTIVE

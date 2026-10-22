@@ -25,7 +25,9 @@ MAX_STAGES = 200
 
 _DIRECTIVE = re.compile(r"^#\s*([a-zA-Z][a-zA-Z0-9]*)\s*=\s*(.+?)\s*$")
 _VAR = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)(?:(:[-+])([^}]*))?\}|([A-Za-z_][A-Za-z0-9_]*))")
-_HEREDOC = re.compile(r"<<-?\s*[\"']?([A-Za-z_][A-Za-z0-9_]*)[\"']?")
+# BuildKit recognises a heredoc only for a whole word like <<EOF, <<-EOF, 2<<"EOF"; a shell here-string (<<<) or an
+# operator inside a longer word is ordinary shell text.
+_HEREDOC_WORD = re.compile(r"^\d*<<-?([\"']?)([A-Za-z_][A-Za-z0-9_]*)\1$")
 SUBSTITUTED = frozenset({"ADD", "COPY", "ENV", "EXPOSE", "FROM", "LABEL", "STOPSIGNAL", "USER", "VOLUME", "WORKDIR", "ONBUILD", "ARG"})
 
 
@@ -137,14 +139,17 @@ def _logical_lines(text: str) -> tuple[list[Instruction], str, list[tuple[int, s
         joined = " ".join(p.strip() for p in parts if p.strip())
         word, _, rest = joined.partition(" ")
         cmd = word.upper()
-        heredoc = _HEREDOC.search(rest) if cmd in ("RUN", "COPY", "ADD") else None
+        heredoc = None
+        if cmd in ("RUN", "COPY", "ADD"):
+            heredoc = next((m for w in rest.split() if (m := _HEREDOC_WORD.match(w))), None)
         if heredoc:
-            delim = heredoc.group(1)
-            unsupported.append((first, f"{cmd} heredoc is not interpreted"))
+            delim = heredoc.group(2)
             j = i + 1
             while j < len(lines) and lines[j].strip() != delim:
                 j += 1
-            i = j
+            if j < len(lines):  # a heredoc with no terminator is not swallowed
+                unsupported.append((first, f"{cmd} heredoc is not interpreted"))
+                i = j
         out.append(Instruction(cmd, rest.strip(), first, i + 1))
         if len(out) > MAX_INSTRUCTIONS:
             raise DockerfileError(f"more than {MAX_INSTRUCTIONS} instructions")

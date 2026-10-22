@@ -284,15 +284,17 @@ facts:
       framework: kubernetes
       applied_version: null
       repository: kubernetes/kubernetes
-      tag: v1.34.0
-      commit: f28b4c9efbca5c5c0af716d9f2d5702667ee8a45
+      tag: v1.37.1
+      commit: f78e722310e50bcaca9276be22276d9e91d91308
       path: staging/src/k8s.io/api/core/v1/types.go
-      line: 3722
+      line: 3987
       anchor: DefaultTerminationGracePeriodSeconds = 30
+      verified_at: [v1.34.12, v1.35.9, v1.36.5, v1.37.1]
       note: >
-        Pending decision K1. Cluster version is never in the repository. If K1 is approved, version-stable core/v1
-        defaults are cited at one pinned release with applied_version null. If K1 is rejected, this fact becomes
-        unresolved and the key changes with that decision.
+        CEO decision D3: cited at the newest maintained release and verified identical at the latest patch of every
+        release from 1.34 to 1.37. The cluster version and its admission configuration are not in the repository: a
+        mutating webhook can still change the value at admission, so this is the documented default, never an observed
+        production value.
     milestone: M2-1
   - id: SP-K19
     kind: k8s.service.selects

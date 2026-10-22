@@ -97,13 +97,13 @@ def test_env_dependent_facts_name_their_link(path: Path) -> None:
 
 
 @pytest.mark.parametrize("path", KEYS, ids=lambda p: p.name)
-def test_defaults_cite_a_version_or_are_pending_k1(path: Path) -> None:
+def test_defaults_cite_a_version_or_are_verified_across_releases(path: Path) -> None:
     key = load(path, FactKey)
     for fact in key.facts:
         if fact.status is FactStatus.DEFAULT:
             assert fact.default_ref is not None
             if fact.default_ref.applied_version is None:
-                assert fact.default_ref.framework == "kubernetes" and fact.default_ref.note and "K1" in fact.default_ref.note, fact.id
+                assert fact.default_ref.framework == "kubernetes" and fact.default_ref.verified_at, fact.id
             else:
                 assert any(i.role is InputRole.VERSION_BASIS for i in fact.inputs), f"{fact.id}: name the version fact used"
 
@@ -113,7 +113,11 @@ def test_corpus_list() -> None:
     entries = corpus.entries
     assert corpus.status == "proposed"  # not frozen before CEO review (M2-D4)
     assert (ROOT / corpus.selection_doc).is_file()
-    assert Counter(e.framework for e in entries) == {"spring-boot": 10, "fastapi": 10}
+    assert Counter(e.framework for e in entries) == {"spring-boot": 16, "fastapi": 10}
+    # D1: real-world generalization is measured only on the generalization cohort, kept separate from fixtures
+    gen = Counter(e.framework for e in entries if e.cohort == "generalization")
+    assert gen["spring-boot"] >= 6 and gen["fastapi"] >= 6, gen
+    assert all(e.cohort == "educational" for e in entries if e.repository in {"PolarBookshop/catalog-service", "DevOps-Boot/fastapi-k8s"})
     assert all(e.licence.spdx in {"Apache-2.0", "MIT", "MIT-0", "BSD-3-Clause"} for e in entries)
     owners = Counter(e.repository.split("/")[0].lower() for e in entries)
     assert max(owners.values()) <= 2, owners  # C6

@@ -84,14 +84,21 @@ class UpstreamDefault(_Model):
     """Framework-version semantics: the cited default at a pinned upstream tag (proposed DefaultRef.upstream)."""
 
     framework: str
-    applied_version: str | None = Field(description="Component version the default was looked up for; null only under decision K1")
+    applied_version: str | None = Field(description="Component version the default was looked up for; null only for version-stable defaults verified under D3")
     repository: str
     tag: str
     commit: str = Field(pattern=r"^[0-9a-f]{40}$")
     path: str
     line: int = Field(ge=1)
     anchor: str
+    verified_at: list[str] = Field(default_factory=list, description="Releases where the default was checked to be identical (D3)")
     note: str | None = None
+
+    @model_validator(mode="after")
+    def _version_or_verified(self) -> UpstreamDefault:
+        if self.applied_version is None and (len(self.verified_at) < 2 or self.tag not in self.verified_at):
+            raise ValueError("a default without an applied version must be verified at several supported releases, including the cited one (D3)")
+        return self
 
 
 class LabelledFact(_Model):
@@ -233,6 +240,7 @@ class Licence(_Model):
 class CorpusEntry(_Model):
     id: str = Field(pattern=r"^(SB|FA)-\d{2}$")
     repository: str = Field(pattern=r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+    cohort: Literal["generalization", "educational"]
     commit: str = Field(pattern=r"^[0-9a-f]{40}$")
     commit_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     framework: Literal["spring-boot", "fastapi"]

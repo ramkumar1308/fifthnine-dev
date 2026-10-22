@@ -1,0 +1,408 @@
+# FifthNine development corpus (A14, M0-D8). PROPOSED in M2-0; not frozen until the CEO approves the list.
+# Public repositories used to measure M2 extraction and Condition 4 assessment limits. Repositories are
+# never vendored into this repository; benchmarks/dev/corpus/fetch.py fetches each one at its pinned commit.
+# The independent benchmark author excludes every repository listed here from held-out selection.
+# Selection criteria, the full candidate pool and exclusion reasons: docs/fifthnine/M2-0.md.
+# m1_baseline: `fifthnine scan` from main at d58bcbe on the pinned commit (files considered / parsed;
+# detected component versions with support level). "none" means M1 detected no tracked component.
+# in_supported_range: whether the framework version at the pinned commit falls inside the approved range
+# (Boot 3.2-3.5, FastAPI 0.100+): yes, no, or unknown when no version or range is determinable.
+# linkage_expectation follows the rule in docs/fifthnine/M2-0.md ("Linkage expectation"), applied by script.
+# cohort (CEO decision D1, 2026-10-21): "generalization" entries are maintained open-source applications or
+# platforms released for production use by others; only they support claims about real-world extraction.
+# "educational" entries are samples, demos, tutorials, training projects and book or course companion code;
+# they are fixtures for known patterns and traps, and results on them are reported separately.
+schema: fifthnine.devcorpus/v1
+status: proposed
+selected_on: "2026-10-22"
+selection_doc: docs/fifthnine/M2-0.md
+entries:
+  # ---------------------------------------------------------------- Spring Boot, educational cohort
+  - id: SB-01
+    repository: spring-projects/spring-petclinic
+    cohort: educational
+    commit: 500158f732419217507c7656904b8e6aa1bcc0d6
+    commit_date: "2026-09-29"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE.txt}
+    in_supported_range: no
+    deployment_shape: plain
+    linkage_expectation: none
+    rationale: >
+      Reference single-service Spring app with Maven and Gradle builds and a plain Deployment and Service in k8s/.
+      The image (dsyer/petclinic) is built without a Dockerfile, so no link can be proposed. Boot 4.1.0 at HEAD
+      exercises the unsupported-version path end to end.
+    m1_baseline: "132/5; spring-boot 4.1.0 unsupported, java 17 untested"
+  - id: SB-02
+    repository: GoogleCloudPlatform/bank-of-anthos
+    cohort: educational
+    commit: db35fea9fd090150e2398106aadb475576f80d94
+    commit_date: "2026-09-18"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: yes
+    deployment_shape: plain+kustomize
+    linkage_expectation: in-repo-app
+    rationale: >
+      Multi-service app maintained by Google with in-range Boot 3.5 Java services, Python services, plain
+      manifests, Kustomize overlays, HPA and Ingress. Images are pinned by digest, which tests image-to-source linkage.
+    m1_baseline: "449/114; spring-boot 3.5.16 untested, java 17 untested, gunicorn 26.2.0 untested, python 3.14 unsupported"
+  - id: SB-03
+    repository: Azure-Samples/acme-fitness-store
+    cohort: educational
+    commit: 956ee33993d4a0fa1657f8eae1c7cceea996059e
+    commit_date: "2025-04-14"
+    framework: spring-boot
+    licence: {spdx: MIT, file: LICENSE}
+    in_supported_range: yes
+    deployment_shape: plain
+    linkage_expectation: partial
+    rationale: >
+      Microsoft sample with several in-range Boot 3.2 and 3.3 services. Its AKS manifests use placeholder images
+      such as <acr-name>.azurecr.io/gateway:<tag>, so linkage must come out unresolved rather than guessed.
+    m1_baseline: "846/53; spring-boot 3.2.3, 3.3.0, 3.3.1, 3.3.5 untested; java 17 untested, java 11 unsupported; python 3.11 untested"
+  - id: SB-04
+    repository: Azure-Samples/spring-petclinic-microservices
+    cohort: educational
+    commit: c35211d9df2271481e3c99b9ca206b2a370e8090
+    commit_date: "2025-09-25"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: yes
+    deployment_shape: plain
+    linkage_expectation: partial
+    rationale: >
+      Spring Cloud microservices on Boot 3.3 and 3.4 with Config Server and Eureka manifests. Several services
+      set spring.config.import to the Config Server, whose content is outside the repository (RULES.md F10).
+      Shares byte-identical AKS manifests with SB-03 (same owner), so the two are not independent for linkage.
+    m1_baseline: "339/29; spring-boot 3.3.0, 3.3.1, 3.3.5, 3.4.1 untested; java 17 untested"
+  - id: SB-05
+    repository: aws-containers/retail-store-sample-app
+    cohort: educational
+    commit: d7a380b843e0759e58754f74188ea18252a51415
+    commit_date: "2026-09-25"
+    framework: spring-boot
+    licence: {spdx: MIT-0, file: LICENSE, note: "MIT No Attribution text"}
+    in_supported_range: yes
+    deployment_shape: helm-only
+    linkage_expectation: none
+    rationale: >
+      AWS polyglot sample with in-range Boot 3.5 services deployed only through per-service Helm charts. Measures
+      how much of a well-maintained Spring repository is not assessable until Helm output is rendered (E3).
+    m1_baseline: "712/11; spring-boot 3.5.16 untested, java 21 untested"
+  - id: SB-06
+    repository: sivaprasadreddy/spring-modular-monolith
+    cohort: educational
+    commit: f0126d22ef03a22bc07d97c271aa35afcadf6873
+    commit_date: "2026-10-19"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: no
+    deployment_shape: plain
+    linkage_expectation: partial
+    rationale: >
+      Actively maintained Spring Modulith application with plain manifests for the app, Postgres, RabbitMQ and
+      an observability stack. The image name matches the artifactId but is built by the Maven plugin without a
+      Dockerfile, the common buildpacks case the linkage rules do not cover. Boot 4.1.1, unsupported.
+    m1_baseline: "188/7; spring-boot 4.1.1 unsupported, java 25 unsupported"
+  - id: SB-07
+    repository: PolarBookshop/catalog-service
+    cohort: educational
+    commit: 9923d9b0eb59d719f29d65f4c54d440122c6537d
+    commit_date: "2025-01-05"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: no
+    deployment_shape: plain+kustomize
+    linkage_expectation: partial
+    rationale: >
+      Small single-service Gradle app from the Cloud Native Spring in Action book with a Kustomize base and an
+      empty spring.config.import (Config Server option commented out). The image catalog-service matches the
+      project but is built with buildpacks, no Dockerfile. Boot 2.7 is unsupported, so it checks that M2 reports
+      facts without applying version semantics.
+    m1_baseline: "42/3; spring-boot 2.7.18 unsupported, java 17 untested"
+  - id: SB-08
+    repository: alexandreroman/spring-k8s-probes-demo
+    cohort: educational
+    commit: fcb78bfbda0f7eb57d732d2ce7f3d4a18db698c3
+    commit_date: "2019-12-19"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: no
+    deployment_shape: plain
+    linkage_expectation: partial
+    rationale: >
+      Minimal demo built around Kubernetes liveness and readiness probes on Spring actuator endpoints, the
+      FN-DEP-002 subject. The image matches the artifactId but no Dockerfile exists. Boot 2.2 keeps it on the
+      unsupported path.
+    m1_baseline: "15/4; spring-boot 2.2.2.RELEASE unsupported, java 11 unsupported"
+  - id: SB-09
+    repository: eventuate-tram/eventuate-tram-examples-customers-and-orders
+    cohort: educational
+    commit: 8632d030301c2a477141350df1e77f3f991f64e0
+    commit_date: "2026-10-16"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE.md}
+    in_supported_range: no
+    deployment_shape: plain
+    linkage_expectation: partial
+    rationale: >
+      Actively maintained Gradle multi-module microservices example with plain manifests for services and
+      infrastructure. Boot 4.1.1 is set in gradle.properties (springBootVersion), which M1 does not read; M2-2
+      should detect it. Image names are prefixed and do not match module names exactly.
+    m1_baseline: "300/42; java 17 untested; spring-boot not detected (4.1.1 in gradle.properties)"
+  - id: SB-10
+    repository: microservices-patterns/ftgo-application
+    cohort: educational
+    commit: 558dfc53b11d30a5f1d995c0c6d58d5106c28189
+    commit_date: "2022-09-03"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE.md}
+    in_supported_range: unknown
+    deployment_shape: plain
+    linkage_expectation: in-repo-app
+    rationale: >
+      Companion code for the Microservices Patterns book: many Gradle services, each with its own Dockerfile and
+      Kubernetes manifest next to the source, the layout that service linkage is designed for.
+    m1_baseline: "505/57; java 8 unsupported, python 2.7 unsupported; spring-boot not detected"
+
+  # ---------------------------------------------------------------- Spring Boot, generalization cohort (added after D1)
+  - id: SB-11
+    repository: apache/shenyu
+    cohort: generalization
+    commit: e36b06053c738a5edca9ed8f5cac5fdafa0d775c
+    commit_date: "2026-10-22"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: "yes"
+    deployment_shape: plain
+    linkage_expectation: in-repo-app
+    rationale: >
+      Apache API gateway (shenyu-admin and shenyu-bootstrap services) on Boot 3.3.1. Its e2e manifests deploy the
+      project's own admin and bootstrap images, each built by one Dockerfile under shenyu-dist/. Large multi-module
+      Maven build with example modules that must not be mistaken for the deployed services.
+    m1_baseline: "4749/391; spring-boot 3.3.1 untested; java 17 untested, 8 unsupported; spring-framework 5.3.30 unsupported; resilience4j version not determined"
+  - id: SB-12
+    repository: spring-cloud/spring-cloud-dataflow
+    cohort: generalization
+    commit: a1216d3594467afe51aaea6a1144ff67b2239498
+    commit_date: "2025-04-30"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: "yes"
+    deployment_shape: plain
+    linkage_expectation: partial
+    rationale: >
+      Spring's data-pipeline orchestration server and Skipper on Boot 3.3, with plain manifests in src/deploy/k8s.
+      Image tags are shell placeholders (${DATAFLOW_VERSION}) and the server image is built without a Dockerfile.
+      Last commit 2025-04-30.
+    m1_baseline: "2740/225; spring-boot 3.3.5, 3.3.7 untested; java 17 untested"
+  - id: SB-13
+    repository: openMF/fineract
+    cohort: generalization
+    commit: 71c39730e9178301b7ab949ba711238ce81fc66d
+    commit_date: "2026-10-21"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE_SOURCE}
+    in_supported_range: "no"
+    deployment_shape: plain
+    linkage_expectation: partial
+    rationale: >
+      Core banking platform (Apache Fineract) with plain manifests in kubernetes/ that deploy the apache/fineract image.
+      No Dockerfile in the repository builds that image. Boot 4.1.1, unsupported: tests honest applicability on a
+      production platform.
+    m1_baseline: "8445/50; spring-boot 4.1.1 unsupported; java 17 untested, 25 unsupported"
+  - id: SB-14
+    repository: apache/incubator-seata
+    cohort: generalization
+    commit: a9b03977be324c170741ebc37d797d5bfd159552
+    commit_date: "2026-10-20"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: "no"
+    deployment_shape: plain+helm
+    linkage_expectation: in-repo-app
+    rationale: >
+      Distributed transaction server with a plain manifest for seataio/seata-server and a Helm chart. One Dockerfile
+      (distribution/docker/server) builds the server whose artifactId is seata-server. Mixed Boot versions across
+      modules (2.7.18, 4.0.6), all outside the supported range.
+    m1_baseline: "4255/110; spring-boot 2.7.18 and 4.0.6 unsupported, one module not determined; java 17, 21 untested; 8, 25 unsupported"
+  - id: SB-15
+    repository: flowable/flowable-engine
+    cohort: generalization
+    commit: f6017e32a4bdd3e59a8881f58b0ee181652d1d9e
+    commit_date: "2026-10-16"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: unknown
+    deployment_shape: plain
+    linkage_expectation: partial
+    rationale: >
+      BPMN workflow engine (about 16,100 files) with a plain manifest deploying flowable/flowable-rest. No Dockerfile
+      builds the REST app and the Boot version is not set as a literal M1 reads, so it tests both gaps at a size near
+      the file limit.
+    m1_baseline: "16148/141; spring-boot version not determined (untested); java 8 unsupported"
+  - id: SB-16
+    repository: hapifhir/hapi-fhir-jpaserver-starter
+    cohort: generalization
+    commit: 15608e325d55dde6526e1ba09a27e91b8b93289e
+    commit_date: "2026-10-20"
+    framework: spring-boot
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: unknown
+    deployment_shape: helm-only
+    linkage_expectation: none
+    rationale: >
+      HL7 FHIR JPA server starter from the HAPI FHIR project, with one Dockerfile and a Helm chart only. The Boot version comes through
+      the hapi-fhir parent POM (8.12.0), which is outside the repository, so version semantics must stay unresolved.
+    m1_baseline: "208/2; java 17 untested; spring-boot not detected"
+
+  # ---------------------------------------------------------------- FastAPI
+  - id: FA-01
+    repository: Kludex/fastapi-microservices
+    cohort: educational
+    commit: 262bd1b7a97d6a6375067abac778bb8d75bb5edc
+    commit_date: "2023-05-24"
+    framework: fastapi
+    licence: {spdx: MIT, file: LICENSE.md}
+    in_supported_range: no
+    deployment_shape: plain
+    linkage_expectation: partial
+    rationale: >
+      Async FastAPI service plus worker with plain manifests (Deployment, StatefulSet, Ingress, ConfigMap) whose
+      local image names (users, users-worker) match in-repository services. No Dockerfile is committed, so a link
+      cannot be proposed. Old pinned versions keep it on the unsupported path.
+    m1_baseline: "54/8; fastapi 0.63.0, httpx 0.17.1, python 3.8 unsupported"
+  - id: FA-02
+    repository: 4OH4/kubernetes-fastapi
+    cohort: educational
+    commit: 3faa9012ea5ed7693c331e6ecc4da6d9c9d614ff
+    commit_date: "2021-02-27"
+    framework: fastapi
+    licence: {spdx: MIT, file: LICENSE}
+    in_supported_range: no
+    deployment_shape: plain
+    linkage_expectation: partial
+    rationale: >
+      Minimal FastAPI-on-Kubernetes example with one Dockerfile and a requirements.txt but no build identity, so
+      the image name matches only the repository name. fastapi~=0.63.0 is a compatible-release range entirely below
+      the supported range: determinable as out of range without guessing a patch version.
+    m1_baseline: "23/4; fastapi and uvicorn reported as version not determined (fastapi~=0.63.0 range); python 3.7 unsupported"
+  - id: FA-03
+    repository: Sajjadhz/fastapiapp
+    cohort: educational
+    commit: 1733f0f2c4400cb5c34b411e9df7995e5189557b
+    commit_date: "2023-08-11"
+    framework: fastapi
+    licence: {spdx: MIT, file: LICENSE}
+    in_supported_range: no
+    deployment_shape: plain+helm
+    linkage_expectation: partial
+    rationale: >
+      Small FastAPI app shipped both as plain manifests and as a Helm chart, which checks that the plain path is
+      read and the chart path is reported as not rendered. One Dockerfile, requirements.txt only, so the image name
+      matches the repository but no build identity.
+    m1_baseline: "36/5; fastapi 0.79.0, uvicorn 0.18.2, python 3.8 unsupported"
+  - id: FA-04
+    repository: vllm-project/production-stack
+    cohort: generalization
+    commit: 7b1164dbe71b1f02ede85152bdfc2f383376dc2d
+    commit_date: "2026-10-14"
+    framework: fastapi
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: unknown
+    deployment_shape: plain+helm
+    linkage_expectation: partial
+    rationale: >
+      Production-oriented inference stack with a FastAPI router, HPA, DaemonSet, Kustomize operator config and a
+      Helm chart. Its uv.lock pins fastapi 0.115.8 while pyproject.toml requires fastapi>=0.128.0, a lockfile that
+      contradicts its manifest: M2 must report the conflict, not pick one. Most plain manifests deploy third-party images.
+    m1_baseline: "614/81; fastapi 0.115.8, uvicorn 0.34.0, httpx 0.28.1, python 3.12 untested"
+  - id: FA-05
+    repository: mlrun/mlrun
+    cohort: generalization
+    commit: 2b910dc15ca68572f5de9a130e74b9ce15c0de17
+    commit_date: "2026-10-21"
+    framework: fastapi
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: unknown
+    deployment_shape: plain
+    linkage_expectation: partial
+    rationale: >
+      Large MLOps platform whose API server is FastAPI. hack/ holds plain manifests for the published
+      mlrun/mlrun-api:1.7.0 image, so it tests linkage between a published image and in-repository source.
+    m1_baseline: "2143/36; fastapi, uvicorn version not determined (untested); python 3.11 untested, 3.7 unsupported"
+  - id: FA-06
+    repository: InternLM/lmdeploy
+    cohort: generalization
+    commit: f7929e5e9c32121cceb57a4eabc6053b1f2eb46f
+    commit_date: "2026-10-21"
+    framework: fastapi
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: unknown
+    deployment_shape: plain
+    linkage_expectation: partial
+    rationale: >
+      LLM serving toolkit with a FastAPI OpenAI-compatible server and one plain Deployment in k8s/. Dependencies
+      live in requirements/*.txt, which M1 does not read, so it measures a detection gap M2-3 should close.
+    m1_baseline: "1916/5; none detected"
+  - id: FA-07
+    repository: langflow-ai/langflow
+    cohort: generalization
+    commit: 3ec974b7ee82d1c1ca630e68547edbde5c64a8a9
+    commit_date: "2026-10-20"
+    framework: fastapi
+    licence: {spdx: MIT, file: LICENSE}
+    in_supported_range: unknown
+    deployment_shape: plain
+    linkage_expectation: partial
+    rationale: >
+      Large FastAPI application (about 11,400 files) with gunicorn and uvicorn. Its only plain Deployment runs the
+      langflow image in listener mode with no Service or Ingress, so API probe and route facts do not apply there.
+      Kept for the size and performance target; it is the weakest FastAPI entry for deployment correlation.
+    m1_baseline: "11410/51; fastapi, gunicorn, uvicorn, httpx version not determined (untested)"
+  - id: FA-08
+    repository: feast-dev/feast
+    cohort: generalization
+    commit: e304a84f979b0f3b828b7c778618d7b7eaa6a2d2
+    commit_date: "2026-10-19"
+    framework: fastapi
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: unknown
+    deployment_shape: plain+helm
+    linkage_expectation: partial
+    rationale: >
+      Feature store with a FastAPI feature server, tenacity, gunicorn, a Kubernetes operator and example manifests
+      that deploy quay.io/feastdev/feature-server. The Makefile builds that image from
+      sdk/python/feast/infra/feature_servers/multicloud/Dockerfile, which installs feast from PyPI, so an image-to-
+      Dockerfile link exists but not a Dockerfile-to-source one. Mixed Java and Python.
+    m1_baseline: "3160/117; fastapi, gunicorn, uvicorn, httpx, tenacity version not determined (untested); python 3.11 untested, 3.9 unsupported; java 11 unsupported"
+  - id: FA-09
+    repository: DevOps-Boot/fastapi-k8s
+    cohort: educational
+    commit: 909de3a4123277bb3eb91bf632137f6277ae4b60
+    commit_date: "2024-01-12"
+    framework: fastapi
+    licence: {spdx: MIT, file: LICENSE}
+    in_supported_range: yes
+    deployment_shape: helm-only
+    linkage_expectation: none
+    rationale: >
+      Training project (FastAPI, Traefik, Postgres) deployed only through Helm charts, with one in-range FastAPI
+      version. The FastAPI counterpart of SB-05 for measuring the Helm gap.
+    m1_baseline: "211/12; fastapi 0.105.0 untested and 0.89.1 unsupported; python 3.11 untested; uvicorn 0.20.0, 0.25.0 and httpx 0.26.0 unsupported"
+  - id: FA-10
+    repository: argilla-io/argilla
+    cohort: generalization
+    commit: 5338519accb13ae422f8bf9c0642651c249c49af
+    commit_date: "2025-08-05"
+    framework: fastapi
+    licence: {spdx: Apache-2.0, file: LICENSE}
+    in_supported_range: yes
+    deployment_shape: helm-only
+    linkage_expectation: none
+    rationale: >
+      Data-annotation platform whose server (argilla-server) is FastAPI, deployed only through a Helm chart.
+      fastapi~=0.115.0 is a compatible-release range inside the supported range. The FastAPI counterpart of
+      SB-05 for measuring the Helm gap in a large, multi-package repository.
+    m1_baseline: "3153/12; fastapi version not determined (fastapi~=0.115.0 range); httpx 0.23.3 unsupported; python 3.10, 3.13 untested"

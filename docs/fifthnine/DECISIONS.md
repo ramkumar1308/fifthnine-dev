@@ -120,3 +120,36 @@ CTO implementation notes for M1 (reviewable in the PR):
 | M1-N3 | Virtualenvs are excluded by the presence of `pyvenv.cfg`, not by directory names such as `env`, to avoid hiding per-environment manifests |
 | M1-N4 | One detected-stack entry per distinct component version, preferring lockfile, then build descriptor, then Dockerfile as the cited source |
 | M1-N5 | Dev corpus publication (M0-D8) is not part of this PR; it is the first M2 preparation item and will be proposed separately |
+
+---
+
+## 2026-10-21: M1 merged; M2 approved with conditions
+
+| ID | Decision | Status |
+|---|---|---|
+| M1-D | PR #1 merged to `main` with a merge commit (`d58bcbe`); post-merge CI 7/7. Approved with it: Kubernetes-only YAML parsing in M1, architecture text matching actual parser and timeout behaviour, pinned CI tool versions, additive support-matrix fields | APPROVED (CEO) |
+| M2-D1 | M2 plan (`docs/fifthnine/M2_PLAN.md`), acceptance criteria and six-PR sequence M2-0 to M2-5. Each PR needs independent review and CEO merge approval. Two-to-three-week estimate accepted | APPROVED (CEO) |
+| M2-D2 | tree-sitter with tree-sitter-java for Java syntax, pinned and tested on Linux, macOS and Windows. Parsing never executes repository code | APPROVED (CEO) |
+| M2-D3 | Separate Spring runtime-fixture CI job with controlled network access for dependency retrieval and framework behaviour checks. The CLI stays offline-capable; no production credentials or secrets | APPROVED (CEO) |
+| M2-D4 | Public development corpus of about 20 repositories, submitted in M2-0 with commits, licence notes and rationale; not frozen before review | APPROVED IN PRINCIPLE (CEO) |
+| M2-R1 | Keep repository-resolved values distinct from production-effective configuration; external overrides, unresolved profiles and conflicting sources stay visible as assumptions or unresolved facts | REQUIREMENT (CEO) |
+| M2-R2 | Preserve provenance for derived values (inputs, precedence, framework-version semantics); propose a minimal schema change before implementing one if v1 cannot express it | REQUIREMENT (CEO) |
+| M2-R3 | Strict separation between the offline scanner and network-enabled fixtures; M1 security, resource-limit and determinism guarantees preserved | REQUIREMENT (CEO) |
+
+Open from M2-0 (`docs/fifthnine/M2-0.md`): corpus approval; schema revision 3 (additive provenance fields and `absent`, within v1); K1 Kubernetes defaults policy; three plan amendments (linkage proposals in M2-1, tenacity/deadline/call-chain facts in M2-3, unset-namespace convention); merge order PR #3 before PR #4; awareness of the Spring Boot 3.5 open-source end of line ahead of M3 planning.
+
+---
+
+## 2026-10-21: CEO decisions on M2-0 (PR #4) and the M2 plan (PR #3)
+
+| ID | Decision | Status |
+|---|---|---|
+| M2-0-D1 | Corpus conditionally approved. Educational fixtures are classified separately from repositories used to assess real-world extraction generalization; pinned-commit and licensing rules kept; no selection on FifthNine output. The 2-of-20 linkage measurement is preserved and evidence requirements are not weakened to raise coverage | APPROVED WITH CONDITIONS (CEO) |
+| M2-0-D2 | Schema revision 3 within `fifthnine.result/v1`; strict-consumer incompatibility documented; schemas and validator tests regenerated together. Breaking changes after public alpha require explicit versioning | APPROVED (CEO) |
+| M2-0-D3 | Kubernetes defaults from pinned upstream source only where behaviour is verified for the supported Kubernetes versions; unknown cluster version and admission configuration remain stated limits; an assumed default is never labelled an observed production value | APPROVED WITH CONDITIONS (CEO) |
+| M2-0-D4 | Plan amendments: linkage proposals in M2-1, Python retry, deadline and call-chain facts in M2-3, `_` for an unset namespace | APPROVED (CEO) |
+| M2-0-D5 | Merge PR #3 first (merged as `8114ceb`), then retarget PR #4 to main | APPROVED (CEO) |
+| M2-0-D6 | Spring Boot 4 deferred; scope stays Boot 3.2 to 3.5, with Boot 4 repositories used as unsupported applicability cases | DEFERRED (CEO) |
+| M2-0-R1 | Focused independent re-review of the revised answer keys before PR #4 merges, covering the two former blocking label problems and all affected provenance and status definitions | REQUIREMENT (CEO) |
+
+CTO application: `cohort` field on every corpus entry, six maintained Spring Boot applications added (SB-11 to SB-16) under unchanged criteria; Kubernetes defaults verified identical at v1.34.12, v1.35.9, v1.36.5 and v1.37.1 and cited at v1.37.1. M2-1 does not start until PR #4 is accepted and merged.

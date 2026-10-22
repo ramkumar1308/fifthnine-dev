@@ -608,3 +608,35 @@ def test_yaml_depth_check_accepts_ordinary_text_and_rejects_deep_nesting() -> No
                  "".join(" " * i + "k:\n" for i in range(300)) + " " * 300 + "v: 1\n"):
         with pytest.raises(ParseError, match="nesting"):
             compose_yaml_documents(deep)
+
+
+def test_yaml_depth_check_covers_complex_key_nesting_and_has_no_false_rejects() -> None:
+    from fifthnine.core.safeparse import ParseError, compose_yaml_documents
+
+    for deep in ("a:\n  " + "? " * 50000 + "z\n", "- " + "? " * 30000 + "z\n", "? " * 400 + "z\n"):
+        with pytest.raises(ParseError, match="nesting"):
+            compose_yaml_documents(deep)
+    ok = [
+        "k: |\n" + "  [INFO line {x\n" * 300,
+        "k: \"" + "[" * 500 + "\"\n",
+        "# " + "{[" * 400 + "\n" * 1 + "".join("# {[ {[\n" for _ in range(400)) + "k: 1\n",
+        "".join("k: \"[ unmatched\"\n---\n" for _ in range(150)),
+        "".join("---\nk: [a, b\n  ]\n" for _ in range(150)),
+    ]
+    for text in ok:
+        assert compose_yaml_documents(text) is not None
+
+
+def test_link_policy_cases(tmp_path: Path) -> None:
+    """Must-accept and must-reject cases, written as repositories rather than derived from the engine's constants."""
+    def linked(dockerfile: str) -> bool:
+        root = _orders(tmp_path / str(abs(hash(dockerfile))), dockerfile)
+        r = _resolve(root)
+        _oracle_clean(root, r)
+        return any(link.status is LinkStatus.INFERRED for link in r.linkages)
+
+    assert linked("FROM eclipse-temurin:21\nCOPY target/orders-service-1.0.jar /app.jar\nEXPOSE 8080\n")
+    assert linked("FROM eclipse-temurin:21\nCOPY build/libs/app.jar /app.jar\nEXPOSE 8080\n")
+    assert not linked("FROM nginx:1.25\nCOPY dist/site.tgz /srv/\nEXPOSE 8080\n")
+    assert not linked("FROM nginx:1.25\nCOPY build/site.zip /srv/\nEXPOSE 8080\n")
+    assert not linked("FROM eclipse-temurin:21\nCOPY pom.xml .\nEXPOSE 8080\n")

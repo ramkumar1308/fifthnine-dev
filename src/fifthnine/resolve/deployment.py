@@ -939,7 +939,8 @@ def _python_module_target(ws: Workspace, root: str, ref_text: str) -> tuple[str,
 # module's name (for example /opt/shenyu-admin inside an image) is not evidence that the module was built there.
 _ARTIFACT_SUFFIXES = (".jar", ".war", ".whl", ".tar.gz", ".tgz", ".zip")
 _SOURCE_SUFFIXES = (".py", ".java", ".kt")  # source files; a build descriptor alone (pom.xml, requirements.txt) is not the module
-_OUTPUT_DIRS = ("target/", "build/libs/", "build/", "dist/")
+# Unnamed build-output copies count only for the archive kinds the tool that fills that directory produces.
+_OUTPUT_RULES = (("target/", (".jar", ".war")), ("build/libs/", (".jar", ".war")), ("dist/", (".whl", ".tar.gz")))
 
 
 def _is_module_content(rel: str, files: list[str]) -> bool:
@@ -999,7 +1000,7 @@ def _builds(model: DockerfileModel, ident: BuildIdentity, files: list[str]) -> l
                 rel = posixpath.normpath(posixpath.join(ddir, s.rstrip("/"))) if s not in (".", "./") else ddir
                 if not inside(rel) or rel == ".":
                     continue
-                if is_output and any(rel.startswith(root_prefix + d) for d in _OUTPUT_DIRS):
+                if any(rel.startswith(root_prefix + d) and rel.lower().endswith(sfx) for d, sfx in _OUTPUT_RULES):
                     lines.append(line)
                 elif _is_module_content(rel, files):
                     lines.append(line)

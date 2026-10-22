@@ -241,7 +241,8 @@ def check_k8s(root: Path, files: list[str], facts: list[Fact], rep: OracleReport
             matched = sorted(o.subject for o in deploys if _selects(sel, o, obj.ns))
             split = [o for o in deploys if _selects(sel, o, o.ns) and o.ns != obj.ns and "_" in (o.ns, obj.ns)]
             if split:
-                rep.check(f, None, _line(spec, "minAvailable") if "minAvailable" in spec else _line(d["metadata"], "name"))
+                set_fields = [fld for fld in ("minAvailable", "maxUnavailable") if fld in spec]
+                rep.check(f, None, _line(spec, set_fields[-1]) if set_fields else _line(d["metadata"], "name"))
                 continue
             val = {"workloads": matched}
             line = _line(d["metadata"], "name")
@@ -682,6 +683,16 @@ def _identity_name(root: Path, evidence: list[str]) -> str | None:
 
 _OUT_SUFFIXES = (".jar", ".war", ".whl", ".tar.gz", ".tgz", ".zip")
 _SRC_SUFFIXES = (".py", ".java", ".kt")
+_BUILD_OUTPUTS = {"target": (".jar", ".war"), "build/libs": (".jar", ".war"), "dist": (".whl", ".tar.gz")}
+
+
+def _is_build_output(rel: str, mroot: str) -> bool:
+    """A path under the module's build-output directory with the archive kind that directory holds. Written here as a
+    table, separately from the engine, and pinned by test_link_policy_cases."""
+    base = mroot + "/" if mroot else ""
+    return any(rel.startswith(base + d + "/") and rel.lower().endswith(sfx) for d, sfx in _BUILD_OUTPUTS.items())
+
+
 _SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv"}
 
 
@@ -690,7 +701,8 @@ def _repo_files(root: Path) -> list[str]:
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if d not in _SKIP_DIRS)
         rel_dir = os.path.relpath(dirpath, root).replace(os.sep, "/")
-        out += [f if rel_dir == "." else f"{rel_dir}/{f}" for f in sorted(filenames)]
+        out += [f if rel_dir == "." else f"{rel_dir}/{f}" for f in sorted(filenames)
+                if os.path.isfile(os.path.join(dirpath, f)) and not os.path.islink(os.path.join(dirpath, f))]
     return out
 
 
@@ -807,7 +819,7 @@ def _oracle_builders(root: Path, files: list[str], name: str, mroot: str) -> dic
                         if is_out and stage_has_source(frm):
                             hits.append(f"{df}:{c.start_line}")
                     elif inside(rel) and rel != "." and (
-                            (is_out and any(rel.startswith((mroot + "/" if mroot else "") + d) for d in ("target/", "build/libs/", "build/", "dist/")))
+                            _is_build_output(rel, mroot)
                             or source_in(rel)):
                         hits.append(f"{df}:{c.start_line}")
         return sorted(set(hits))

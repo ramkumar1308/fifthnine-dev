@@ -66,6 +66,8 @@ SPEC_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 
 def canon(key: str) -> str:
     """Canonical form used to compare property names: lower case, no dashes or underscores outside `[n]` indexes."""
+    if "[" not in key:
+        return key.lower().replace("-", "").replace("_", "")
     parts = re.split(r"(\[\d+\])", key)
     return "".join(p if p.startswith("[") else p.lower().replace("-", "").replace("_", "") for p in parts)
 

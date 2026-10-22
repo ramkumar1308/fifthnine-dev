@@ -228,6 +228,7 @@ class _Run:
         self.active_fid: str | None = None
         self.props: dict[str, Prop | None] = {}
         self.included_docs: list[ConfigDocument] = []
+        self.prefix_cache: dict[int, dict[str, int]] = {}
         self.note_keys: set[str] = set()
         self.unmapped_env: set[str] = set()
 
@@ -820,13 +821,19 @@ class _Run:
             self.fb.add("spring.property", subject, redact(key, value), FactStatus.OVERRIDDEN, source=ref(*mat.source) if mat.source else None,
                         scope=scope, unit=unit, link_ids=self.link_ids, precedence=h.precedence, overridden_by=winner)
 
+    def _prefix_lookup(self, doc: ConfigDocument) -> dict[str, int]:
+        found = self.prefix_cache.get(id(doc))
+        if found is None:
+            found = self.prefix_cache[id(doc)] = {canon(p): line for p, line in doc.prefixes.items()}
+        return found
+
     def _absence_input(self, key: str) -> FactInput:
         """The identity line that shows `key` is not set: the deepest existing parent key of `key` in the documents read,
         lowest precedence first on a tie."""
         parts = key.split(".")
         best: tuple[int, str, int] | None = None
         for doc in self.included_docs:
-            lookup = {canon(p): line for p, line in doc.prefixes.items()}
+            lookup = self._prefix_lookup(doc)
             for depth in range(len(parts) - 1, 0, -1):
                 line = lookup.get(canon(".".join(parts[:depth])))
                 if line is not None:

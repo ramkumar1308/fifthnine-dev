@@ -18,7 +18,9 @@ import pytest
 from fifthnine.core.engine import ScanOptions, run_scan
 from fifthnine.schema.v1 import Fact, FactStatus, OverrideExposure, ScanResult
 from tests.support.answer_keys import FactKey, load
+from tests.support.oracle import OracleReport
 from tests.support.scorer import score
+from tests.support.spring_oracle import check_spring
 
 from ..conftest import ROOT
 
@@ -123,8 +125,17 @@ class Repo:
         return tmp
 
 
-def _scan(tmp: Path, repo: Repo, profile: str | None = None) -> ScanResult:
-    return run_scan(ScanOptions(path=repo.write(tmp), profile=profile, facts="all"))
+def _scan(tmp: Path, repo: Repo, profile: str | None = None, *, oracle: bool = True) -> ScanResult:
+    r = run_scan(ScanOptions(path=repo.write(tmp), profile=profile, facts="all"))
+    if oracle:
+        _oracle_clean(tmp, r, profile)
+    return r
+
+
+def _oracle_clean(root: Path, r: ScanResult, profile: str | None = None) -> None:
+    rep = OracleReport()
+    check_spring(root, r.facts, r.linkages, rep, option=[p.strip() for p in profile.split(",")] if profile else None)
+    assert not rep.mismatches, "\n".join(rep.mismatches)
 
 
 def _props(r: ScanResult, *, suffix: str | None = None) -> dict[str, Fact]:
@@ -160,6 +171,7 @@ def test_orders_sample_scores_correct_against_the_key() -> None:
     root = ROOT / "samples" / "orders-service-spring"
     r = run_scan(ScanOptions(path=root, facts="all"))
     key = load(ROOT / "benchmarks" / "dev" / "facts" / "orders-service-spring.facts.yaml", FactKey)
+    _oracle_clean(root, r)
     s = score(key, [f for f in r.facts], r.linkages, "M2-2")
     assert s.passed, s.report()
     assert not s.violated
@@ -348,6 +360,26 @@ def test_x7_application_json_beats_os_environment(tmp_path: Path) -> None:
     props = _props(_scan(tmp_path, repo))
     assert props["server.port"].value == 9500 and props["server.port"].precedence == "spring.application_json"
     assert props["management.server.port"].value == 9501
+
+
+def test_source_order_command_line_json_system_property_environment_file(tmp_path: Path) -> None:
+    yml = "server:\n  port: 1\n"
+    env = {"SERVER_PORT": "2", "JAVA_TOOL_OPTIONS": "-Dserver.port=3", "SPRING_APPLICATION_JSON": '{"server":{"port":4}}'}
+    expected = [(["--server.port=5"], 5, "spring.command_line"), (None, 4, "spring.application_json")]
+    for n, (args, value, rule) in enumerate(expected):
+        (tmp_path / str(n)).mkdir()
+        f = _props(_scan(tmp_path / str(n), Repo(resources={"application.yml": yml}, env=env, command=args)))["server.port"]
+        assert (f.value, f.precedence) == (value, rule)
+    (tmp_path / "s").mkdir()
+    no_json = {k: v for k, v in env.items() if k != "SPRING_APPLICATION_JSON"}
+    f = _props(_scan(tmp_path / "s", Repo(resources={"application.yml": yml}, env=no_json)))["server.port"]
+    assert (f.value, f.precedence) == (3, "spring.system_property")
+    (tmp_path / "e").mkdir()
+    f = _props(_scan(tmp_path / "e", Repo(resources={"application.yml": yml}, env={"SERVER_PORT": "2"})))["server.port"]
+    assert (f.value, f.precedence) == (2, "spring.os_environment")
+    shadows = sorted(g.value for g in _scan(tmp_path / "e", Repo(resources={"application.yml": yml}, env={"SERVER_PORT": "2"})).facts
+                     if g.status is FactStatus.OVERRIDDEN)
+    assert shadows == [1]
 
 
 def test_x8_kubernetes_config_dependency_marks_file_exposure(tmp_path: Path) -> None:
@@ -540,7 +572,7 @@ def test_broken_and_hostile_files_do_not_crash_the_scan(tmp_path: Path) -> None:
         "application.yml": "a: [unclosed\n", "application-x.yml": "a: &x [1]\nb: *x\n",
         "application.properties": "server.port=8080\n" + "k=v\\\n" * 20000,
     })
-    r = _scan(tmp_path, repo)
+    r = _scan(tmp_path, repo, oracle=False)
     assert "Spring configuration file not read" in _notices(r)
     assert _props(r)["server.port"].value == 8080
 
@@ -565,3 +597,53 @@ def test_module_without_config_or_container_emits_only_build_facts(tmp_path: Pat
     r = _scan(tmp_path, Repo(linked=False))
     assert not [f for f in r.facts if f.kind.startswith("spring.")]
     assert any(f.kind == "stack.version" for f in r.facts)
+
+
+# ---------------------------------------------------------------- the oracle and the scorer notice wrong facts
+
+
+def test_spring_oracle_detects_every_kind_of_error() -> None:
+    root = ROOT / "samples" / "orders-service-spring"
+    r = run_scan(ScanOptions(path=root, facts="all"))
+
+    def mismatches(facts: list[Fact]) -> list[str]:
+        rep = OracleReport()
+        check_spring(root, facts, r.linkages, rep)
+        return rep.mismatches
+
+    assert not mismatches(r.facts)
+
+    def swap(match: Any, **changes: Any) -> list[Fact]:
+        done = False
+        out = []
+        for f in r.facts:
+            if not done and match(f):
+                f = f.model_copy(update=changes(f) if callable(changes) else changes)
+                done = True
+            out.append(f)
+        assert done
+        return out
+
+    def named(kind: str, tail: str, status: FactStatus | None = None) -> Any:
+        return lambda f: f.kind == kind and f.subject.key.endswith(tail) and (status is None or f.status is status)
+
+    wrong_value = swap(named("spring.property", ":server.port", FactStatus.DECLARED), value=8081)
+    assert any("server.port" in m for m in mismatches(wrong_value))
+    moved = swap(named("spring.property", ":server.port", FactStatus.DECLARED), source=_move_line(r, ":server.port"))
+    assert any("server.port" in m for m in mismatches(moved))
+    scope = swap(named("spring.property", ":server.port", FactStatus.DECLARED), scope={"profile": "dev"})
+    assert any("scope" in m for m in mismatches(scope))
+    profiles = swap(named("spring.active_profiles", "spring:."), value=["dev"])
+    assert any("active_profiles" in m for m in mismatches(profiles))
+    endpoint = swap(named("spring.actuator.endpoint", "health/readiness"), value={"port": 8080, "path": "/actuator/health/readiness", "port_type": "SAME"})
+    assert any("endpoint" in m for m in mismatches(endpoint))
+    default = swap(named("spring.property", ":server.shutdown", FactStatus.DEFAULT), value="immediate")
+    assert any("server.shutdown" in m for m in mismatches(default))
+    shadow = swap(named("spring.property", "exposure.include", FactStatus.OVERRIDDEN), source=_move_line(r, "exposure.include", FactStatus.OVERRIDDEN))
+    assert any("overridden" in m for m in mismatches(shadow))
+
+
+def _move_line(r: ScanResult, tail: str, status: FactStatus = FactStatus.DECLARED) -> Any:
+    f = next(f for f in r.facts if f.kind == "spring.property" and f.subject.key.endswith(tail) and f.status is status)
+    assert f.source is not None
+    return f.source.model_copy(update={"line_start": f.source.line_start + 1, "line_end": f.source.line_end + 1})

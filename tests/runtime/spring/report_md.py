@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -46,8 +47,10 @@ def render(report: dict) -> str:  # type: ignore[type-arg]
         if f["kind"] in ("start", "build") and len(seen) < 3:
             log = LOGS / f"{name}.log"
             if log.is_file():
-                tail = "\n".join(log.read_text(encoding="utf-8", errors="replace").splitlines()[-45:])
-                out += ["", f"<details><summary>Log tail: {name}</summary>", "", "```", tail[-6000:], "```", "", "</details>"]
+                lines = log.read_text(encoding="utf-8", errors="replace").splitlines()
+                causes = [ln.strip()[:300] for ln in lines if re.search(r"Exception|Error|Caused by", ln) and not ln.startswith("\tat ")][:8]
+                tail = "\n".join([*causes, "...", *lines[-25:]])
+                out += ["", f"<details><summary>Log: {name}</summary>", "", "```", tail[-6000:], "```", "", "</details>"]
                 seen.add(name)
     errs = [c for c in cases if c.get("error")]
     for c in errs:

@@ -52,7 +52,7 @@ def test_wrong_value_origin_line_and_http_status_are_failures(tmp_path: Path) ->
     facts = _facts(tmp_path)
     bad_value = _runtime()
     bad_value["values"]["server.port"]["value"] = "9090"
-    assert any(c.subject.endswith("server.port") for c in C.compare("t", facts, bad_value, HTTP_OK).failures)
+    assert any(c.subject == "spring:.:server.port" for c in C.compare("t", facts, bad_value, HTTP_OK).failures)
     bad_line = _runtime()
     bad_line["values"]["server.port"]["origin"] = "class path resource [application.yml] - 7:9"
     assert any(c.kind.startswith("origin:") for c in C.compare("t", facts, bad_line, HTTP_OK).failures)
@@ -115,3 +115,15 @@ def test_system_property_origin_wording_and_empty_value_for_a_default(tmp_path: 
     rt2 = _runtime()
     rt2["values"]["management.server.port"] = {"value": ""}
     assert not [c for c in C.compare("t", plain, rt2, HTTP_OK).failures if "management.server.port" in c.subject]
+
+
+def test_mismatch_on_file_exposure_fact_is_not_compared(tmp_path: Path) -> None:
+    """An imported file may replace a packaged value: the scan flags it, so a runtime difference is counted as skipped, not failed."""
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    wrong = _runtime(values={"server.port": {"value": "8110", "origin": "class path resource [extra.yml] - 2:9"}})
+    plain = C.compare("c", _facts(tmp_path / "a"), wrong, {})
+    assert any(c.subject == "spring:.:server.port" and not c.ok for c in plain.checks)
+    flagged = C.compare("c", _facts(tmp_path / "b", command=["--spring.config.import=optional:classpath:extra.yml"]), wrong, {})
+    assert not any(c.subject == "spring:.:server.port" for c in flagged.checks)
+    assert flagged.skipped["mismatch on a fact that carries an override exposure flag"] >= 1

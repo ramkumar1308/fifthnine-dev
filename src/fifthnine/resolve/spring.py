@@ -489,6 +489,7 @@ class _Run:
         after_jar = False
         skip_next = False
         seen_java = False
+        options_ended = False  # a bare "--" makes every later argument a non-option argument
         for token, src, status, via_id in self._command_stream():
             if "$(" in token:
                 self.cov.append(CoverageNotice(code="FN-OPS-002", scope=f"{src[0]}:{src[1]}",
@@ -515,7 +516,10 @@ class _Run:
                     if word.startswith("-D"):
                         self._add_d(word, src, status, via_id, None)
                         continue
-                if word.startswith("--") and "=" in word:  # program arguments: Boot reads --key=value
+                if after_jar and word == "--":
+                    options_ended = True
+                    continue
+                if not options_ended and word.startswith("--") and "=" in word:  # program arguments: Boot reads --key=value
                     k, _, v = word[2:].partition("=")
                     if re.fullmatch(r"[A-Za-z][\w.\-\[\]]*", k):
                         self.args_table.setdefault(canon(k), []).append(Hit(k, v, "args", "spring.command_line", "", src, status, via_id))

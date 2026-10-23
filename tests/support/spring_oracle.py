@@ -393,6 +393,7 @@ class View:
         program_args = False
         skip = False
         seen_java = False
+        ended = False
         for tok, path, line in stream:
             for w in _words(tok):
                 if skip:
@@ -408,7 +409,9 @@ class View:
                 elif not program_args and w.startswith("-D") and "=" in w:
                     k, _, val = w[2:].partition("=")
                     self.sys[ocanon(k)] = (val, path, line)
-                elif w.startswith("--") and "=" in w:
+                elif program_args and w == "--":
+                    ended = True
+                elif not ended and w.startswith("--") and "=" in w:
                     k, _, val = w[2:].partition("=")
                     prev = self.cli.get(ocanon(k))
                     # a repeated option joins its values with commas (indexed keys are separate entries)

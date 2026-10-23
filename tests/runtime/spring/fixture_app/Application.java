@@ -92,7 +92,8 @@ public class Application {
                 try {
                     String text = env.getProperty(key);
                     e.put("value", text);
-                    if (text == null) {  // a YAML sequence is not one property: bind it as a list
+                    // a YAML sequence or an indexed name is not one property, and an include or exclude set is bound element by element
+                    if (text == null || key.endsWith(".include") || key.endsWith(".exclude")) {
                         Binder.get(env).bind(key, Bindable.listOf(String.class)).ifBound(l -> e.put("list", l));
                     }
                 } catch (RuntimeException ex) {
@@ -101,10 +102,10 @@ public class Application {
                 if (!key.contains("[")) {
                     try {
                         // a list has no origin of its own: the origin of its first element tells which source supplied it
-                        for (String probe : new String[] {key, key + "[0]"}) {
-                            ConfigurationPropertyName name = ConfigurationPropertyName.of(probe);
-                            for (ConfigurationPropertySource s : ConfigurationPropertySources.get(env)) {
-                                ConfigurationProperty p = s.getConfigurationProperty(name);
+                        // the first source (highest precedence) that has the key or its first element supplies the value
+                        for (ConfigurationPropertySource s : ConfigurationPropertySources.get(env)) {
+                            for (String probe : new String[] {key, key + "[0]"}) {
+                                ConfigurationProperty p = s.getConfigurationProperty(ConfigurationPropertyName.of(probe));
                                 if (p != null) {
                                     e.put("origin", String.valueOf(p.getOrigin()));
                                     break;

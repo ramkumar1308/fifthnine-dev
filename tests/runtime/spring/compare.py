@@ -12,7 +12,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-from fifthnine.schema.v1 import Fact, FactStatus
+from fifthnine.schema.v1 import Fact, FactStatus, OverrideExposure
 
 PROPERTY = "spring.property"
 ENDPOINT = "spring.actuator.endpoint"
@@ -155,7 +155,15 @@ def compare(case: str, facts: list[Fact], rt: dict[str, Any], http: dict[tuple[i
             res.skipped[f"{f.kind} {f.status.value}"] += 1
             continue
         if f.kind == PROPERTY:
+            before = len(res.checks)
             _property(case, f, rt, values, res, discovery)
+            if f.override_exposure is not OverrideExposure.FILE_POSSIBLE:
+                continue
+            # the fact says a source outside the repository, or an imported file, may replace it: a runtime difference is the
+            # documented exposure, not a wrong value. Count it as not compared instead of as a failure.
+            if any(not c.ok for c in res.checks[before:]):
+                del res.checks[before:]
+                res.skipped["mismatch on a fact that carries an override exposure flag"] += 1
         elif f.kind == PROFILES:
             _profiles(case, f, rt, res)
         elif f.kind == PROBE_GROUPS:
@@ -174,6 +182,8 @@ def _property(case: str, f: Fact, rt: dict[str, Any], values: dict[str, Any], re
     key = key_of(f)
     entry = values.get(key, {})
     text, listed = entry.get("value"), entry.get("list")
+    if listed is not None:  # a bound list is the effective value; the scalar property can be a lower source's string
+        text = None
     if f.value == "<redacted>":
         res.skipped["redacted value"] += 1
         return

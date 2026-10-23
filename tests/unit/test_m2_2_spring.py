@@ -813,6 +813,11 @@ def test_review_round_two_precedence_paths(tmp_path: Path) -> None:
     assert (_port(r).value, _port(r).precedence) == (8101, "spring.application_json")
     r = run(Repo(resources=app, command=['--spring.application.json={"server.port":8102}']))
     assert (_port(r).value, _port(r).precedence) == (8102, "spring.application_json")
+    # a bare -- ends the options: later --k=v words are plain arguments
+    r = run(Repo(resources=app, command=["--", "--server.port=8101"]))
+    assert _port(r).value == 8081
+    r = run(Repo(resources=app, command=["--server.port=8102", "--", "--server.port=8101"]))
+    assert _port(r).value == 8102
     # -D after the main class is a program argument
     r = run(Repo(resources=app, entrypoint='ENTRYPOINT ["java", "-cp", "/app", "com.acme.Main", "-Dserver.port=3"]\n'))
     assert _port(r).value == 8081

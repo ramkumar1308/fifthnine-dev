@@ -319,7 +319,7 @@ server.port=8082
          env={"SPRING_APPLICATION_JSON": '{"management":{"endpoints":{"web":{"exposure":{"include":[]}}}}}'}, covers="UNSURE: empty JSON array"),
     Case("jdk-java-options-over-tool-options", resources={"application.yml": APP},
          env={"JAVA_TOOL_OPTIONS": "-Dserver.port=8101", "JDK_JAVA_OPTIONS": "-Dserver.port=8102"}, covers="UNSURE: JDK_JAVA_OPTIONS wins"),
-    Case("placeholder-random-default", resources={"application.yml": "spring:\n  application:\n    name: n-${random.int:5}\n"}, covers="random.* is not a default"),
+    Case("placeholder-random-default", resources={"application.yml": "spring:\n  application:\n    name: n-${random.value:x}\n"}, covers="random.* is supplied by the JVM, the inline text is not its value"),
     Case("placeholder-hostname-default", resources={"application.yml": "spring:\n  application:\n    name: ${HOSTNAME:svc}\n"}, run_env={"HOSTNAME": "pod-1"}, covers="kubelet sets HOSTNAME"),
     Case("placeholder-name-case", resources={"application.yml": "my.name: real\nspring:\n  application:\n    name: ${My.Name:dflt}\n"}, covers="UNSURE: placeholder names are case-sensitive"),
     Case("group-in-profile-file", resources={"application.yml": APP, "application-x.yml": "spring:\n  profiles:\n    group:\n      x: y\n", "application-y.yml": "server:\n  port: 8082\n"},

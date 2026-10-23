@@ -126,4 +126,4 @@ def test_mismatch_on_file_exposure_fact_is_not_compared(tmp_path: Path) -> None:
     assert any(c.subject == "spring:.:server.port" and not c.ok for c in plain.checks)
     flagged = C.compare("c", _facts(tmp_path / "b", command=["--spring.config.import=optional:classpath:extra.yml"]), wrong, {})
     assert not any(c.subject == "spring:.:server.port" for c in flagged.checks)
-    assert flagged.skipped["mismatch on a fact that carries an override exposure flag"] >= 1
+    assert flagged.skipped["mismatch on a fact that carries a file override exposure flag"] >= 1

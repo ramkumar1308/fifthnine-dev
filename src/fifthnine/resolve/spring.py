@@ -1082,12 +1082,14 @@ class _Run:
         self._probe_groups()
 
     def _facts_exposed(self, props: Sequence[Prop | None]) -> tuple[OverrideExposure, list[ExposureSource]]:
-        ids = sorted({p.fid for p in props if p is not None and p.exposure is not OverrideExposure.NONE})
+        exposed = [p for p in props if p is not None and p.exposure is not OverrideExposure.NONE]
+        ids = sorted({p.fid for p in exposed})
         if not ids:
             if self.model is None and any(p is not None for p in props):
                 return OverrideExposure.ENV_POSSIBLE, []
             return OverrideExposure.NONE, []
-        return OverrideExposure.ENV_POSSIBLE, [ExposureSource(via="inherited", from_fact_ids=ids)]
+        kind = OverrideExposure.FILE_POSSIBLE if all(p.exposure is OverrideExposure.FILE_POSSIBLE for p in exposed) else OverrideExposure.ENV_POSSIBLE
+        return kind, [ExposureSource(via="inherited", from_fact_ids=ids)]
 
     def _combine(self, props: list[Prop | None]) -> tuple[FactStatus, str | None]:
         """Status of a value derived from `props`: declared from declared values and cited defaults; inferred when any
@@ -1373,7 +1375,9 @@ def _flatten_json(text: str) -> list[tuple[str, Any]] | None:
     stack: list[tuple[str, Any]] = [("", data)]
     while stack and len(out) < 10_000:
         prefix, node = stack.pop()
-        if isinstance(node, dict):
+        if isinstance(node, (dict, list)) and not node and prefix:
+            out.append((prefix, ""))  # Boot keeps an empty object or array as the value of its name; it reads as an empty string
+        elif isinstance(node, dict):
             for k, v in reversed(list(node.items())):
                 stack.append((f"{prefix}.{k}" if prefix else str(k), v))
         elif isinstance(node, list):

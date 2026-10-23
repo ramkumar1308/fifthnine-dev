@@ -316,7 +316,9 @@ def _flat_json(text: str) -> dict[str, str]:
     out: dict[str, str] = {}
 
     def walk(p: str, n: Any) -> None:
-        if isinstance(n, dict):
+        if isinstance(n, (dict, list)) and not n and p:
+            out[p] = ""
+        elif isinstance(n, dict):
             for k, v in n.items():
                 walk(f"{p}.{k}" if p else k, v)
         elif isinstance(n, list):

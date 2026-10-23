@@ -818,6 +818,9 @@ def test_review_round_two_precedence_paths(tmp_path: Path) -> None:
     assert _port(r).value == 8081
     r = run(Repo(resources=app, command=["--server.port=8102", "--", "--server.port=8101"]))
     assert _port(r).value == 8102
+    # an empty JSON array is an empty value: it hides the lower layers, and the exposure default applies
+    r = run(Repo(resources=yml, env={"SPRING_APPLICATION_JSON": '{"management":{"endpoints":{"web":{"exposure":{"include":[]}}}}}'}))
+    assert _props(r)[inc].value == ["health"]
     # -D after the main class is a program argument
     r = run(Repo(resources=app, entrypoint='ENTRYPOINT ["java", "-cp", "/app", "com.acme.Main", "-Dserver.port=3"]\n'))
     assert _port(r).value == 8081

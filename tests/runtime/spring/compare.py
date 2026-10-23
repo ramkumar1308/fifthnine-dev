@@ -154,16 +154,9 @@ def compare(case: str, facts: list[Fact], rt: dict[str, Any], http: dict[tuple[i
         if f.status in (FactStatus.OVERRIDDEN, FactStatus.UNRESOLVED) and f.kind != ENDPOINT:
             res.skipped[f"{f.kind} {f.status.value}"] += 1
             continue
+        before = len(res.checks)
         if f.kind == PROPERTY:
-            before = len(res.checks)
             _property(case, f, rt, values, res, discovery)
-            if f.override_exposure is not OverrideExposure.FILE_POSSIBLE:
-                continue
-            # the fact says a source outside the repository, or an imported file, may replace it: a runtime difference is the
-            # documented exposure, not a wrong value. Count it as not compared instead of as a failure.
-            if any(not c.ok for c in res.checks[before:]):
-                del res.checks[before:]
-                res.skipped["mismatch on a fact that carries an override exposure flag"] += 1
         elif f.kind == PROFILES:
             _profiles(case, f, rt, res)
         elif f.kind == PROBE_GROUPS:
@@ -175,6 +168,11 @@ def compare(case: str, facts: list[Fact], rt: dict[str, Any], http: dict[tuple[i
                 add(Check(case, f.kind, f.subject.key, got is not None and sorted(got) == want, want, got))
         elif f.kind == ENDPOINT:
             _endpoint(case, f, rt, http, res)
+        if f.kind in (PROPERTY, ENDPOINT) and f.override_exposure is OverrideExposure.FILE_POSSIBLE and any(not c.ok for c in res.checks[before:]):
+            # the fact says an imported or mounted file may replace what it derives from: a runtime difference is the documented
+            # exposure, not a wrong value. Count it as not compared instead of as a failure.
+            del res.checks[before:]
+            res.skipped["mismatch on a fact that carries a file override exposure flag"] += 1
     return res
 
 
@@ -188,6 +186,8 @@ def _property(case: str, f: Fact, rt: dict[str, Any], values: dict[str, Any], re
         res.skipped["redacted value"] += 1
         return
     if f.status is FactStatus.DEFAULT:
+        if listed == [] and key.endswith((".include", ".exclude")):  # an empty set is "none given": the filter uses its default includes
+            listed = None
         if text == "" and not listed:  # an empty string is unset for an Integer, Boolean or list property (checked against the bound value below)
             text = None
         if text is not None or listed is not None:

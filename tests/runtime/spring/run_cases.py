@@ -92,7 +92,7 @@ def prepare(case: Case, root: Path) -> tuple[Path, list[Any], float]:
 def run_case(case: Case, root: Path) -> tuple[CaseResult, dict[str, Any]]:
     work, facts, scan_s = prepare(case, root)
     keys = work / "fn-keys.txt"
-    keys.write_text("\n".join(runtime_keys(facts)) + "\n", encoding="utf-8")
+    keys.write_text("\n".join(sorted({*runtime_keys(facts), *case.expect_runtime})) + "\n", encoding="utf-8")
     out = work / "fn-runtime.json"
     log = root / "logs" / f"{case.name}.log"
     log.parent.mkdir(exist_ok=True)
@@ -119,6 +119,9 @@ def run_case(case: Case, root: Path) -> tuple[CaseResult, dict[str, Any]]:
             http: dict[tuple[int, str], int | None] = {p: _get(*p)[0] for p in sorted(probes)}
             discovery = _discovery(facts)
             res = compare(case.name, facts, rt, http, discovery)
+            for key, want in case.expect_runtime.items():  # facts the scan leaves unresolved: the JVM must really not use the files
+                got = rt.get("values", {}).get(key, {}).get("value")
+                res.checks.append(Check(case.name, "expect_runtime", key, got == want, want, got, "the scan reports this value as unresolved"))
             info["runtime_values"] = {k: v.get("value", v.get("list")) for k, v in rt.get("values", {}).items()}
             info["origins"] = {k: v.get("origin") for k, v in rt.get("values", {}).items()}
         finally:

@@ -103,3 +103,15 @@ def test_origin_text_with_jar_name_and_missing_health_bean(tmp_path: Path) -> No
     res = C.compare("t", facts, _runtime(healthGroups=None), HTTP_OK)
     assert not any(c.kind == "spring.actuator.probe_groups" for c in res.failures)
     assert any("probe groups not observable" in k for k in res.skipped)
+
+
+def test_system_property_origin_wording_and_empty_value_for_a_default(tmp_path: Path) -> None:
+    facts = _facts(tmp_path, env={"JAVA_TOOL_OPTIONS": "-Dserver.port=9000"})
+    rt = _runtime(serverPort=9000)
+    rt["values"]["server.port"] = {"value": "9000", "origin": '"server.port" from property source "systemProperties"'}
+    assert not [c for c in C.compare("t", facts, rt, {}).failures if c.kind.startswith("origin:")]
+    (tmp_path / "p").mkdir()
+    plain = _facts(tmp_path / "p")
+    rt2 = _runtime()
+    rt2["values"]["management.server.port"] = {"value": ""}
+    assert not [c for c in C.compare("t", plain, rt2, HTTP_OK).failures if "management.server.port" in c.subject]

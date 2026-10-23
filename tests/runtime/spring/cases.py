@@ -25,6 +25,7 @@ class Case:
     kubernetes: bool = True  # give the JVM the variables a pod has (KUBERNETES_SERVICE_HOST, KUBERNETES_SERVICE_PORT)
     profile: str | None = None  # scan option, not used by the run
     covers: str = ""
+    expect_runtime: dict[str, str | None] = field(default_factory=dict)  # property -> value the JVM must report (for facts the scan leaves unresolved)
 
 
 def _yml(text: str) -> str:
@@ -227,4 +228,49 @@ management.endpoints.web.exposure.include=
 server.port=
 management.server.port=8099
 """)}, covers="empty value is unset"),
+    # -- precedence paths added after review round 2
+    Case("profile-active-from-system-property", resources={
+        "application.yml": "server:\n  port: 8081\n", "application-prod.yml": "server:\n  port: 8082\n"},
+        env={"JAVA_TOOL_OPTIONS": "-Dspring.profiles.active=prod"}, covers="active profile from a system property"),
+    Case("profile-two-active-later-wins", resources={
+        "application.yml": "server:\n  port: 8081\n", "application-a.yml": "server:\n  port: 8082\n", "application-b.yml": "server:\n  port: 8083\n"},
+        args=["--spring.profiles.active=a,b"], covers="later active profile wins"),
+    Case("profile-file-over-on-profile-document", resources={"application.yml": _yml("""
+server:
+  port: 8081
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+server:
+  port: 8082
+"""), "application-prod.yml": "server:\n  port: 8083\n"}, env={"SPRING_PROFILES_ACTIVE": "prod"}, covers="profile file over on-profile document"),
+    Case("profile-active-from-json", resources={
+        "application.yml": "server:\n  port: 8081\n", "application-prod.yml": "server:\n  port: 8082\n"},
+        env={"SPRING_APPLICATION_JSON": '{"spring":{"profiles":{"active":"prod"}}}'}, covers="active profile from SPRING_APPLICATION_JSON"),
+    Case("properties-multi-document", resources={"application.properties": _yml("""
+server.port=8081
+#---
+spring.config.activate.on-profile=prod
+server.port=8082
+""")}, env={"SPRING_PROFILES_ACTIVE": "prod"}, covers="#--- documents in a properties file"),
+    Case("json-list-and-nested", resources={"application.yml": "server:\n  port: 8080\n"},
+         env={"SPRING_APPLICATION_JSON": '{"management":{"endpoints":{"web":{"exposure":{"include":["health","info"]}}}},"server":{"port":8101}}'},
+         covers="JSON list and nested keys"),
+    Case("env-index-list", resources={"application.yml": "server:\n  port: 8080\n"},
+         env={"MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE": "health,info"}, covers="comma list from the environment"),
+    Case("config-location-replaces-defaults", resources={"application.yml": "server:\n  port: 8081\n"},
+         env={"SPRING_CONFIG_LOCATION": "optional:file:/nonexistent/"}, expect_runtime={"server.port": None},
+         covers="spring.config.location replaces the default locations: packaged files unused"),
+    Case("config-name-other", resources={"application.yml": "server:\n  port: 8081\n"},
+         args=["--spring.config.name=other"], expect_runtime={"server.port": None}, covers="spring.config.name hides application.yml"),
+    Case("config-location-keeps-defaults", resources={"application.yml": "server:\n  port: 8081\n"},
+         env={"SPRING_CONFIG_LOCATION": "optional:classpath:/,optional:classpath:/config/,optional:file:/nonexistent/"}, covers="defaults still searched"),
+    Case("config-additional-location", resources={"application.yml": "server:\n  port: 8081\n"},
+         env={"SPRING_CONFIG_ADDITIONAL_LOCATION": "optional:file:/nonexistent/"}, covers="additional location keeps the packaged files"),
+    Case("placeholder-relaxed-env", resources={"application.yml": "server:\n  port: ${app.http-port:8080}\n"}, env={"APP_HTTPPORT": "8102"},
+         covers="placeholder resolved from a relaxed env name"),
+    Case("args-over-json-same-key", resources={"application.yml": "server:\n  port: 8080\n"},
+         env={"SPRING_APPLICATION_JSON": '{"server":{"port":8103}}'}, args=["--server.port=8104"], covers="command line over JSON"),
 ]

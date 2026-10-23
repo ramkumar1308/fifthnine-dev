@@ -28,7 +28,7 @@ _TRUE, _FALSE = {"true", "on", "yes", "1"}, {"false", "off", "no", "0"}
 ORIGIN_MARKERS = {
     "spring.command_line": ("commandLineArgs",),
     "spring.application_json": ("spring.application.json", "SPRING_APPLICATION_JSON"),
-    "spring.system_property": ("System Property",),
+    "spring.system_property": ("System Property", 'property source "systemProperties"'),
     "spring.os_environment": ("System Environment Property",),
 }
 
@@ -178,6 +178,8 @@ def _property(case: str, f: Fact, rt: dict[str, Any], values: dict[str, Any], re
         res.skipped["redacted value"] += 1
         return
     if f.status is FactStatus.DEFAULT:
+        if text == "" and not listed:  # an empty string is unset for an Integer, Boolean or list property (checked against the bound value below)
+            text = None
         if text is not None or listed is not None:
             res.checks.append(Check(case, f.kind, f.subject.key, False, f"unset (default {f.value!r})", text if text is not None else listed,
                                     "the property is set at runtime, but the scan reports the default"))

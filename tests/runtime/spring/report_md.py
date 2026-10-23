@@ -34,9 +34,13 @@ def render(report: dict) -> str:  # type: ignore[type-arg]
         out.append("| " + " | ".join(str(x) for x in cells) + " |")
     fails = [(c["case"], f) for c in cases for f in c.get("failures", [])]
     if fails:
-        out += ["", "#### Failures", ""]
-        for name, f in fails[:60]:
-            out.append(f"- `{name}` {f['kind']} `{f['subject']}`: scan says {f['expected']!r}, runtime {f['runtime']!r} {f.get('note', '')}")
+        out += ["", "#### Failures (at most 4 per case)", ""]
+        per: Counter[str] = Counter()
+        for name, f in fails:
+            per[name] += 1
+            if per[name] <= 4:
+                out.append(f"- `{name}` {f['kind']} `{f['subject'].split(':', 2)[-1]}`: scan {str(f['expected'])[:150]}, runtime {str(f['runtime'])[:150]} "
+                           f"{f.get('note', '')[:60]}")
     seen: set[str] = set()
     for name, f in fails:
         if f["kind"] in ("start", "build") and len(seen) < 3:

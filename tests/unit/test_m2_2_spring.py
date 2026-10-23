@@ -440,8 +440,11 @@ def test_config_location_that_replaces_the_defaults_makes_file_values_unresolved
         assert _one(r, "spring.active_profiles", "spring:.").status is FactStatus.UNRESOLVED
         assert any("not used for this module" in c.message for c in r.coverage)
     (tmp_path / "keep").mkdir()
-    kept = _scan(tmp_path / "keep", Repo(resources=res, env={"SPRING_CONFIG_LOCATION": "optional:classpath:/,optional:classpath:/config/,file:/etc/app/"}))
-    assert _props(kept)["server.port"].value == 8082  # the default locations are still searched
+    kept = _scan(tmp_path / "keep", Repo(resources=res, env={"SPRING_CONFIG_LOCATION": "optional:classpath:/;optional:classpath:/config/"}))
+    assert _props(kept)["server.port"].value == 8082  # exactly Boot's default grouped locations
+    (tmp_path / "comma").mkdir()
+    comma = _scan(tmp_path / "comma", Repo(resources=res, env={"SPRING_CONFIG_LOCATION": "optional:classpath:/,optional:classpath:/config/,file:/etc/app/"}))
+    assert _props(comma)["server.port"].status is FactStatus.UNRESOLVED  # separate locations: order and grouping are not modelled
     (tmp_path / "hi").mkdir()
     high = _scan(tmp_path / "hi", Repo(resources=res, env={"SPRING_CONFIG_NAME": "other", "SERVER_PORT": "9000"}))
     assert (_props(high)["server.port"].value, _props(high)["server.port"].status) == (9000, FactStatus.INFERRED)  # a higher layer still decides
@@ -770,3 +773,61 @@ def _move_line(r: ScanResult, tail: str, status: FactStatus = FactStatus.DECLARE
     f = next(f for f in r.facts if f.kind == "spring.property" and f.subject.key.endswith(tail) and f.status is status)
     assert f.source is not None
     return f.source.model_copy(update={"line_start": f.source.line_start + 1, "line_end": f.source.line_end + 1})
+
+
+def _port(r: ScanResult) -> Fact:
+    return _props(r)["server.port"]
+
+
+def test_review_round_two_precedence_paths(tmp_path: Path) -> None:
+    app = {"application.yml": "server:\n  port: 8081\n", "application-gx.yml": "server:\n  port: 8082\n", "application-gy.yml": "server:\n  port: 8083\n"}
+    n = 0
+
+    def run(repo: Repo, profile: str | None = None) -> ScanResult:
+        nonlocal n
+        n += 1
+        (tmp_path / str(n)).mkdir()
+        return _scan(tmp_path / str(n), repo, profile)
+
+    # groups from the command line, JSON and the environment
+    for repo in (Repo(resources=app, command=["--spring.profiles.active=grp", "--spring.profiles.group.grp=gx,gy"]),
+                 Repo(resources=app, env={"SPRING_PROFILES_ACTIVE": "grp", "SPRING_PROFILES_GROUP_GRP": "gx,gy"}),
+                 Repo(resources=app, env={"SPRING_APPLICATION_JSON": '{"spring.profiles.active":"grp","spring.profiles.group.grp":"gx,gy"}'})):
+        r = run(repo)
+        assert _one(r, "spring.active_profiles", "spring:.").value == ["grp", "gx", "gy"]
+        assert _port(r).value == 8083
+    # repeated options are joined; indexed environment names form a list
+    r = run(Repo(resources={"application.yml": "spring:\n  application:\n    name: demo\n"},
+                 command=["--spring.application.name=a", "--spring.application.name=b"]))
+    assert _props(r)["spring.application.name"].value == "a,b"
+    r = run(Repo(resources=app, command=["--spring.profiles.active=gx", "--spring.profiles.active=gy"]))
+    assert _one(r, "spring.active_profiles", "spring:.").value == ["gx", "gy"]
+    inc = "management.endpoints.web.exposure.include"
+    yml = {"application.yml": "management:\n  endpoints:\n    web:\n      exposure:\n        include: health,info\n"}
+    r = run(Repo(resources=yml, env={"MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE_0_": "metrics"}))
+    assert _props(r)[inc].value == ["metrics"]
+    r = run(Repo(resources=app, env={"SPRING_PROFILES_ACTIVE_0_": "gx"}))
+    assert (_one(r, "spring.active_profiles", "spring:.").value, _port(r).value) == (["gx"], 8082)
+    # spring.application.json from a system property and from an argument
+    r = run(Repo(resources=app, entrypoint='ENTRYPOINT ["java", "-Dspring.application.json={\\"server\\":{\\"port\\":8101}}", "-jar", "/app/app.jar"]\n'))
+    assert (_port(r).value, _port(r).precedence) == (8101, "spring.application_json")
+    r = run(Repo(resources=app, command=['--spring.application.json={"server.port":8102}']))
+    assert (_port(r).value, _port(r).precedence) == (8102, "spring.application_json")
+    # -D after the main class is a program argument
+    r = run(Repo(resources=app, entrypoint='ENTRYPOINT ["java", "-cp", "/app", "com.acme.Main", "-Dserver.port=3"]\n'))
+    assert _port(r).value == 8081
+    # an empty value on top hides the lower layers: the default applies
+    r = run(Repo(resources=app, env={"SERVER_PORT": ""}))
+    assert (_port(r).value, _port(r).status) == (8080, FactStatus.DEFAULT)
+    # a document that depends on the cloud platform
+    cloud = {"application.yml": "server:\n  port: 8081\n---\nspring:\n  config:\n    activate:\n      on-cloud-platform: kubernetes\nserver:\n  port: 8090\n"}
+    r = run(Repo(resources=cloud))
+    assert (_port(r).value, _port(r).status) == (8090, FactStatus.INFERRED)
+    r = run(Repo(resources=cloud, linked=False))
+    assert _port(r).status is FactStatus.UNRESOLVED
+    # placeholders the container or the JVM supplies, and names that are looked up by their exact spelling
+    ph = {"application.yml": "my.name: real\nspring:\n  application:\n    name: ${HOSTNAME:svc}-${random.int:5}-${My.Name:dflt}\n"}
+    f = _props(run(Repo(resources=ph)))["spring.application.name"]
+    assert f.status is FactStatus.UNRESOLVED
+    f = _props(run(Repo(resources={"application.yml": "my.name: real\nspring:\n  application:\n    name: ${My.Name:dflt}\n"})))["spring.application.name"]
+    assert f.value == "dflt"

@@ -67,6 +67,9 @@ LOCATIONS = ("src/main/resources", "src/main/resources/config")  # classpath:/ t
 EXTENSIONS = ("yaml", "yml", "properties")  # low to high inside one location (.properties wins)
 MAX_PROPERTY_FACTS = 1500
 JSON_VARS = ("SPRING_APPLICATION_JSON",)
+_RUNTIME_NAMES = frozenset({"HOSTNAME", "HOME", "PATH", "USER", "PWD", "LANG", "TMPDIR", "JAVA_HOME", "line.separator", "file.separator", "path.separator"})
+_RUNTIME_PREFIXES = ("java.", "os.", "user.", "sun.", "jdk.", "native.")
+_MAIN_CLASS = re.compile(r"^[A-Za-z_][\w$]*(\.[A-Za-z_][\w$]*)+$")
 SYSPROP_VARS = ("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS")
 OVERRIDE_VARS = (*JSON_VARS, *SYSPROP_VARS)
 IGNORED_JVM_VARS = ("JAVA_OPTS", "JAVA_OPTIONS")  # not read by the JVM or by Spring Boot
@@ -123,6 +126,27 @@ class Prop:
     exposure: OverrideExposure
     unresolved_reason: str | None = None
     default: SpringDefault | None = None
+
+
+class _GroupMap:
+    """`spring.profiles.group.<name>` looked up through the layered sources, one name at a time (an environment variable cannot be
+    enumerated, but the names to expand are known)."""
+
+    def __init__(self, run: _Run, locs: list[tuple[str, int]]) -> None:
+        self.run, self.locs = run, locs
+
+    def get(self, name: str) -> list[str]:
+        key = f"spring.profiles.group.{name}"
+        for h in self.run.hits(key)[:1]:
+            mat = self.run.materialize(key, h)
+            if mat.unresolved is not None:
+                self.run.group_unresolved.append(f"{key}: {mat.unresolved}")
+                return []
+            value = mat.value if isinstance(mat.value, list) else [p.strip() for p in str(mat.value).split(",") if p.strip()]
+            if h.source is not None:
+                self.locs.append(h.source)
+            return [str(v) for v in value]
+        return []
 
 
 @dataclass
@@ -224,6 +248,8 @@ class _Run:
         self.args_table: dict[str, list[Hit]] = {}
         self.profiles: list[str] = []
         self.profile_unknown = False
+        self.group_unresolved: list[str] = []
+        self.uncertain: dict[str, tuple[str, tuple[str, int]]] = {}  # canonical key -> why a skipped document may have set it
         self.files_unknown: tuple[str, tuple[str, int] | None] | None = None  # (reason, where) when the packaged files are not what Boot reads
         self._expo_key = "spring.profiles.active"
         self._expo_extra: list[str] = []
@@ -312,11 +338,29 @@ class _Run:
                           profile_selected=selected, doc=doc)
         return {c: [h] for c, h in hits.items()}
 
+    def _cloud_platform_verdict(self, doc: ConfigDocument) -> tuple[bool, bool] | None:
+        """(document active, active only by assumption) for a document whose only condition is `on-cloud-platform`; None when
+        the condition cannot be decided. A container linked to a Deployment is assumed to run on Kubernetes (the kubelet sets
+        KUBERNETES_SERVICE_HOST); spring.main.cloud-platform overrides the detection."""
+        if len(doc.other_conditions) != 1 or doc.other_conditions[0][0].replace("_", "-").lower().rsplit(".", 1)[-1] != "on-cloud-platform":
+            return None
+        wanted = doc.other_conditions[0][1].strip().upper()
+        explicit = self.hits("spring.main.cloud-platform")[:1]
+        if explicit:
+            m = self.materialize("spring.main.cloud-platform", explicit[0])
+            if m.unresolved is not None or m.value is None:
+                return None
+            return str(m.value).strip().upper() == wanted, explicit[0].status is not FactStatus.DECLARED
+        if self.model is None:
+            return None
+        return wanted == "KUBERNETES", True
+
     def _build_files(self, active: list[str] | None) -> None:
         """Layer the packaged files. `active=None` is the first pass that only reads unconditional base documents to learn
         the profiles; the second pass adds conditional documents and profile-specific files."""
         table: dict[str, list[Hit]] = {}
         included: list[ConfigDocument] = []
+        self.uncertain = {}
         profile_set = set(active) if active else {"default"}
         if self.files_unknown is not None:
             for path, _ in self._file_candidates("application"):
@@ -334,12 +378,22 @@ class _Run:
                                                                "The application fails to start with this file; its values were not used."))
                     continue
                 doc_label, doc_selected = label, selected
+                assumed = False
                 if doc.other_conditions:
-                    if active is not None:
-                        key, _, ln = doc.other_conditions[0]
-                        self.cov.append(CoverageNotice(code="FN-OPS-002", scope=f"{doc.path}:{ln}",
-                                                       message=f"Document condition {key} is not evaluated; the document's values were not used."))
-                    continue
+                    verdict = self._cloud_platform_verdict(doc) if active is not None else None
+                    if verdict is None:
+                        if active is not None:
+                            key, _, ln = doc.other_conditions[0]
+                            self.cov.append(CoverageNotice(code="FN-OPS-002", scope=f"{doc.path}:{ln}",
+                                                           message=f"Document condition {key} is not evaluated; the document's values were not used, "
+                                                                   "and the properties it sets are unresolved unless a higher layer sets them."))
+                            for e in doc.entries:
+                                reason = f"a document with condition {key} (not evaluated) sets it"
+                                self.uncertain.setdefault(canon(split_index(e.key)[0]), (reason, (doc.path, e.line)))
+                        continue
+                    if not verdict[0]:
+                        continue
+                    assumed = verdict[1]
                 if doc.on_profile is not None:
                     if profile_file:
                         if active is not None:
@@ -366,6 +420,9 @@ class _Run:
                                                                "The setting was ignored."))
                 included.append(doc)
                 for c, hs in self._doc_hits(doc, precedence, doc_label, doc_selected).items():
+                    if assumed:
+                        for h in hs:
+                            h.status = FactStatus.INFERRED  # active only because the container is assumed to run on Kubernetes
                     table.setdefault(c, []).extend(hs)
 
         for path, _ in self._file_candidates("application"):
@@ -431,6 +488,7 @@ class _Run:
                                                message=f"{var} is not read by the JVM or by Spring Boot, so it is ignored; use JAVA_TOOL_OPTIONS."))
         after_jar = False
         skip_next = False
+        seen_java = False
         for token, src, status, via_id in self._command_stream():
             if "$(" in token:
                 self.cov.append(CoverageNotice(code="FN-OPS-002", scope=f"{src[0]}:{src[1]}",
@@ -442,6 +500,12 @@ class _Run:
                     skip_next = False
                     continue
                 if not after_jar:
+                    if word.rsplit("/", 1)[-1] in ("java", "java.exe"):
+                        seen_java = True
+                        continue
+                    if seen_java and _MAIN_CLASS.match(word):  # the main class: everything after it is a program argument
+                        after_jar = True
+                        continue
                     if word == "-jar":
                         after_jar, skip_next = True, True
                         continue
@@ -455,20 +519,31 @@ class _Run:
                     k, _, v = word[2:].partition("=")
                     if re.fullmatch(r"[A-Za-z][\w.\-\[\]]*", k):
                         self.args_table.setdefault(canon(k), []).append(Hit(k, v, "args", "spring.command_line", "", src, status, via_id))
-        for var in JSON_VARS:
-            for hit in self.env_get(var)[:1]:
-                if hit.status is FactStatus.UNRESOLVED or hit.raw is None:
-                    self.cov.append(CoverageNotice(code="FN-OPS-002", scope=self._where(hit),
-                                                   message=f"{var} cannot be read from the repository; properties it sets are unknown."))
-                    continue
-                flat = _flatten_json(str(hit.raw))
-                if flat is None:
-                    self.cov.append(CoverageNotice(code="FN-OPS-002", scope=self._where(hit),
-                                                   message=f"{var} is not a JSON object the scanner can read; properties it sets are unknown."))
-                    continue
-                for k, v in flat:
-                    self.json_table.setdefault(canon(k), []).append(
-                        Hit(k, v, "json", "spring.application_json", "", hit.source, hit.status, hit.via_fact, var))
+        # spring.application.json: from the command line, a system property or SPRING_APPLICATION_JSON; Boot reads the one
+        # property value that wins and adds its content as one property source between the system properties and the arguments
+        jc = canon("spring.application.json")
+        supplied: list[tuple[Hit, str]] = []
+        for table, label in ((self.args_table, "--spring.application.json"), (self.sys_table, "-Dspring.application.json")):
+            if table.get(jc):
+                supplied.append((table[jc][-1], label))
+        supplied += [(h, "SPRING_APPLICATION_JSON") for h in self.env_get("SPRING_APPLICATION_JSON")[:1]]
+        for hit, var in supplied[:1]:
+            if hit.status is FactStatus.UNRESOLVED or hit.raw is None:
+                self.cov.append(CoverageNotice(code="FN-OPS-002", scope=self._where(hit),
+                                               message=f"{var} cannot be read from the repository; properties it sets are unknown."))
+                continue
+            flat = _flatten_json(str(hit.raw))
+            if flat is None:
+                self.cov.append(CoverageNotice(code="FN-OPS-002", scope=self._where(hit),
+                                               message=f"{var} is not a JSON object the scanner can read; properties it sets are unknown."))
+                continue
+            for k, v in flat:
+                self.json_table.setdefault(canon(k), []).append(
+                    Hit(k, v, "json", "spring.application_json", "", hit.source, hit.status, hit.via_fact, hit.var or var))
+        for c, hs in self.args_table.items():  # SimpleCommandLinePropertySource joins a repeated option's values with commas
+            if len(hs) > 1 and not c.endswith("]"):
+                self.args_table[c] = [Hit(hs[0].key, ",".join(str(h.raw) for h in hs), hs[0].layer, hs[0].precedence, hs[0].profile, hs[0].source,
+                                          hs[0].status, hs[0].via_fact, hs[0].var)]
         for table in (self.sys_table, self.json_table, self.args_table):
             self._fold_indexed(table)
 
@@ -483,7 +558,10 @@ class _Run:
                 idx = split_index(canon(h.key))[1]
                 groups.setdefault((base, h.var if h.layer == "json" else None), []).append((idx if idx is not None else 0, h))
         for (base, _), items in groups.items():
-            items.sort(key=lambda t: t[0])
+            latest: dict[int, tuple[int, Hit]] = {}
+            for t in items:  # the same index set twice in one source: the later word wins
+                latest[t[0]] = t
+            items = sorted(latest.values(), key=lambda t: t[0])
             first = items[0][1]
             table.setdefault(base, []).append(Hit(split_index(first.key)[0], [h.raw for _, h in items], first.layer, first.precedence,
                                                   first.profile, first.source, first.status, first.via_fact, first.var))
@@ -522,9 +600,19 @@ class _Run:
         for name in env_names(key):
             for h in self.env_get(name):
                 out.append(Hit(key, h.raw, h.layer, h.precedence, h.profile, h.source, h.status, h.via_fact, name, unresolved=h.unresolved))
+            items: list[Hit] = []
+            while len(items) < 64 and (got := self.env_get(f"{name}_{len(items)}_")[:1]):  # indexed names: NAME_0_, NAME_1_
+                items.append(got[0])
+            if items:
+                first = items[0]
+                out.append(Hit(key, [h.raw for h in items], first.layer, first.precedence, first.profile, first.source, first.status,
+                               first.via_fact, f"{name}_0_", unresolved=next((h.unresolved for h in items if h.unresolved), None)))
         out += list(reversed(self.files_table.get(c, [])))
         if spec_type(key) in ("int", "bool", "list"):
-            # Boot converts an empty string to null for these types (and falls back to the default for an empty include list)
+            # Boot converts an empty string to null for these types, so a top-most empty value hides every lower layer and the
+            # default applies; an empty value below a real one changes nothing
+            if out and out[0].raw == "":
+                return []
             out = [h for h in out if h.raw != ""]
         return out
 
@@ -614,8 +702,12 @@ class _Run:
         for alt in env_names(name):
             if alt != name:
                 candidates += self.env_get(alt)
-        candidates += [h for h in reversed(self.files_table.get(c, [])) if h is not origin]
+        exact = name == name.lower() and "_" not in name  # an invalid canonical name is looked up by its exact spelling
+        candidates += [h for h in reversed(self.files_table.get(c, [])) if h is not origin and (exact or h.key == name)]
         if not candidates:
+            if name.startswith(("random.",)) or name in _RUNTIME_NAMES or name.startswith(_RUNTIME_PREFIXES):
+                return None, FactStatus.UNRESOLVED, origin.source, None, origin.precedence, (
+                    f"placeholder {name} is supplied by the JVM or the container runtime, which the repository does not show")
             return None
         top = candidates[0]
         mat = self.materialize(name, top, depth)
@@ -641,6 +733,10 @@ class _Run:
         for var in ("SPRING_CONFIG_LOCATION", "SPRING_CONFIG_ADDITIONAL_LOCATION", "SPRING_CONFIG_IMPORT"):
             for h in self.env_get(var)[:1]:
                 out.append(ExposureSource(via="volume", object=f"{var}:{h.raw if h.raw is not None else 'unresolved'}", variables=[]))
+        for key in ("spring.config.import", "spring.config.additional-location"):  # the same settings from the command line, JSON or -D
+            for table in (self.args_table, self.json_table, self.sys_table):
+                for h in table.get(canon(key), [])[-1:]:
+                    out.append(ExposureSource(via="volume", object=f"{key}:{h.raw}", variables=[]))
         if self.mod.kube_config is not None:
             out.append(ExposureSource(via="volume", object="spring-cloud-kubernetes-config:ConfigMap and Secret read from the Kubernetes API",
                                       variables=[]))
@@ -684,7 +780,7 @@ class _Run:
 
     # -- profiles
 
-    def _expand(self, names: list[str], groups: dict[str, list[str]]) -> list[str]:
+    def _expand(self, names: list[str], groups: _GroupMap) -> list[str]:
         out: dict[str, None] = {}
         stack = list(reversed(names))
         steps = 0
@@ -692,26 +788,13 @@ class _Run:
             steps += 1
             cur = stack.pop()
             out[cur] = None
-            stack.extend(reversed(groups.get(cur, [])))
+            stack.extend(reversed(groups.get(cur)))
         return list(out)
 
-    def _groups(self) -> tuple[dict[str, list[str]], list[tuple[str, int]]]:
-        groups: dict[str, list[str]] = {}
+    def _groups(self) -> tuple[_GroupMap, list[tuple[str, int]]]:
+        """spring.profiles.group.<name> from every layer (command line, JSON, system properties, environment, base files)."""
         locs: list[tuple[str, int]] = []
-        prefix = canon("spring.profiles.group.")
-        for c, hs in self.files_table.items():
-            if not c.startswith(prefix):
-                continue
-            h = hs[-1]
-            name = split_index(h.key)[0][len("spring.profiles.group."):]
-            mat = self.materialize(h.key, h)
-            if mat.unresolved is not None:
-                continue
-            value = mat.value if isinstance(mat.value, list) else [p.strip() for p in str(mat.value).split(",") if p.strip()]
-            groups[name] = [str(v) for v in value]
-            if h.source is not None:
-                locs.append(h.source)
-        return groups, locs
+        return _GroupMap(self, locs), locs
 
     def _config_redirect(self) -> tuple[str, tuple[str, int] | None] | None:
         """Whether spring.config.location or spring.config.name (read only from the command line, SPRING_APPLICATION_JSON, system
@@ -732,10 +815,10 @@ class _Run:
                 if value == "application":
                     continue
                 return f"spring.config.name is {value!r}, so Boot does not read application.yml or application.properties", where
-            entries = {e.strip().removeprefix("optional:") for e in value.split(",") if e.strip()}
-            if {"classpath:/", "classpath:/config/"} <= entries:
-                continue  # the default locations are still searched; other entries are exposure
-            return f"spring.config.location is {value!r}, which replaces the default locations that include the packaged files", where
+            if re.sub(r"\s+|optional:", "", value) == "classpath:/;classpath:/config/":
+                continue  # exactly Boot's default (one grouped pair of locations)
+            return (f"spring.config.location is {value!r}, which replaces the default locations; the order and grouping of other locations "
+                    "decide which file wins and the scan does not model them"), where
         return None
 
     def resolve_profiles(self) -> None:
@@ -785,6 +868,9 @@ class _Run:
             self._expo_key = "spring.profiles.active"
         if unresolved is None:
             self.profiles = self._expand([*include_names, *active_names], groups)
+            if self.group_unresolved:
+                unresolved = f"a profile group cannot be read from the repository ({self.group_unresolved[0]})"
+        if unresolved is None:
             if not self.profiles:
                 # No profile is activated: Boot accepts the default profiles, "default" unless spring.profiles.default
                 # (read from the layered sources and the base config files, never from a profile-specific file) names others.
@@ -884,6 +970,12 @@ class _Run:
     def _prop(self, key: str, default: bool) -> Prop | None:
         hs = self.hits(key)
         subject = f"spring:{self.subject_root}:{key}"
+        why = self.uncertain.get(canon(key))
+        if why is not None and (not hs or hs[0].layer in ("file", "docker_env")) and (hs or default):
+            expo, srcs = self.exposure(key, "file")
+            fid = self.fb.add("spring.property", subject, None, FactStatus.UNRESOLVED, source=ref(*why[1]), scope=self.scope(),
+                              exposure=expo, exposure_sources=srcs, link_ids=self.link_ids, unresolved_reason=why[0])
+            return Prop(fid, key, None, None, FactStatus.UNRESOLVED, bool(hs), "file", why[1], expo, why[0])
         if hs:
             top = hs[0]
             display_key = key if (key in self._registry_names() or top.layer != "file") else top.key

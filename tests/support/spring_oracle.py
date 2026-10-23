@@ -68,6 +68,7 @@ class ODoc:
     path: str
     entries: list[OEntry]
     on_profile: str | None = None
+    other_condition: str | None = None  # e.g. "on-cloud-platform=kubernetes"
 
 
 def _render(v: Any) -> str:
@@ -125,15 +126,19 @@ def read_config(root: Path, rel: str) -> list[ODoc]:
 def _mk_doc(rel: str, flat: list[tuple[str, Any, int]]) -> ODoc:
     entries: list[OEntry] = []
     on_profile: list[str] = []
+    other: list[str] = []
     for k, v, ln in flat:
         if re.sub(r"\[\d+\]$", "", k).lower().replace("-", "") == "spring.config.activate.onprofile":
             on_profile.append(_render(v))
             continue
-        if k.lower().startswith("spring.config.import") or k.lower().startswith("spring.config.activate."):
+        if k.lower().startswith("spring.config.activate."):
+            other.append(f"{k[len('spring.config.activate.'):].lower().replace('_', '-')}={_render(v)}")
+            continue
+        if k.lower().startswith("spring.config.import"):
             continue
         entries.append(OEntry(k, _render(v), ln, rel, "file", None))
     legacy = any(re.sub(r"\[\d+\]$", "", e.key) == "spring.profiles" for e in entries)  # Spring Boot 3 rejects the document
-    return ODoc(rel, [] if legacy else entries, ",".join(on_profile) or None)
+    return ODoc(rel, [] if legacy else entries, ",".join(on_profile) or None, ",".join(other) or None)
 
 
 # ---------------------------------------------------------------- profile expressions
@@ -336,6 +341,7 @@ class View:
     def __init__(self, ctx: Ctx, profiles: list[str] | None) -> None:
         self.ctx = ctx
         self.profiles = profiles
+        self.uncertain: set[str] = set()
         self.files = self._file_layers(profiles)
         self.sys: dict[str, tuple[str, str, int]] = {}
         self.json: dict[str, tuple[str, str, int]] = {}
@@ -352,6 +358,17 @@ class View:
         for doc in self.ctx.docs("application"):
             if doc.on_profile is not None and (profiles is None or not _profile_match(doc.on_profile, active)):
                 continue
+            if doc.other_condition is not None:
+                if profiles is None:
+                    continue
+                on = doc.other_condition == "on-cloud-platform=kubernetes" and self.ctx.linked
+                off = doc.other_condition.startswith("on-cloud-platform=") and self.ctx.linked and not on
+                if off:
+                    continue
+                if not on:
+                    for e in doc.entries:
+                        self.uncertain.add(ocanon(re.sub(r"\[\d+\]$", "", e.key)))
+                    continue
             out += [OEntry(e.key, e.text, e.line, e.path, "file", doc.on_profile) for e in doc.entries]
         for p in profiles or ["default"]:
             for doc in self.ctx.docs(f"application-{p}"):
@@ -366,10 +383,6 @@ class View:
                     if w.startswith("-D") and "=" in w:
                         k, _, val = w[2:].partition("=")
                         self.sys[ocanon(k)] = (val, v[1], v[2])
-        v = self.ctx.env.get("SPRING_APPLICATION_JSON")
-        if v and v[0]:
-            for k, val in _flat_json(v[0]).items():
-                self.json[ocanon(k)] = (val, v[1], v[2])
         ctx = self.ctx
         if ctx.k8s_cmd is not None:
             stream = list(ctx.k8s_cmd) + list(ctx.k8s_args or [])
@@ -379,10 +392,15 @@ class View:
             stream = list(ctx.args)
         program_args = False
         skip = False
+        seen_java = False
         for tok, path, line in stream:
             for w in _words(tok):
                 if skip:
                     skip = False
+                elif not program_args and w.rsplit("/", 1)[-1] in ("java", "java.exe"):
+                    seen_java = True
+                elif not program_args and seen_java and re.fullmatch(r"[A-Za-z_][\w$]*(\.[A-Za-z_][\w$]*)+", w):
+                    program_args = True
                 elif not program_args and w == "-jar":
                     program_args = skip = True
                 elif not program_args and w in ("-cp", "-classpath", "--class-path", "-p", "--module-path"):
@@ -392,7 +410,16 @@ class View:
                     self.sys[ocanon(k)] = (val, path, line)
                 elif w.startswith("--") and "=" in w:
                     k, _, val = w[2:].partition("=")
-                    self.cli[ocanon(k)] = (val, path, line)
+                    prev = self.cli.get(ocanon(k))
+                    # a repeated option joins its values with commas (indexed keys are separate entries)
+                    self.cli[ocanon(k)] = (f"{prev[0]},{val}", prev[1], prev[2]) if prev and not re.search(r"\[\d+\]$", k) else (val, path, line)
+        # spring.application.json: command line, then system property, then SPRING_APPLICATION_JSON
+        jc = ocanon("spring.application.json")
+        env_json = self.ctx.env.get("SPRING_APPLICATION_JSON")
+        src = self.cli.get(jc) or self.sys.get(jc) or ((env_json[0], env_json[1], env_json[2]) if env_json and env_json[0] else None)
+        if src is not None:
+            for k, val in _flat_json(src[0]).items():
+                self.json[ocanon(k)] = (val, src[1], src[2])
 
     def _fold_lists(self) -> None:
         """`k[0]=a k[1]=b` in one property source (JSON, system properties or command line) is the list `k`: join it as a comma list."""
@@ -430,11 +457,11 @@ class View:
             if key.endswith("name"):
                 if top.strip() != "application":
                     return True
-            elif not {"classpath:/", "classpath:/config/"} <= {e.strip().removeprefix("optional:") for e in top.split(",") if e.strip()}:
+            elif re.sub(r"\s+|optional:", "", top) != "classpath:/;classpath:/config/":
                 return True
         return False
 
-    def entries(self, key: str) -> list[tuple[str, str | None, int | None, str, str | None]]:
+    def entries(self, key: str, raw: bool = False) -> list[tuple[str, str | None, int | None, str, str | None]]:
         """(text, path, line, layer, why) for every source of `key`, highest first. Lists given as `k[0]` replace each other
         as a whole, so they are folded into one entry per file layer."""
         c = ocanon(key)
@@ -449,6 +476,10 @@ class View:
             if name in self.ctx.docker_env:
                 val, path, line = self.ctx.docker_env[name]
                 out.append((val, path, line, "docker_env", None))
+            idx = [i for i in range(64) if f"{name}_{i}_" in self.ctx.env]
+            if idx:  # NAME_0_, NAME_1_ ... form one list in the environment source
+                parts = [self.ctx.env[f"{name}_{i}_"] for i in idx]
+                out.append((",".join("" if p[0] is None else p[0] for p in parts), parts[0][1], parts[0][2], "env", None))
         grouped: dict[tuple[str, str | None], list[OEntry]] = {}
         order: list[tuple[str, str | None]] = []
         for e in self.files:
@@ -468,6 +499,10 @@ class View:
             else:
                 out.append((es[-1].text, es[-1].path, es[-1].line, "file", es[-1].profile))
         if key in _EMPTY_IS_NULL or (key.startswith("management.endpoint") and key.endswith((".enabled", ".enabled-by-default"))):
+            if raw:
+                return out
+            if out and out[0][0] == "":
+                return []  # an empty top value is null: it hides the lower layers and the default applies
             out = [e for e in out if e[0] != ""]  # Boot converts "" to null for Integer, Boolean and an include/exclude list
         return out
 
@@ -480,7 +515,12 @@ class View:
         if name in self.ctx.docker_env:
             return self.ctx.docker_env[name][0]
         es = self.entries(name)
+        if name != name.lower() or "_" in name:  # an invalid canonical name is looked up by its exact spelling in files
+            es = [e for e in es if e[3] != "file" or any(f.key == name and f.path == e[1] for f in self.files)]
         if not es:
+            if name.startswith(("random.", "java.", "os.", "user.", "sun.", "jdk.", "native.")) or name in (
+                    "HOSTNAME", "HOME", "PATH", "USER", "PWD", "LANG", "TMPDIR", "JAVA_HOME", "line.separator", "file.separator", "path.separator"):
+                raise _Unresolved(name)  # supplied by the JVM or the container runtime
             return None
         if es[0][0] == UNRESOLVED:
             raise _Unresolved(name)
@@ -527,6 +567,8 @@ class View:
 
     def winner(self, key: str) -> Win | None:
         es = self.entries(key)
+        if ocanon(key) in self.uncertain and (not es or es[0][3] in ("file", "docker_env")):
+            return Win(None, None, None, "uncertain", "document condition not evaluated")
         if not es:
             return Win(None, None, None, "files-unknown", "config location replaced") if self.redirected else None
         text, path, line, layer, _ = es[0]
@@ -565,31 +607,38 @@ def oracle_profiles(ctx: Ctx, option: list[str] | None) -> list[str] | None:
             text = base.expand(inc[0][0])
             if text:
                 names = [p.strip() for p in text.split(",") if p.strip()] + names
-        groups: dict[str, list[str]] = {}
-        for e in base.files:
-            if e.key.startswith("spring.profiles.group."):
-                g = re.sub(r"\[\d+\]$", "", e.key)[len("spring.profiles.group."):]
-                groups.setdefault(g, [])
-                groups[g] += [p.strip() for p in e.text.split(",") if p.strip()]
-        names = _expand_groups(names, groups)
+        def groups_of(n: str) -> list[str]:
+            es = base.entries(f"spring.profiles.group.{n}")
+            if not es:
+                return []
+            text = base.expand(es[0][0]) if es[0][0] != UNRESOLVED else None
+            if text is None:
+                raise _Unresolved(n)
+            return [p.strip() for p in text.split(",") if p.strip()]
+
+        try:
+            names = _expand_groups(names, groups_of)
+        except _Unresolved:
+            return None
         if not names:  # Boot accepts the default profiles; spring.profiles.default is read from the unconditional sources only
             d = base.entries("spring.profiles.default")
             if d:
                 text = base.expand(d[0][0]) if d[0][0] != UNRESOLVED else None
                 if text is None:
                     return None
-                names = _expand_groups([p.strip() for p in text.split(",") if p.strip()], groups)
+                names = _expand_groups([p.strip() for p in text.split(",") if p.strip()], groups_of)
         return names
     return _expand_groups(names, {})
 
 
-def _expand_groups(names: list[str], groups: dict[str, list[str]]) -> list[str]:
+def _expand_groups(names: list[str], groups: Any) -> list[str]:
+    get = groups if callable(groups) else (lambda n: groups.get(n, []))
     out: list[str] = []
 
     def visit(n: str) -> None:
         if n not in out:
             out.append(n)
-        for child in groups.get(n, []):
+        for child in get(n):
             visit(child)
 
     for n in names:
@@ -696,8 +745,10 @@ def _check_property(f: Fact, mod: str, view: View, label: str, table: dict[str, 
     key = f.subject.key[len(f"spring:{mod}:"):]
     if f.status is FactStatus.OVERRIDDEN:
         rep.checked += 1
-        es = view.entries(key)
+        es = view.entries(key, raw=True)
         hit = [e for e in es[1:] if f.source is not None and e[1] == f.source.path and e[2] == f.source.line_start]
+        if not hit and f.source is not None:  # a lower document of the same file is a separate property source
+            hit = [e for e in view.files if re.sub(r"\[\d+\]$", "", e.key) == key and e.path == f.source.path and e.line == f.source.line_start]
         if not hit:
             rep.mismatches.append(f"spring.property {key} (overridden): no lower-precedence source at {f.source}")
         return
@@ -754,6 +805,8 @@ def _check_property(f: Fact, mod: str, view: View, label: str, table: dict[str, 
             expected = view.ctx.docker_env[name][1:]  # type: ignore[assignment]
         else:
             ref = view.entries(name)
+            if name != name.lower() or "_" in name:  # same exact-spelling rule as the lookup
+                ref = [e for e in ref if e[3] != "file" or any(x.key == name and x.path == e[1] for x in view.files)]
             if ref and ref[0][1] is not None:
                 expected = (ref[0][1], ref[0][2])
     if got != expected:

@@ -121,7 +121,7 @@ def origin_ok(f: Fact, origin: str | None) -> tuple[bool, str]:
         if f.source is None:
             return False, "fact has no source"
         name = f.source.path.rsplit("src/main/resources/", 1)[-1]
-        m = re.search(r"\[([^\]]+)\]\s*-\s*(\d+):", origin)
+        m = re.search(r"\[([^\]]+)\](?: from \S+)?\s*-\s*(\d+):", origin)
         if m is None:
             return False, "origin is not a classpath resource"
         return (m.group(1) == name and int(m.group(2)) == f.source.line_start), f"origin {m.group(1)}:{m.group(2)}"
@@ -160,7 +160,9 @@ def compare(case: str, facts: list[Fact], rt: dict[str, Any], http: dict[tuple[i
             _profiles(case, f, rt, res)
         elif f.kind == PROBE_GROUPS:
             got = rt.get("healthGroups")
-            if isinstance(f.value, dict):
+            if got is None:  # no HealthEndpointGroups bean: the health endpoint is disabled or not exposed, so there is nothing to observe
+                res.skipped["probe groups not observable (health endpoint absent)"] += 1
+            elif isinstance(f.value, dict):
                 want = sorted(g for g, on in f.value.items() if on)
                 add(Check(case, f.kind, f.subject.key, got is not None and sorted(got) == want, want, got))
         elif f.kind == ENDPOINT:

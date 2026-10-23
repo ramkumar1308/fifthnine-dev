@@ -92,3 +92,14 @@ def test_case_names_are_unique_and_entrypoints_name_the_jar() -> None:
     assert len(names) == len(set(names))
     assert all(c.entrypoint is None or "/app/app.jar" in c.entrypoint for c in CASES)
     assert all(c.resources for c in CASES)
+
+
+def test_origin_text_with_jar_name_and_missing_health_bean(tmp_path: Path) -> None:
+    facts = _facts(tmp_path)
+    rt = _runtime()
+    for v in rt["values"].values():
+        v["origin"] = v["origin"].replace("[application.yml]", "[application.yml] from app-1.0.jar")
+    assert not C.compare("t", facts, rt, HTTP_OK).failures
+    res = C.compare("t", facts, _runtime(healthGroups=None), HTTP_OK)
+    assert not any(c.kind == "spring.actuator.probe_groups" for c in res.failures)
+    assert any("probe groups not observable" in k for k in res.skipped)

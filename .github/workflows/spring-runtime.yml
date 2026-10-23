@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 concurrency:
   group: spring-runtime-${{ github.ref }}
@@ -56,6 +57,19 @@ jobs:
             tail -n 40 runtime-out.txt || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Post the report on the pull request
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -f runtime-out/report.json ]; then
+            python tests/runtime/spring/report_md.py runtime-out/report.json > comment.md
+          else
+            printf '### Spring runtime comparison\n\nNo report was written; see the workflow run.\n' > comment.md
+          fi
+          printf '\nHead: %s\n' "${{ github.event.pull_request.head.sha }}" >> comment.md
+          gh pr comment "$PR" --body-file comment.md || echo "comment not posted"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

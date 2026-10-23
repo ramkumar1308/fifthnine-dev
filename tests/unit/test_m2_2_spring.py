@@ -346,11 +346,13 @@ def test_x5_mounted_config_directory_makes_every_key_file_possible(tmp_path: Pat
     assert [(s.via, s.object) for s in port.exposure_sources] == [("volume", "k8s:ConfigMap/shop/external")]
 
 
-def test_x6_config_location_variable_is_file_exposure(tmp_path: Path) -> None:
-    repo = Repo(resources={"application.yml": "server:\n  port: 8080\n"}, env={"SPRING_CONFIG_LOCATION": "file:/etc/app/"})
+def test_x6_additional_config_location_variable_is_file_exposure(tmp_path: Path) -> None:
+    # SPRING_CONFIG_LOCATION replaces the default locations (see the unresolved test below); the additional-location variable adds to them
+    repo = Repo(resources={"application.yml": "server:\n  port: 8080\n"}, env={"SPRING_CONFIG_ADDITIONAL_LOCATION": "file:/etc/app/"})
     r = _scan(tmp_path, repo)
     port = _props(r)["server.port"]
-    assert port.override_exposure is OverrideExposure.FILE_POSSIBLE and "SPRING_CONFIG_LOCATION" in port.exposure_sources[0].object  # type: ignore[operator]
+    assert port.override_exposure is OverrideExposure.FILE_POSSIBLE and "SPRING_CONFIG_ADDITIONAL_LOCATION" in port.exposure_sources[0].object  # type: ignore[operator]
+    assert port.value == 8080
     assert "changes where Spring Boot reads configuration" in _notices(r)
 
 
@@ -425,6 +427,26 @@ def test_spring_profiles_default_that_cannot_be_read_makes_profile_facts_unresol
     inside = {"application.yml": "server:\n  port: 8080\n", "application-dev.yml": "spring:\n  profiles:\n    default: dev\n"}
     r3 = _scan(tmp_path / "p", Repo(resources=inside))
     assert _one(r3, "spring.active_profiles", "spring:.").value == []  # a profile-specific file cannot select the default profile
+
+
+def test_config_location_that_replaces_the_defaults_makes_file_values_unresolved(tmp_path: Path) -> None:
+    res = {"application.yml": "server:\n  port: 8081\nspring:\n  profiles:\n    active: prod\n", "application-prod.yml": "server:\n  port: 8082\n"}
+    for n, (env, args) in enumerate([({"SPRING_CONFIG_LOCATION": "file:/etc/app/"}, None), ({"SPRING_CONFIG_NAME": "other"}, None),
+                                       ({}, ["--spring.config.location=file:/etc/app/"]), ({"SPRING_CONFIG_LOCATION": None}, None)]):
+        (tmp_path / str(n)).mkdir()
+        r = _scan(tmp_path / str(n), Repo(resources=res, env=env, command=args))
+        port = _props(r)["server.port"]
+        assert port.status is FactStatus.UNRESOLVED, (env, args)
+        assert _one(r, "spring.active_profiles", "spring:.").status is FactStatus.UNRESOLVED
+        assert any("not used for this module" in c.message for c in r.coverage)
+    (tmp_path / "keep").mkdir()
+    kept = _scan(tmp_path / "keep", Repo(resources=res, env={"SPRING_CONFIG_LOCATION": "optional:classpath:/,optional:classpath:/config/,file:/etc/app/"}))
+    assert _props(kept)["server.port"].value == 8082  # the default locations are still searched
+    (tmp_path / "hi").mkdir()
+    high = _scan(tmp_path / "hi", Repo(resources=res, env={"SPRING_CONFIG_NAME": "other", "SERVER_PORT": "9000"}))
+    assert (_props(high)["server.port"].value, _props(high)["server.port"].status) == (9000, FactStatus.INFERRED)  # a higher layer still decides
+    unset = _props(high)["server.shutdown"]
+    assert unset.status is FactStatus.UNRESOLVED  # a default would hide a value the unread files could set
 
 
 def test_dash_d_after_dash_jar_is_a_program_argument(tmp_path: Path) -> None:

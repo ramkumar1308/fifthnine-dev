@@ -167,6 +167,8 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001 - one broken case must not hide the others
             res, info = CaseResult(case.name), {"case": case.name, "error": repr(exc)}
             res.checks.append(Check(case.name, "harness", case.name, False, "case runs", repr(exc)))
+        if not res.checks:  # a case that compares nothing must not pass
+            res.checks.append(Check(case.name, "harness", case.name, False, "at least one check", 0, "no check was made"))
         info["seconds"] = round(time.time() - t0, 1)
         info["checks"] = len(res.checks)
         info["failures"] = [c.__dict__ for c in res.failures]

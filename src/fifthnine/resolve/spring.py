@@ -224,6 +224,7 @@ class _Run:
         self.args_table: dict[str, list[Hit]] = {}
         self.profiles: list[str] = []
         self.profile_unknown = False
+        self.files_unknown: tuple[str, tuple[str, int] | None] | None = None  # (reason, where) when the packaged files are not what Boot reads
         self._expo_key = "spring.profiles.active"
         self._expo_extra: list[str] = []
         self.label = "default"
@@ -317,6 +318,11 @@ class _Run:
         table: dict[str, list[Hit]] = {}
         included: list[ConfigDocument] = []
         profile_set = set(active) if active else {"default"}
+        if self.files_unknown is not None:
+            for path, _ in self._file_candidates("application"):
+                self.consumed.add(path)  # read as far as this module is concerned: the notice below says why no value comes from them
+            self.files_table, self.included_docs = table, included
+            return
 
         def add(docs: list[ConfigDocument], precedence: str, label: str, selected: bool, profile_file: bool) -> None:
             for doc in docs:
@@ -690,8 +696,34 @@ class _Run:
                 locs.append(h.source)
         return groups, locs
 
+    def _config_redirect(self) -> tuple[str, tuple[str, int] | None] | None:
+        """Whether spring.config.location or spring.config.name (read only from the command line, SPRING_APPLICATION_JSON, system
+        properties and the environment, never from a config file) makes Boot read other files than the packaged application.*"""
+        for key in ("spring.config.location", "spring.config.name"):
+            c = canon(key)
+            hs: list[Hit] = [*reversed(self.args_table.get(c, [])), *reversed(self.json_table.get(c, [])), *reversed(self.sys_table.get(c, []))]
+            for name in env_names(key):
+                hs += self.env_get(name)
+            if not hs:
+                continue
+            top = hs[0]
+            where = top.source
+            if top.status is FactStatus.UNRESOLVED or top.raw is None or top.unresolved is not None or "${" in str(top.raw):
+                return f"{key} is set from a value the repository does not show", where
+            value = str(top.raw).strip()
+            if key == "spring.config.name":
+                if value == "application":
+                    continue
+                return f"spring.config.name is {value!r}, so Boot does not read application.yml or application.properties", where
+            entries = {e.strip().removeprefix("optional:") for e in value.split(",") if e.strip()}
+            if {"classpath:/", "classpath:/config/"} <= entries:
+                continue  # the default locations are still searched; other entries are exposure
+            return f"spring.config.location is {value!r}, which replaces the default locations that include the packaged files", where
+        return None
+
     def resolve_profiles(self) -> None:
         self._build_overrides()
+        self.files_unknown = self._config_redirect()
         self._build_files(None)
         groups, group_locs = self._groups()
         include_names: list[str] = []
@@ -731,6 +763,9 @@ class _Run:
                     message=f"The scan was told to assume profile(s) {', '.join(active_names)} ({self.option[1] if self.option else 'option'}), but the "
                             f"repository activates {', '.join(env_names)} here. The scan option was used."))
         self._expo_key, self._expo_extra = "spring.profiles.active", []
+        if unresolved is None and self.files_unknown is not None and top is None and self.option is None:
+            unresolved = f"{self.files_unknown[0]}; spring.profiles.active may be set in files the scan cannot read"
+            self._expo_key = "spring.profiles.active"
         if unresolved is None:
             self.profiles = self._expand([*include_names, *active_names], groups)
             if not self.profiles:
@@ -913,6 +948,13 @@ class _Run:
         if d is None:
             return None
         expo, srcs = self.exposure(key, "default")
+        if self.files_unknown is not None:
+            reason, where = self.files_unknown
+            fid = self.fb.add("spring.property", subject, None, FactStatus.UNRESOLVED, scope=self.scope(),
+                              inputs=[loc(R.VALUE_SOURCE, *where)] if where else [loc(R.ABSENCE, *self._primary_location())],
+                              exposure=expo, exposure_sources=srcs, link_ids=self.link_ids,
+                              unresolved_reason=f"{reason}; a value from those files would replace the default")
+            return Prop(fid, key, None, None, FactStatus.UNRESOLVED, False, "default", None, expo, reason)
         inputs = [self._absence_input(key)]
         if self.boot_fid is not None:
             inputs.append(via(R.VERSION_BASIS, self.boot_fid))
@@ -1365,8 +1407,14 @@ def _coverage(run: _Run, mod: ModuleInfo, result: SpringResult) -> None:
             code="FN-OPS-002", scope=run.csub or where,
             message=f"{names} is attached to the container but is not in the repository. It can set environment variables that replace "
                     "values read from the configuration files, SPRING_PROFILES_ACTIVE excepted when the Deployment sets it explicitly."))
+    if run.files_unknown is not None:
+        reason, at = run.files_unknown
+        result.coverage.append(CoverageNotice(
+            code="FN-OPS-002", scope=f"{at[0]}:{at[1]}" if at else (run.csub or run.subject_root),
+            message=f"{reason}. The packaged configuration files are not used for this module, so values that only they could supply are "
+                    "unresolved; values from the command line, SPRING_APPLICATION_JSON, system properties and the environment are kept."))
     for var in ("SPRING_CONFIG_LOCATION", "SPRING_CONFIG_ADDITIONAL_LOCATION", "SPRING_CONFIG_IMPORT", "SPRING_CONFIG_NAME"):
-        if run.env_get(var):
+        if run.env_get(var) and run.files_unknown is None:
             hit = run.env_get(var)[0]
             result.coverage.append(CoverageNotice(
                 code="FN-OPS-002", scope=run._where(hit),

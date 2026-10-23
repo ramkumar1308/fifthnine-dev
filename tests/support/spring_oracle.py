@@ -341,6 +341,9 @@ class View:
         self.json: dict[str, tuple[str, str, int]] = {}
         self.cli: dict[str, tuple[str, str, int]] = {}
         self._overrides()
+        self.redirected = self._redirected()
+        if self.redirected:
+            self.files = []
 
     def _file_layers(self, profiles: list[str] | None) -> list[OEntry]:
         out: list[OEntry] = []
@@ -389,6 +392,35 @@ class View:
                 elif w.startswith("--") and "=" in w:
                     k, _, val = w[2:].partition("=")
                     self.cli[ocanon(k)] = (val, path, line)
+
+    def _redirected(self) -> bool:
+        """spring.config.location / spring.config.name, set outside the config files, make Boot read other files than application.*"""
+        for key in ("spring.config.location", "spring.config.name"):
+            c = ocanon(key)
+            top: str | None = None
+            found = False
+            for table in (self.cli, self.json, self.sys):
+                if c in table:
+                    top, found = table[c][0], True
+                    break
+            if not found:
+                for name in dict.fromkeys([oenv(key), oenv_legacy(key)]):
+                    if name in self.ctx.env:
+                        top, found = self.ctx.env[name][0], True
+                        break
+                    if name in self.ctx.docker_env:
+                        top, found = self.ctx.docker_env[name][0], True
+                        break
+            if not found:
+                continue
+            if top is None or "${" in top:
+                return True
+            if key.endswith("name"):
+                if top.strip() != "application":
+                    return True
+            elif not {"classpath:/", "classpath:/config/"} <= {e.strip().removeprefix("optional:") for e in top.split(",") if e.strip()}:
+                return True
+        return False
 
     def entries(self, key: str) -> list[tuple[str, str | None, int | None, str, str | None]]:
         """(text, path, line, layer, why) for every source of `key`, highest first. Lists given as `k[0]` replace each other
@@ -484,7 +516,7 @@ class View:
     def winner(self, key: str) -> Win | None:
         es = self.entries(key)
         if not es:
-            return None
+            return Win(None, None, None, "files-unknown", "config location replaced") if self.redirected else None
         text, path, line, layer, _ = es[0]
         if text == UNRESOLVED:
             return Win(None, path, line, layer, "valueFrom")
@@ -508,6 +540,8 @@ def oracle_profiles(ctx: Ctx, option: list[str] | None) -> list[str] | None:
         base = View(ctx, None)
         es = base.entries("spring.profiles.active")
         if not es:
+            if base.redirected:
+                return None  # the profile may be set in files the repository does not show
             names = []
         else:
             text = base.expand(es[0][0]) if es[0][0] != UNRESOLVED else None
@@ -661,6 +695,9 @@ def _check_property(f: Fact, mod: str, view: View, label: str, table: dict[str, 
     win = view.winner(key)
     if f.status is FactStatus.DEFAULT:
         rep.checked += 1
+        if win is not None and win.layer == "files-unknown":
+            rep.mismatches.append(f"spring.property {key}: reported as a default, but the oracle cannot read the configuration files ({win.why})")
+            return
         if win is not None:
             rep.mismatches.append(f"spring.property {key}: reported as a default, but the oracle finds {win.layer} {win.path}:{win.line}")
             return

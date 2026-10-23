@@ -449,6 +449,19 @@ def test_config_location_that_replaces_the_defaults_makes_file_values_unresolved
     assert unset.status is FactStatus.UNRESOLVED  # a default would hide a value the unread files could set
 
 
+def test_lists_from_json_system_properties_and_arguments(tmp_path: Path) -> None:
+    res = {"application.yml": "management:\n  endpoints:\n    web:\n      exposure:\n        include: health\n"}
+    key = "management.endpoints.web.exposure.include"
+    json_env = {"SPRING_APPLICATION_JSON": '{"management":{"endpoints":{"web":{"exposure":{"include":["health","info"]}}}}}'}
+    sysprop = {"JAVA_TOOL_OPTIONS": f"-D{key}[0]=health -D{key}[1]=metrics"}
+    for n, (env, args, want, rule) in enumerate([(json_env, None, ["health", "info"], "spring.application_json"),
+                                                 (sysprop, None, ["health", "metrics"], "spring.system_property"),
+                                                 ({}, [f"--{key}[0]=info", f"--{key}[1]=prometheus"], ["info", "prometheus"], "spring.command_line")]):
+        (tmp_path / str(n)).mkdir()
+        f = _props(_scan(tmp_path / str(n), Repo(resources=res, env=env, command=args)))[key]
+        assert (f.value, f.precedence) == (want, rule), (n, f.value, f.precedence)
+
+
 def test_dash_d_after_dash_jar_is_a_program_argument(tmp_path: Path) -> None:
     res = {"application.yml": "server:\n  port: 8080\n"}
     f = _props(_scan(tmp_path, Repo(resources=res, command=["-Dserver.port=9999"])))["server.port"]

@@ -467,9 +467,26 @@ class _Run:
                                                    message=f"{var} is not a JSON object the scanner can read; properties it sets are unknown."))
                     continue
                 for k, v in flat:
-                    base, idx = split_index(k)
                     self.json_table.setdefault(canon(k), []).append(
                         Hit(k, v, "json", "spring.application_json", "", hit.source, hit.status, hit.via_fact, var))
+        for table in (self.sys_table, self.json_table, self.args_table):
+            self._fold_indexed(table)
+
+    @staticmethod
+    def _fold_indexed(table: dict[str, list[Hit]]) -> None:
+        """`a[0]=x a[1]=y` set the list `a`, as in a config file: fold the indexed hits of one property source into one list hit.
+        A JSON variable is one source; all -D words (and all arguments) are one source."""
+        groups: dict[tuple[str, str | None], list[tuple[int, Hit]]] = {}
+        for c in [c for c in table if c.endswith("]") and split_index(c)[1] is not None]:
+            base = split_index(c)[0]
+            for h in table.pop(c):
+                idx = split_index(canon(h.key))[1]
+                groups.setdefault((base, h.var if h.layer == "json" else None), []).append((idx if idx is not None else 0, h))
+        for (base, _), items in groups.items():
+            items.sort(key=lambda t: t[0])
+            first = items[0][1]
+            table.setdefault(base, []).append(Hit(split_index(first.key)[0], [h.raw for _, h in items], first.layer, first.precedence,
+                                                  first.profile, first.source, first.status, first.via_fact, first.var))
 
     def _words(self, text: str, hit: Hit | None) -> list[str]:
         if " " not in text.strip() and "\t" not in text:

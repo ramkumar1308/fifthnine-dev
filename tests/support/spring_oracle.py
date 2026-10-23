@@ -341,6 +341,7 @@ class View:
         self.json: dict[str, tuple[str, str, int]] = {}
         self.cli: dict[str, tuple[str, str, int]] = {}
         self._overrides()
+        self._fold_lists()
         self.redirected = self._redirected()
         if self.redirected:
             self.files = []
@@ -392,6 +393,17 @@ class View:
                 elif w.startswith("--") and "=" in w:
                     k, _, val = w[2:].partition("=")
                     self.cli[ocanon(k)] = (val, path, line)
+
+    def _fold_lists(self) -> None:
+        """`k[0]=a k[1]=b` in one property source (JSON, system properties or command line) is the list `k`: join it as a comma list."""
+        for table in (self.sys, self.json, self.cli):
+            groups: dict[str, list[tuple[int, tuple[str, str, int]]]] = {}
+            for key in [k for k in table if re.search(r"\[\d+\]$", k)]:
+                base = re.sub(r"\[\d+\]$", "", key)
+                groups.setdefault(base, []).append((int(re.search(r"\[(\d+)\]$", key).group(1)), table.pop(key)))  # type: ignore[union-attr]
+            for base, items in groups.items():
+                items.sort(key=lambda t: t[0])
+                table[base] = (",".join(v[0] for _, v in items), items[0][1][1], items[0][1][2])
 
     def _redirected(self) -> bool:
         """spring.config.location / spring.config.name, set outside the config files, make Boot read other files than application.*"""

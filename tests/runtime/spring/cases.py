@@ -5,6 +5,8 @@ Deployment's `env`, `args` and the Dockerfile's ENV and ENTRYPOINT are exactly w
 run see the same inputs. `run_env` adds variables only the run sees (a value behind a `valueFrom` reference the scan cannot read).
 """
 
+# ruff: noqa: E501  (case data: one case per line reads better than wrapped dictionaries)
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -31,6 +33,10 @@ class Case:
 def _yml(text: str) -> str:
     return text.lstrip("\n")
 
+
+APP = "server:\n  port: 8081\n"
+INC = "management.endpoints.web.exposure.include"
+JL = "org.springframework.boot.loader.launch.JarLauncher"
 
 CASES: list[Case] = [
     # -- versions: the defaults table against the bound defaults of the real application
@@ -273,4 +279,49 @@ server.port=8082
          covers="placeholder resolved from a relaxed env name"),
     Case("args-over-json-same-key", resources={"application.yml": "server:\n  port: 8080\n"},
          env={"SPRING_APPLICATION_JSON": '{"server":{"port":8103}}'}, args=["--server.port=8104"], covers="command line over JSON"),
+    # -- cases from independent review round 2 (JVM decides)
+
+    Case("args-duplicate-active", resources={"application.yml": APP, "application-x.yml": "spring:\n  lifecycle:\n    timeout-per-shutdown-phase: 10s\n",
+         "application-y.yml": "server:\n  port: 8083\n"}, args=["--spring.profiles.active=x", "--spring.profiles.active=y"], covers="repeated option joins with commas: both profiles active"),
+    Case("args-duplicate-string", resources={"application.yml": "spring:\n  application:\n    name: demo\n"},
+         args=["--spring.application.name=a", "--spring.application.name=b"], covers="repeated option value is 'a,b'"),
+    Case("args-end-of-options", resources={"application.yml": APP}, args=["--", "--server.port=8101"], covers="UNSURE: args after bare -- are not options"),
+    Case("main-class-dash-d-is-program-arg", resources={"application.yml": APP},
+         entrypoint=["java", "-cp", "/app/app.jar", JL, "-Dserver.port=8101"], covers="-D after the main class is not a system property"),
+    Case("profile-group-from-args", resources={"application.yml": APP, "application-gx.yml": "server:\n  port: 8082\n", "application-gy.yml": "server:\n  port: 8083\n"},
+         args=["--spring.profiles.active=grp", "--spring.profiles.group.grp=gx,gy"], covers="group defined on the command line"),
+    Case("profile-group-from-env", resources={"application.yml": APP, "application-gx.yml": "server:\n  port: 8082\n", "application-gy.yml": "server:\n  port: 8083\n"},
+         env={"SPRING_PROFILES_ACTIVE": "grp", "SPRING_PROFILES_GROUP_GRP": "gx,gy"}, covers="UNSURE: group defined in the environment"),
+    Case("profile-group-from-json", resources={"application.yml": APP, "application-gx.yml": "server:\n  port: 8082\n"},
+         env={"SPRING_APPLICATION_JSON": '{"spring.profiles.active":"grp","spring.profiles.group.grp":"gx"}'}, covers="group defined in JSON"),
+    Case("env-indexed-list", resources={"application.yml": f"{INC}: health,info\n".replace(INC, "management:\n  endpoints:\n    web:\n      exposure:\n        include") },
+         env={"MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE_0_": "metrics"}, covers="indexed env name replaces the whole list"),
+    Case("env-indexed-active-profile", resources={"application.yml": APP, "application-x.yml": "server:\n  port: 8082\n"},
+         env={"SPRING_PROFILES_ACTIVE_0_": "x"}, covers="indexed env name for spring.profiles.active"),
+    Case("sysprop-application-json", resources={"application.yml": APP},
+         entrypoint=["java", '-Dspring.application.json={"server":{"port":8101}}', "-jar", "/app/app.jar"], covers="spring.application.json as system property"),
+    Case("args-application-json", resources={"application.yml": APP},
+         args=['--spring.application.json={"server.port":8101}'], covers="spring.application.json as argument"),
+    Case("sysprop-index-override", resources={"application.yml": "management:\n  endpoints:\n    web:\n      exposure:\n        include: health\n"},
+         env={"JAVA_TOOL_OPTIONS": f"-D{INC}[0]=info -D{INC}[1]=metrics"},
+         entrypoint=["java", f"-D{INC}[0]=health", "-jar", "/app/app.jar"], covers="same index in two -D words: last wins, list is [health, metrics]"),
+    Case("args-config-import", resources={"application.yml": APP, "extra.yml": "server:\n  port: 8110\n"},
+         args=["--spring.config.import=optional:classpath:extra.yml"], covers="import supplied on the command line"),
+    Case("sysprop-additional-location", resources={"application.yml": APP, "extra/application.yml": "server:\n  port: 8110\n"},
+         entrypoint=["java", "-Dspring.config.additional-location=optional:classpath:/extra/", "-jar", "/app/app.jar"], covers="additional location as system property"),
+    Case("config-location-reversed", resources={"application.yml": APP, "config/application.yml": "server:\n  port: 8082\n"},
+         env={"SPRING_CONFIG_LOCATION": "optional:classpath:/config/,optional:classpath:/"}, covers="later location wins: classpath:/ over config/"),
+    Case("config-location-explicit-profile-order", resources={"application-x.yml": "server:\n  port: 8082\n", "config/application.yml": "server:\n  port: 8083\n"},
+         env={"SPRING_CONFIG_LOCATION": "optional:classpath:/,optional:classpath:/config/", "SPRING_PROFILES_ACTIVE": "x"}, covers="UNSURE: separate locations vs default grouped classpath locations"),
+    Case("on-cloud-platform-document", resources={"application.yml": APP + "---\nspring:\n  config:\n    activate:\n      on-cloud-platform: kubernetes\nserver:\n  port: 8090\n"},
+         covers="on-cloud-platform document active in a pod"),
+    Case("json-empty-array", resources={"application.yml": "management:\n  endpoints:\n    web:\n      exposure:\n        include: health,info\n"},
+         env={"SPRING_APPLICATION_JSON": '{"management":{"endpoints":{"web":{"exposure":{"include":[]}}}}}'}, covers="UNSURE: empty JSON array"),
+    Case("jdk-java-options-over-tool-options", resources={"application.yml": APP},
+         env={"JAVA_TOOL_OPTIONS": "-Dserver.port=8101", "JDK_JAVA_OPTIONS": "-Dserver.port=8102"}, covers="UNSURE: JDK_JAVA_OPTIONS wins"),
+    Case("placeholder-random-default", resources={"application.yml": "spring:\n  application:\n    name: n-${random.int:5}\n"}, covers="random.* is not a default"),
+    Case("placeholder-hostname-default", resources={"application.yml": "spring:\n  application:\n    name: ${HOSTNAME:svc}\n"}, run_env={"HOSTNAME": "pod-1"}, covers="kubelet sets HOSTNAME"),
+    Case("placeholder-name-case", resources={"application.yml": "my.name: real\nspring:\n  application:\n    name: ${My.Name:dflt}\n"}, covers="UNSURE: placeholder names are case-sensitive"),
+    Case("group-in-profile-file", resources={"application.yml": APP, "application-x.yml": "spring:\n  profiles:\n    group:\n      x: y\n", "application-y.yml": "server:\n  port: 8082\n"},
+         env={"SPRING_PROFILES_ACTIVE": "x"}, covers="UNSURE: group set in a profile-specific file"),
 ]

@@ -219,7 +219,7 @@ def _profiles(case: str, f: Fact, rt: dict[str, Any], res: CaseResult) -> None:
         # spring.profiles.default named other profiles (Environment reports the names before group expansion)
         ok = not active and bool(default) and set(default) <= set(want)
     else:
-        ok = sorted(active) == sorted(want)
+        ok = active == want  # order matters: a later profile wins
     res.checks.append(Check(case, f.kind, f.subject.key, ok, f.value, {"active": active, "default": default}))
 
 

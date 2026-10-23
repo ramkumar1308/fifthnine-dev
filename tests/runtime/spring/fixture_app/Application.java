@@ -100,11 +100,17 @@ public class Application {
                 }
                 if (!key.contains("[")) {
                     try {
-                        ConfigurationPropertyName name = ConfigurationPropertyName.of(key);
-                        for (ConfigurationPropertySource s : ConfigurationPropertySources.get(env)) {
-                            ConfigurationProperty p = s.getConfigurationProperty(name);
-                            if (p != null) {
-                                e.put("origin", String.valueOf(p.getOrigin()));
+                        // a list has no origin of its own: the origin of its first element tells which source supplied it
+                        for (String probe : new String[] {key, key + "[0]"}) {
+                            ConfigurationPropertyName name = ConfigurationPropertyName.of(probe);
+                            for (ConfigurationPropertySource s : ConfigurationPropertySources.get(env)) {
+                                ConfigurationProperty p = s.getConfigurationProperty(name);
+                                if (p != null) {
+                                    e.put("origin", String.valueOf(p.getOrigin()));
+                                    break;
+                                }
+                            }
+                            if (e.containsKey("origin")) {
                                 break;
                             }
                         }

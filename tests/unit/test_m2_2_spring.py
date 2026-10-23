@@ -821,6 +821,20 @@ def test_review_round_two_precedence_paths(tmp_path: Path) -> None:
     # an empty JSON array is an empty value: it hides the lower layers, and the exposure default applies
     r = run(Repo(resources=yml, env={"SPRING_APPLICATION_JSON": '{"management":{"endpoints":{"web":{"exposure":{"include":[]}}}}}'}))
     assert _props(r)[inc].value == ["health"]
+    # profile includes from several sources are a union; the earlier source (higher precedence) is listed first
+    inc_files = {"application.yml": "spring:\n  profiles:\n    include: gx\nserver:\n  port: 1\n", "application-gx.yml": "server:\n  port: 7\n",
+                 "application-gy.yml": "server:\n  port: 8\n"}
+    r = run(Repo(resources=inc_files, env={"SPRING_PROFILES_INCLUDE": "gy"}))
+    assert (_one(r, "spring.active_profiles", "spring:.").value, _port(r).value) == (["gy", "gx"], 7)
+    # a conditional document that sets profiles leaves them unresolved
+    cond = {"application.yml": "spring:\n  profiles:\n    active: a\n---\nspring:\n  config:\n    activate:\n      on-cloud-platform: kubernetes\n"
+            "  profiles:\n    active: gx\n", "application-a.yml": "server:\n  port: 5\n"}
+    assert _one(run(Repo(resources=cond)), "spring.active_profiles", "spring:.").status is FactStatus.UNRESOLVED
+    # a bare --key is the empty string; a JSON null is absent
+    r = run(Repo(resources=app, command=["--server.port"]))
+    assert (_port(r).value, _port(r).status) == (8080, FactStatus.DEFAULT)
+    r = run(Repo(resources=app, env={"SPRING_APPLICATION_JSON": '{"server":{"port":null}}'}))
+    assert _port(r).value == 8081
     # -D after the main class is a program argument
     r = run(Repo(resources=app, entrypoint='ENTRYPOINT ["java", "-cp", "/app", "com.acme.Main", "-Dserver.port=3"]\n'))
     assert _port(r).value == 8081

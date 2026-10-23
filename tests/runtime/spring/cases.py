@@ -324,4 +324,9 @@ server.port=8082
     Case("placeholder-name-case", resources={"application.yml": "my.name: real\nspring:\n  application:\n    name: ${My.Name:dflt}\n"}, covers="UNSURE: placeholder names are case-sensitive"),
     Case("group-in-profile-file", resources={"application.yml": APP, "application-x.yml": "spring:\n  profiles:\n    group:\n      x: y\n", "application-y.yml": "server:\n  port: 8082\n"},
          env={"SPRING_PROFILES_ACTIVE": "x"}, covers="UNSURE: group set in a profile-specific file"),
+    Case("profile-include-union", resources={"application.yml": "spring:\n  profiles:\n    include: gx\n" + APP, "application-gx.yml": "server:\n  port: 7\n",
+                                             "application-gy.yml": "server:\n  port: 8\n"},
+         env={"SPRING_PROFILES_INCLUDE": "gy"}, covers="includes from two sources are a union, the higher source first"),
+    Case("args-bare-option", resources={"application.yml": APP}, args=["--server.port"], covers="UNSURE: --key without a value is the empty string"),
+    Case("json-null-value", resources={"application.yml": APP}, env={"SPRING_APPLICATION_JSON": '{"server":{"port":null}}'}, covers="UNSURE: a JSON null is absent"),
 ]

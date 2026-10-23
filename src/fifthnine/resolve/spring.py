@@ -67,7 +67,9 @@ LOCATIONS = ("src/main/resources", "src/main/resources/config")  # classpath:/ t
 EXTENSIONS = ("yaml", "yml", "properties")  # low to high inside one location (.properties wins)
 MAX_PROPERTY_FACTS = 1500
 JSON_VARS = ("SPRING_APPLICATION_JSON",)
-_RUNTIME_NAMES = frozenset({"HOSTNAME", "HOME", "PATH", "USER", "PWD", "LANG", "TMPDIR", "JAVA_HOME", "line.separator", "file.separator", "path.separator"})
+_RUNTIME_NAMES = frozenset({
+    "HOSTNAME", "KUBERNETES_SERVICE_HOST", "KUBERNETES_SERVICE_PORT", "HOME", "PATH", "USER", "PWD", "LANG", "TMPDIR", "JAVA_HOME",
+    "line.separator", "file.separator", "path.separator"})
 _RUNTIME_PREFIXES = ("java.", "os.", "user.", "sun.", "jdk.", "native.")
 _MAIN_CLASS = re.compile(r"^[A-Za-z_][\w$]*(\.[A-Za-z_][\w$]*)+$")
 SYSPROP_VARS = ("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS")
@@ -249,6 +251,7 @@ class _Run:
         self.profiles: list[str] = []
         self.profile_unknown = False
         self.group_unresolved: list[str] = []
+        self.cond_profile_doc: tuple[str, int] | None = None
         self.uncertain: dict[str, tuple[str, tuple[str, int]]] = {}  # canonical key -> why a skipped document may have set it
         self.files_unknown: tuple[str, tuple[str, int] | None] | None = None  # (reason, where) when the packaged files are not what Boot reads
         self._expo_key = "spring.profiles.active"
@@ -380,6 +383,11 @@ class _Run:
                 doc_label, doc_selected = label, selected
                 assumed = False
                 if doc.other_conditions:
+                    if active is None and self.cond_profile_doc is None:
+                        for e in doc.entries:
+                            if canon(e.key).startswith("spring.profiles."):
+                                self.cond_profile_doc = (doc.path, e.line)
+                                break
                     verdict = self._cloud_platform_verdict(doc) if active is not None else None
                     if verdict is None:
                         if active is not None:
@@ -490,8 +498,11 @@ class _Run:
         skip_next = False
         seen_java = False
         options_ended = False  # a bare "--" makes every later argument a non-option argument
-        for token, src, status, via_id in self._command_stream():
-            if "$(" in token:
+        stream = self._command_stream()
+        # a shell in the command ("sh -c ...") expands $VAR and ${VAR} from the container environment before java starts
+        shell_wrapped = any(w.rsplit("/", 1)[-1] in ("sh", "bash", "ash", "dash", "zsh") for t, *_ in stream for w in self._words(t, None))
+        for token, src, status, via_id in stream:
+            if "$(" in token or (shell_wrapped and re.search(r"\$[{A-Za-z_]", token)):
                 self.cov.append(CoverageNotice(code="FN-OPS-002", scope=f"{src[0]}:{src[1]}",
                                                message="A command or args entry uses $(VAR) expansion; the kubelet resolves it at runtime, "
                                                    "so options in it are unknown."))
@@ -519,7 +530,7 @@ class _Run:
                 if after_jar and word == "--":
                     options_ended = True
                     continue
-                if not options_ended and word.startswith("--") and "=" in word:  # program arguments: Boot reads --key=value
+                if not options_ended and word.startswith("--") and len(word) > 2:  # program arguments: Boot reads --key=value, and --key as ""
                     k, _, v = word[2:].partition("=")
                     if re.fullmatch(r"[A-Za-z][\w.\-\[\]]*", k):
                         self.args_table.setdefault(canon(k), []).append(Hit(k, v, "args", "spring.command_line", "", src, status, via_id))
@@ -828,15 +839,16 @@ class _Run:
     def resolve_profiles(self) -> None:
         self._build_overrides()
         self.files_unknown = self._config_redirect()
+        self.cond_profile_doc = None
         self._build_files(None)
         groups, group_locs = self._groups()
         include_names: list[str] = []
         include_locs: list[tuple[str, int]] = []
-        for h in self.hits("spring.profiles.include")[:1]:
+        for h in self.hits("spring.profiles.include"):  # includes from every source and document are a union (highest source first)
             m = self.materialize(h.key, h)
             if m.unresolved is None:
-                include_names = [str(v) for v in (m.value if isinstance(m.value, list) else str(m.value).split(",")) if str(v).strip()]
-                include_names = [n.strip() for n in include_names]
+                names_here = [str(v).strip() for v in (m.value if isinstance(m.value, list) else str(m.value).split(",")) if str(v).strip()]
+                include_names += [n for n in names_here if n not in include_names]
                 if h.source is not None:
                     include_locs.append(h.source)
         active_names: list[str] = []
@@ -870,6 +882,9 @@ class _Run:
         if unresolved is None and self.files_unknown is not None and top is None and self.option is None:
             unresolved = f"{self.files_unknown[0]}; spring.profiles.active may be set in files the scan cannot read"
             self._expo_key = "spring.profiles.active"
+        if unresolved is None and self.cond_profile_doc is not None:
+            unresolved = (f"a document with a condition (spring.config.activate.on-cloud-platform) sets spring.profiles.* at "
+                          f"{self.cond_profile_doc[0]}:{self.cond_profile_doc[1]}, and whether it applies is decided at startup")
         if unresolved is None:
             self.profiles = self._expand([*include_names, *active_names], groups)
             if self.group_unresolved:
@@ -1383,8 +1398,8 @@ def _flatten_json(text: str) -> list[tuple[str, Any]] | None:
         elif isinstance(node, list):
             for i, v in reversed(list(enumerate(node))):
                 stack.append((f"{prefix}[{i}]", v))
-        elif prefix:
-            out.append((prefix, "" if node is None else node))
+        elif prefix and node is not None:  # a JSON null is an absent entry for Boot
+            out.append((prefix, node))
     return out
 
 

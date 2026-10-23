@@ -179,3 +179,14 @@ CTO application: `cohort` field on every corpus entry, six maintained Spring Boo
 | M2-2-D4 | Objective: accurate Spring Boot application configuration extraction, including the production-effective values future SRE reliability checks need | DIRECTION (CEO) |
 
 CTO application: Spring defaults for Boot 3.2 to 3.5 only; Boot outside that range gets unresolved derived facts. An independent test oracle re-implements the layering rules and is not claimed to replace a runtime check, which stays open as M2-D3.
+
+---
+
+## 2026-10-23: PR #7 merged; PR #8 held for focused validation
+
+| ID | Decision | Status |
+|---|---|---|
+| M2-2-D5 | PR #7 approved and merged by the CEO | APPROVED (CEO) |
+| M2-2-D6 | PR #8 held pending focused validation: `spring.profiles.default` semantics, M2-D3 runtime verification in a network-enabled CI job, independent re-review of the changes and unexamined precedence paths, wider upstream citation checks, report update. Scope stays narrow; no new framework support, no AI | HOLD (CEO) |
+
+CTO application: runtime verification runs in the `spring-runtime` workflow only; the CLI stays offline. Mismatches on facts that carry a file override exposure flag are counted as not compared, and listed in the report. Reviewer open items that were not fixed are disclosed in `M2-2.md`, not dropped. HX2 stays unexecuted.

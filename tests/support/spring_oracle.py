@@ -324,7 +324,7 @@ def _flat_json(text: str) -> dict[str, str]:
         elif isinstance(n, list):
             for i, v in enumerate(n):
                 walk(f"{p}[{i}]", v)
-        elif p:
+        elif p and n is not None:
             out[p] = _render(n)
 
     if isinstance(data, dict):
@@ -396,6 +396,7 @@ class View:
         skip = False
         seen_java = False
         ended = False
+        shell = any(w.rsplit("/", 1)[-1] in ("sh", "bash", "ash", "dash", "zsh") for tok, _p, _l in stream for w in _words(tok))
         for tok, path, line in stream:
             for w in _words(tok):
                 if skip:
@@ -413,7 +414,9 @@ class View:
                     self.sys[ocanon(k)] = (val, path, line)
                 elif program_args and w == "--":
                     ended = True
-                elif not ended and w.startswith("--") and "=" in w:
+                elif shell and re.search(r"\$[{A-Za-z_]", w):
+                    continue  # expanded by the shell at startup
+                elif not ended and w.startswith("--") and len(w) > 2:
                     k, _, val = w[2:].partition("=")
                     prev = self.cli.get(ocanon(k))
                     # a repeated option joins its values with commas (indexed keys are separate entries)
@@ -524,7 +527,8 @@ class View:
             es = [e for e in es if e[3] != "file" or any(f.key == name and f.path == e[1] for f in self.files)]
         if not es:
             if name.startswith(("random.", "java.", "os.", "user.", "sun.", "jdk.", "native.")) or name in (
-                    "HOSTNAME", "HOME", "PATH", "USER", "PWD", "LANG", "TMPDIR", "JAVA_HOME", "line.separator", "file.separator", "path.separator"):
+                    "HOSTNAME", "KUBERNETES_SERVICE_HOST", "KUBERNETES_SERVICE_PORT", "HOME", "PATH", "USER", "PWD", "LANG", "TMPDIR", "JAVA_HOME",
+                    "line.separator", "file.separator", "path.separator"):
                 raise _Unresolved(name)  # supplied by the JVM or the container runtime
             return None
         if es[0][0] == UNRESOLVED:
@@ -607,11 +611,15 @@ def oracle_profiles(ctx: Ctx, option: list[str] | None) -> list[str] | None:
             if text is None:
                 return None
             names = [p.strip() for p in text.split(",") if p.strip()]
-        inc = base.entries("spring.profiles.include")
-        if inc:
-            text = base.expand(inc[0][0])
-            if text:
-                names = [p.strip() for p in text.split(",") if p.strip()] + names
+        if any(d.other_condition is not None and any(e.key.lower().startswith("spring.profiles.") for e in d.entries) for d in ctx.docs("application")):
+            return None  # a conditional document that sets profiles: decided at startup
+        inc = [e[0] for e in base.entries("spring.profiles.include")]
+        inc += [e.text for e in base.files if re.sub(r"\[\d+\]$", "", e.key) == "spring.profiles.include" and e.text not in inc]
+        union: list[str] = []
+        for raw in inc:  # includes from every source and document are a union
+            text = base.expand(raw)
+            union += [p.strip() for p in (text or "").split(",") if p.strip() and p.strip() not in union]
+        names = union + names
         def groups_of(n: str) -> list[str]:
             es = base.entries(f"spring.profiles.group.{n}")
             if not es:

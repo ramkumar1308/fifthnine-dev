@@ -11,6 +11,9 @@ from collections import Counter
 from pathlib import Path
 
 
+LOGS = Path("runtime-out/logs")
+
+
 def render(report: dict) -> str:  # type: ignore[type-arg]
     cases = report["cases"]
     totals = report.get("totals", {})
@@ -35,6 +38,14 @@ def render(report: dict) -> str:  # type: ignore[type-arg]
         out += ["", "#### Failures", ""]
         for name, f in fails[:60]:
             out.append(f"- `{name}` {f['kind']} `{f['subject']}`: scan says {f['expected']!r}, runtime {f['runtime']!r} {f.get('note', '')}")
+    seen: set[str] = set()
+    for name, f in fails:
+        if f["kind"] in ("start", "build") and len(seen) < 3:
+            log = LOGS / f"{name}.log"
+            if log.is_file():
+                tail = "\n".join(log.read_text(encoding="utf-8", errors="replace").splitlines()[-45:])
+                out += ["", f"<details><summary>Log tail: {name}</summary>", "", "```", tail[-6000:], "```", "", "</details>"]
+                seen.add(name)
     errs = [c for c in cases if c.get("error")]
     for c in errs:
         out.append(f"- `{c['case']}` error: {c['error']}")

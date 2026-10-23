@@ -45,6 +45,7 @@ jobs:
         env:
           JAVA_HOME: /usr/lib/jvm/temurin-21-jdk-amd64
         run: |
+          set -o pipefail
           export JAVA_HOME="${JAVA_HOME_21_X64:-$JAVA_HOME}"
           export PATH="$JAVA_HOME/bin:$PATH"
           python tests/runtime/spring/run_cases.py --out runtime-out | tee runtime-out.txt

@@ -932,6 +932,9 @@ class _Run:
                 source = ref(*top.source)
             if top.via_fact is not None:
                 inputs.append(via(R.PROFILE_ACTIVATION, top.via_fact))
+        elif include_names and include_locs:  # only profile includes name the profiles: declared, not the default profile
+            st, prec = FactStatus.DECLARED, "spring.profiles.include"
+            source = ref(*include_locs[0])
         else:
             st, prec = FactStatus.DEFAULT, "spring.default_profile"
             anchor = self._primary_location()

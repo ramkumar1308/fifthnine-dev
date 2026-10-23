@@ -826,6 +826,7 @@ def test_review_round_two_precedence_paths(tmp_path: Path) -> None:
                  "application-gy.yml": "server:\n  port: 8\n"}
     r = run(Repo(resources=inc_files, env={"SPRING_PROFILES_INCLUDE": "gy"}))
     assert (_one(r, "spring.active_profiles", "spring:.").value, _port(r).value) == (["gy", "gx"], 7)
+    assert _one(r, "spring.active_profiles", "spring:.").status is FactStatus.DECLARED
     # a conditional document that sets profiles leaves them unresolved
     cond = {"application.yml": "spring:\n  profiles:\n    active: a\n---\nspring:\n  config:\n    activate:\n      on-cloud-platform: kubernetes\n"
             "  profiles:\n    active: gx\n", "application-a.yml": "server:\n  port: 5\n"}

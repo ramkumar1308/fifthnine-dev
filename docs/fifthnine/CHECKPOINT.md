@@ -1,13 +1,12 @@
 # Checkpoint
 
-Updated 2026-10-22. Read this first when resuming.
+Updated 2026-10-23. Read this first when resuming.
 
-- **Current task:** M2-1, READY FOR REVIEW once the independent review and CI below are complete. Not merged.
-- **Branch:** `feature/m2-1-deployment-facts`, based on 29b7103. See `git log` for the head.
-- **Done:** schema revision 3, Dockerfile and Kubernetes extraction, defaults table, environment model, effective command, linkage, scorer, semantic oracle, corpus run (see `M2-1.md`).
-- **Tests:** 236 pass on Python 3.10, 3.11, 3.12; ruff and mypy clean. Oracle shows 0 mismatches on both samples and 26 corpus repositories.
-- **Benchmark:** `M2-1.md`. Reproduce with `python benchmarks/dev/corpus/m2_report.py CORPUS_DIR OUT.json`.
-- **Review:** first independent review done (2 blockers, 6 majors fixed; dispositions in `M2-1.md`). Second to fourth reviews: all findings fixed (dispositions in `M2-1.md`). Final re-review result is recorded in the PR.
-- **Open:** none for CI (7 of 7 green at a0a0726; the temporary diagnostics step is removed). Windows crashed on 5,000-level YAML nesting, a C-stack crash fixed with a depth pre-check.
-- **For the CEO:** the linkage implementation was tightened after review (no label changed to fit): 24 links became 12, because 12 rested on an in-image directory name. Agreement with M2-0 labels stays 25 of 26. Answer key SP-K08 changed from `declared` to `inferred`.
-- **Gates:** no merge without CEO approval. M2-2 starts only after M2-1 merges. HX2 protocol is drafted after M2-1 merges and is not executed without CEO approval. No AI implementation is authorized.
+- **Current task:** M2-2 (Spring Boot application configuration extraction), PR #8, focused validation done and returned to the CEO for merge approval. Not merged. PR #7 merged by the CEO.
+- **Branch:** `feature/m2-2-spring-config`, based on main 4dcc093. See `git log` for the head.
+- **Done:** config readers, resolver with Spring precedence, overridden facts, exposure, actuator endpoint derivation, Boot 3.2 to 3.5 defaults table, redaction, independent oracle, tests (see `M2-2.md`).
+- **Tests:** 333 pass on Python 3.10, 3.11, 3.12; ruff and mypy clean. Answer key 66/0/0. Oracle 720 items, 0 mismatches. Mutation 18 of 18 killed. Runtime comparison (spring-runtime workflow): 89 cases, 1,509 checks, 0 failures at f983c04; upstream citations 263 ok.
+- **Carried forward:** the 1,778 M2-1 oracle skips are coverage limitations, not verified.
+- **Review:** rounds 1 to 3 done by fresh agents of the same model family (disclosed). Round 3 open items are listed in `M2-2.md`.
+- **Follow-ups (separate):** HX2 protocol draft as its own doc PR, not executed; follow classpath `spring.config.import`; secret redaction for M2-1 env facts.
+- **Gates:** no merge without CEO approval. HX2 is not executed without CEO approval. No AI implementation is authorized. Phase 1 scope is locked.

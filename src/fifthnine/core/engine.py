@@ -28,6 +28,7 @@ from fifthnine.core.workspace import (
     discover,
 )
 from fifthnine.resolve.deployment import resolve_deployment
+from fifthnine.resolve.spring import resolve_spring
 from fifthnine.schema.config_v1 import FifthNineConfig
 from fifthnine.schema.v1 import (
     AssessmentLimits,
@@ -178,10 +179,6 @@ def _coverage(ws: Workspace, result: DetectionResult, stacks: list[ComponentSupp
         notes.append(CoverageNotice(code="COV-SOURCE-NOT-ANALYZED", scope="repository",
                                     message=f"Source files inventoried but not parsed in M1: {', '.join(counts)}. "
                                             "Source analysis starts in M2; Kotlin is not supported in v0.1."))
-    if result.spring_config_files:
-        notes.append(CoverageNotice(code="COV-CONFIG-NOT-RESOLVED", scope="repository",
-                                    message=f"{len(result.spring_config_files)} Spring configuration file(s) inventoried; profiles and "
-                                            "effective values are resolved starting in M2."))
     if ws.excluded_dirs:
         notes.append(CoverageNotice(code="COV-EXCLUDED", scope="repository",
                                     message=f"{len(ws.excluded_dirs)} directories skipped by built-in exclusions "
@@ -189,6 +186,18 @@ def _coverage(ws: Workspace, result: DetectionResult, stacks: list[ComponentSupp
     notes.append(CoverageNotice(code="FN-OPS-001", domain=Domain.DATA_COMPATIBILITY, scope="repository",
                                 message="Data and migration compatibility is not assessed in v0.1.", delegated_to=["squawk", "atlas"]))
     return notes
+
+
+def _spring_files_notice(coverage: list[CoverageNotice], result: DetectionResult, consumed: set[str]) -> list[CoverageNotice]:
+    """Spring configuration files that no Spring Boot module owns are inventoried only."""
+    outside = sorted(set(result.spring_config_files) - consumed)
+    if outside:
+        shown = ", ".join(outside[:5]) + (" ..." if len(outside) > 5 else "")
+        coverage.append(CoverageNotice(
+            code="COV-CONFIG-NOT-RESOLVED", scope=shown,
+            message=f"{len(outside)} Spring configuration file(s) are not read: they sit outside the packaged resources of a detected Spring "
+                    "Boot module (src/main/resources and its config/ directory), or belong to a profile that is not active."))
+    return coverage
 
 
 def run_scan(opts: ScanOptions) -> ScanResult:
@@ -227,17 +236,20 @@ def run_scan(opts: ScanOptions) -> ScanResult:
     coverage = _coverage(ws, result, stacks)
     deployment = resolve_deployment(ws)
     coverage += deployment.coverage
+    spring = resolve_spring(ws, result, deployment, profile=profile, profile_source=profile_source)
+    coverage += spring.coverage
+    coverage = _spring_files_notice(coverage, result, spring.consumed)
     if config is not None and config.integrations:
         coverage.append(CoverageNotice(code="COV-IGNORED-CONFIG", scope=config_shown or ".fifthnine.yml",
                                        message="integrations is reserved (SARIF import, E8 stretch) and ignored in v0.1."))
 
-    all_facts: list[Fact] = sorted(detection_facts(result) + deployment.facts.facts(),
+    all_facts: list[Fact] = sorted(detection_facts(result) + deployment.facts.facts() + spring.facts.facts(),
                                    key=lambda f: (f.kind, f.subject.key, sorted(f.scope.items()), f.fact_id))
     facts = all_facts if opts.facts == "all" else []  # no findings yet, so no facts are referenced
     linkages = sorted(deployment.linkages, key=lambda lk: lk.link_id)
 
     inventoried = {f.path for f in ws.files}
-    parsed = set(result.parsed) | set(deployment.parsed) | ({config_shown} if config_shown in inventoried else set())
+    parsed = set(result.parsed) | set(deployment.parsed) | set(spring.parsed) | ({config_shown} if config_shown in inventoried else set())
     skipped = sorted(ws.skipped + result.parse_errors, key=lambda s: (s.path, s.reason))
     findings: list[Finding] = []
     status = derive_status(findings, coverage, rules_evaluated=0)

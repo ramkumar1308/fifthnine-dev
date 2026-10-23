@@ -152,6 +152,7 @@ def main() -> int:
     ap.add_argument("--only", nargs="*")
     ap.add_argument("--list", action="store_true")
     ns = ap.parse_args()
+    ns.out = ns.out.resolve()
     cases = [c for c in CASES if not ns.only or c.name in ns.only]
     if ns.list:
         print("\n".join(f"{c.name}\t{c.boot}\t{c.covers}" for c in CASES))

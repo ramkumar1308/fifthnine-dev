@@ -345,7 +345,7 @@ server.port=8082
          covers="an exec-form argument containing a space is one word"),
     Case("java-add-modules", resources={"application.yml": APP}, entrypoint=["java", "--add-modules", "java.se", "-Dserver.port=9006", "-jar", "/app/app.jar"],
          covers="--add-modules takes the next word; it is not the main class"),
-    Case("group-exact-spelling", resources={"application.yml": "spring:\n  profiles:\n    active: prod-eu\n    group:\n      prodeu: extra\n" + APP,
+    Case("group-exact-spelling", resources={"application.yml": "spring:\n  profiles:\n    active: prod-eu\n    group:\n      prodeu: extra\nserver:\n  port: 8191\n",
                                             "application-extra.yml": "server:\n  port: 9007\n"},
          covers="UNSURE: a group is looked up by the exact profile name"),
 ]

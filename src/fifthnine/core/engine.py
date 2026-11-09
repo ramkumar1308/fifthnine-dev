@@ -28,6 +28,7 @@ from fifthnine.core.workspace import (
     discover,
 )
 from fifthnine.resolve.deployment import resolve_deployment
+from fifthnine.resolve.python_app import resolve_python
 from fifthnine.resolve.spring import resolve_spring
 from fifthnine.schema.config_v1 import FifthNineConfig
 from fifthnine.schema.v1 import (
@@ -200,6 +201,23 @@ def _spring_files_notice(coverage: list[CoverageNotice], result: DetectionResult
     return coverage
 
 
+def _python_sources_notice(coverage: list[CoverageNotice], result: DetectionResult, parsed: list[str]) -> list[CoverageNotice]:
+    """M2-3 parses the Python sources of detected Python roots; the inventory notice keeps counting the rest."""
+    out: list[CoverageNotice] = []
+    for c in coverage:
+        if c.code == "COV-SOURCE-NOT-ANALYZED":
+            sources = {KIND_JAVA_SOURCE: "Java", KIND_KOTLIN_SOURCE: "Kotlin", KIND_PYTHON_SOURCE: "Python"}
+            counts = {k: result.source_counts.get(k, 0) for k in sources}
+            counts[KIND_PYTHON_SOURCE] = max(0, counts[KIND_PYTHON_SOURCE] - len(parsed))
+            shown = [f"{n} {sources[k]}" for k, n in counts.items() if n]
+            if not shown:
+                continue
+            c = c.model_copy(update={"message": f"Source files inventoried but not parsed: {', '.join(shown)}. Java source facts arrive in M2-4; "
+                                                "Python files outside a detected Python build root are not read; Kotlin is not supported in v0.1."})
+        out.append(c)
+    return out
+
+
 def run_scan(opts: ScanOptions) -> ScanResult:
     root = opts.path
     if not root.exists():
@@ -239,17 +257,20 @@ def run_scan(opts: ScanOptions) -> ScanResult:
     spring = resolve_spring(ws, result, deployment, profile=profile, profile_source=profile_source)
     coverage += spring.coverage
     coverage = _spring_files_notice(coverage, result, spring.consumed)
+    python = resolve_python(ws, result, deployment)
+    coverage = _python_sources_notice(coverage, result, python.parsed)
+    coverage += python.coverage
     if config is not None and config.integrations:
         coverage.append(CoverageNotice(code="COV-IGNORED-CONFIG", scope=config_shown or ".fifthnine.yml",
                                        message="integrations is reserved (SARIF import, E8 stretch) and ignored in v0.1."))
 
-    all_facts: list[Fact] = sorted(detection_facts(result) + deployment.facts.facts() + spring.facts.facts(),
+    all_facts: list[Fact] = sorted(detection_facts(result) + deployment.facts.facts() + spring.facts.facts() + python.facts.facts(),
                                    key=lambda f: (f.kind, f.subject.key, sorted(f.scope.items()), f.fact_id))
     facts = all_facts if opts.facts == "all" else []  # no findings yet, so no facts are referenced
     linkages = sorted(deployment.linkages, key=lambda lk: lk.link_id)
 
     inventoried = {f.path for f in ws.files}
-    parsed = set(result.parsed) | set(deployment.parsed) | set(spring.parsed) | ({config_shown} if config_shown in inventoried else set())
+    parsed = set(result.parsed) | set(deployment.parsed) | set(spring.parsed) | set(python.parsed) | ({config_shown} if config_shown in inventoried else set())
     skipped = sorted(ws.skipped + result.parse_errors, key=lambda s: (s.path, s.reason))
     findings: list[Finding] = []
     status = derive_status(findings, coverage, rules_evaluated=0)

@@ -1,0 +1,2310 @@
+{
+  "schema": "fifthnine.result/v1",
+  "simulated": false,
+  "tool": {
+    "name": "fifthnine",
+    "version": "0.1.0.dev0",
+    "rule_pack_versions": {
+      "fifthnine-core": "0.0.0 (no rules before M3)"
+    }
+  },
+  "scan": {
+    "root": ".",
+    "mode": "full",
+    "base_ref": null,
+    "profile": null,
+    "profile_source": "none",
+    "config_file": null,
+    "policy_mode": "report",
+    "fail_on": "high",
+    "network_used": false,
+    "code_executed": false
+  },
+  "status": "INCOMPLETE",
+  "status_reason": "No reliability rules are implemented in this build (M2). The repository was inventoried and its deployment facts extracted; it was not assessed.",
+  "disclaimer": "FifthNine reports evidence about specific, documented reliability checks on the files it could read. It does not certify production readiness and does not prevent outages. A scan with no findings is not a statement that the system is production ready.",
+  "inventory": {
+    "files_considered": 5,
+    "files_parsed": 4,
+    "skipped": [],
+    "detected_stacks": [
+      {
+        "component": "java",
+        "version": "21",
+        "version_source": {
+          "path": "pom.xml",
+          "line_start": 20,
+          "line_end": 20,
+          "column": null,
+          "excerpt": null
+        },
+        "support": "untested",
+        "tested_versions": [],
+        "matrix_entry": "java"
+      },
+      {
+        "component": "kubernetes-api",
+        "version": "apps/v1/Deployment",
+        "version_source": {
+          "path": "k8s/deployment.yaml",
+          "line_start": 2,
+          "line_end": 2,
+          "column": null,
+          "excerpt": null
+        },
+        "support": "untested",
+        "tested_versions": [],
+        "matrix_entry": "kubernetes-api"
+      },
+      {
+        "component": "spring-boot",
+        "version": "3.4.13",
+        "version_source": {
+          "path": "pom.xml",
+          "line_start": 10,
+          "line_end": 10,
+          "column": null,
+          "excerpt": null
+        },
+        "support": "untested",
+        "tested_versions": [],
+        "matrix_entry": "spring-boot"
+      }
+    ]
+  },
+  "linkages": [
+    {
+      "link_id": "l-d50ec8267f648470",
+      "kind": "workload_container_to_source_root",
+      "status": "unresolved",
+      "from_ref": "k8s:Deployment/_/app/app",
+      "to_ref": "source:?",
+      "evidence": [
+        "k8s/deployment.yaml:19",
+        "reason: no in-repository build identity matches image basename 'pb-11', and the container command names no in-repository module"
+      ],
+      "accept_command": null,
+      "declared_in": null,
+      "accepted_by": null,
+      "accepted_on": null,
+      "evidence_digest": null,
+      "current_digest": null
+    }
+  ],
+  "findings": [],
+  "coverage": [
+    {
+      "code": "COV-NO-RULES",
+      "domain": null,
+      "scope": "repository",
+      "message": "This build contains no reliability rules (Phase 1 milestone M2: fact extraction). Nothing about the repository's production readiness was assessed. The scan inventories files, detects supported stacks and versions, and extracts Docker and Kubernetes facts with provenance (--facts all).",
+      "affects_rules": [],
+      "blocks_assessment": true,
+      "delegated_to": []
+    },
+    {
+      "code": "COV-UNTESTED-VERSION",
+      "domain": null,
+      "scope": "repository",
+      "message": "Detected but not tested (data/support_matrix.v1.yaml lists no tested versions yet): java 21, kubernetes-api apps/v1/Deployment, spring-boot 3.4.13. Once rules exist, failing checks on untested versions are reported as CONDITIONAL.",
+      "affects_rules": [],
+      "blocks_assessment": false,
+      "delegated_to": []
+    },
+    {
+      "code": "COV-SOURCE-NOT-ANALYZED",
+      "domain": null,
+      "scope": "repository",
+      "message": "Source files inventoried but not parsed in M1: 1 Java. Source analysis starts in M2; Kotlin is not supported in v0.1.",
+      "affects_rules": [],
+      "blocks_assessment": false,
+      "delegated_to": []
+    },
+    {
+      "code": "FN-OPS-001",
+      "domain": "data_compatibility",
+      "scope": "repository",
+      "message": "Data and migration compatibility is not assessed in v0.1.",
+      "affects_rules": [],
+      "blocks_assessment": false,
+      "delegated_to": [
+        "squawk",
+        "atlas"
+      ]
+    },
+    {
+      "code": "COV-LINKAGE",
+      "domain": null,
+      "scope": "k8s:Deployment/_/app/app",
+      "message": "No source link proposed for k8s:Deployment/_/app/app: no in-repository build identity matches image basename 'pb-11', and the container command names no in-repository module.",
+      "affects_rules": [],
+      "blocks_assessment": false,
+      "delegated_to": []
+    },
+    {
+      "code": "FN-OPS-002",
+      "domain": null,
+      "scope": "spring:.",
+      "message": "No profile is activated in the repository, so Spring Boot uses the default profile.",
+      "affects_rules": [],
+      "blocks_assessment": false,
+      "delegated_to": []
+    }
+  ],
+  "facts": [
+    {
+      "fact_id": "f-bd86838c4eb13c60",
+      "kind": "build.identity",
+      "subject": {
+        "kind": "build",
+        "key": "maven:pom.xml",
+        "display": "maven:pom.xml"
+      },
+      "value": {
+        "group": "bench",
+        "artifact": "app"
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "pom.xml",
+        "line_start": 15,
+        "line_end": 15,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-08d15d83820b7f6e",
+      "kind": "docker.build_target",
+      "subject": {
+        "kind": "docker",
+        "key": "docker:Dockerfile",
+        "display": "docker:Dockerfile"
+      },
+      "value": null,
+      "unit": null,
+      "status": "unresolved",
+      "override_exposure": "none",
+      "scope": {},
+      "source": null,
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": "The build target used to produce the deployed image is not read from the repository (a CI --target flag, Compose file, workflow or registry configuration is not interpreted). Docker builds the final stage when no --target is given; that is the default target, not a verified production build.",
+      "extractor": "deployment-m2.1",
+      "inputs": [
+        {
+          "role": "reference",
+          "source": null,
+          "fact_id": "f-43bb416e7752c8ca"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-284490ae63040ccf",
+      "kind": "docker.cmd",
+      "subject": {
+        "kind": "docker",
+        "key": "docker:Dockerfile#0",
+        "display": "docker:Dockerfile#0"
+      },
+      "value": {
+        "form": "cleared",
+        "argv": []
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "Dockerfile",
+        "line_start": 4,
+        "line_end": 4,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-43bb416e7752c8ca",
+      "kind": "docker.default_target",
+      "subject": {
+        "kind": "docker",
+        "key": "docker:Dockerfile",
+        "display": "Dockerfile default build target"
+      },
+      "value": {
+        "stage_index": 0,
+        "stage_name": null
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "Dockerfile",
+        "line_start": 1,
+        "line_end": 1,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-667511de5cc16e44",
+      "kind": "docker.entrypoint",
+      "subject": {
+        "kind": "docker",
+        "key": "docker:Dockerfile#0",
+        "display": "docker:Dockerfile#0"
+      },
+      "value": {
+        "form": "exec",
+        "argv": [
+          "java",
+          "-jar",
+          "/app/app.jar"
+        ]
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "Dockerfile",
+        "line_start": 4,
+        "line_end": 4,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-5459ca0f75a57057",
+      "kind": "docker.stage.base_image",
+      "subject": {
+        "kind": "docker.stage",
+        "key": "docker:Dockerfile#0",
+        "display": "Dockerfile stage 0"
+      },
+      "value": "eclipse-temurin:21-jre",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "Dockerfile",
+        "line_start": 1,
+        "line_end": 1,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-2f48e8129e37aa01",
+      "kind": "docker.workdir",
+      "subject": {
+        "kind": "docker",
+        "key": "docker:Dockerfile#0",
+        "display": "docker:Dockerfile#0"
+      },
+      "value": "/app",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "Dockerfile",
+        "line_start": 3,
+        "line_end": 3,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-4a045ccf412b27b6",
+      "kind": "k8s.container.effective_command",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/_/app/app",
+        "display": "k8s:Deployment/_/app/app"
+      },
+      "value": null,
+      "unit": null,
+      "status": "unresolved",
+      "override_exposure": "none",
+      "scope": {},
+      "source": null,
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": "the container does not set command, and its image is not linked to an in-repository Dockerfile, so the image ENTRYPOINT and CMD are not known",
+      "extractor": "deployment-m2.1",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "k8s/deployment.yaml",
+            "line_start": 18,
+            "line_end": 18,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-66df010984081744",
+      "kind": "k8s.container.image",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/_/app/app",
+        "display": "k8s:Deployment/_/app/app"
+      },
+      "value": "fifthnine-bench/pb-11:1",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 19,
+        "line_end": 19,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-f95498d4291052df",
+      "kind": "k8s.container.lifecycle.prestop",
+      "subject": {
+        "kind": "k8s.container.lifecycle",
+        "key": "k8s:Deployment/_/app/app",
+        "display": "k8s:Deployment/_/app/app"
+      },
+      "value": null,
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 18,
+        "line_end": 18,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": true
+    },
+    {
+      "fact_id": "f-4e52f5df8e0b5147",
+      "kind": "k8s.container.port",
+      "subject": {
+        "kind": "k8s.container",
+        "key": "k8s:Deployment/_/app/app#http",
+        "display": "k8s:Deployment/_/app/app#http"
+      },
+      "value": 8080,
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 23,
+        "line_end": 23,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-7f2d327f89b4e17f",
+      "kind": "k8s.container.probe.liveness",
+      "subject": {
+        "kind": "k8s.container.probe",
+        "key": "k8s:Deployment/_/app/app",
+        "display": "k8s:Deployment/_/app/app"
+      },
+      "value": {
+        "type": "httpGet",
+        "path": "/actuator/health/liveness",
+        "port": 8080
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 44,
+        "line_end": 44,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [
+        {
+          "role": "reference",
+          "source": {
+            "path": "k8s/deployment.yaml",
+            "line_start": 45,
+            "line_end": 45,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-4e52f5df8e0b5147"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-38f45cd6d1615f5e",
+      "kind": "k8s.container.probe.readiness",
+      "subject": {
+        "kind": "k8s.container.probe",
+        "key": "k8s:Deployment/_/app/app",
+        "display": "k8s:Deployment/_/app/app"
+      },
+      "value": {
+        "type": "httpGet",
+        "path": "/actuator/health/readiness",
+        "port": 8080
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 38,
+        "line_end": 38,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [
+        {
+          "role": "reference",
+          "source": {
+            "path": "k8s/deployment.yaml",
+            "line_start": 39,
+            "line_end": 39,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-4e52f5df8e0b5147"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-03d5a7ad82fbc499",
+      "kind": "k8s.container.probe.startup",
+      "subject": {
+        "kind": "k8s.container.probe",
+        "key": "k8s:Deployment/_/app/app",
+        "display": "k8s:Deployment/_/app/app"
+      },
+      "value": {
+        "type": "httpGet",
+        "path": "/actuator/health/liveness",
+        "port": 8080
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 32,
+        "line_end": 32,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [
+        {
+          "role": "reference",
+          "source": {
+            "path": "k8s/deployment.yaml",
+            "line_start": 33,
+            "line_end": 33,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-4e52f5df8e0b5147"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-1845fd6b5e394f2d",
+      "kind": "k8s.container.resources.limits.cpu",
+      "subject": {
+        "kind": "k8s.container.resources.limits",
+        "key": "k8s:Deployment/_/app/app",
+        "display": "k8s:Deployment/_/app/app"
+      },
+      "value": null,
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 28,
+        "line_end": 28,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": true
+    },
+    {
+      "fact_id": "f-df242360f24468f8",
+      "kind": "k8s.container.resources.limits.memory",
+      "subject": {
+        "kind": "k8s.container.resources.limits",
+        "key": "k8s:Deployment/_/app/app",
+        "display": "k8s:Deployment/_/app/app"
+      },
+      "value": "768Mi",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 29,
+        "line_end": 29,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-18d9e315d19e8120",
+      "kind": "k8s.container.resources.requests.cpu",
+      "subject": {
+        "kind": "k8s.container.resources.requests",
+        "key": "k8s:Deployment/_/app/app",
+        "display": "k8s:Deployment/_/app/app"
+      },
+      "value": "250m",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 26,
+        "line_end": 26,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-addc178595f82947",
+      "kind": "k8s.container.resources.requests.memory",
+      "subject": {
+        "kind": "k8s.container.resources.requests",
+        "key": "k8s:Deployment/_/app/app",
+        "display": "k8s:Deployment/_/app/app"
+      },
+      "value": "384Mi",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 27,
+        "line_end": 27,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-845c8d357ee68abe",
+      "kind": "k8s.deployment.max_surge",
+      "subject": {
+        "kind": "k8s.deployment",
+        "key": "k8s:Deployment/_/app",
+        "display": "k8s:Deployment/_/app"
+      },
+      "value": "25%",
+      "unit": null,
+      "status": "default",
+      "override_exposure": "none",
+      "scope": {},
+      "source": null,
+      "default_ref": {
+        "framework": "kubernetes",
+        "version_range": ">=1.34,<=1.37",
+        "reference": {
+          "title": "Kubernetes v1.37.1 pkg/apis/apps/v1/defaults.go:61",
+          "url": "https://github.com/kubernetes/kubernetes/blob/f78e722310e50bcaca9276be22276d9e91d91308/pkg/apis/apps/v1/defaults.go#L61",
+          "source_path": "v1.37.1:pkg/apis/apps/v1/defaults.go"
+        },
+        "applied_version": null,
+        "upstream": {
+          "repository": "kubernetes/kubernetes",
+          "tag": "v1.37.1",
+          "commit": "f78e722310e50bcaca9276be22276d9e91d91308",
+          "path": "pkg/apis/apps/v1/defaults.go",
+          "line": 61,
+          "anchor": "maxSurge := intstr.FromString(\"25%\")",
+          "verified_at": [
+            "v1.34.12",
+            "v1.35.9",
+            "v1.36.5",
+            "v1.37.1"
+          ]
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "k8s/deployment.yaml",
+            "line_start": 4,
+            "line_end": 4,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        },
+        {
+          "role": "reference",
+          "source": null,
+          "fact_id": "f-92caba58de585b41"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-af40976f3b79918b",
+      "kind": "k8s.deployment.max_unavailable",
+      "subject": {
+        "kind": "k8s.deployment",
+        "key": "k8s:Deployment/_/app",
+        "display": "k8s:Deployment/_/app"
+      },
+      "value": "25%",
+      "unit": null,
+      "status": "default",
+      "override_exposure": "none",
+      "scope": {},
+      "source": null,
+      "default_ref": {
+        "framework": "kubernetes",
+        "version_range": ">=1.34,<=1.37",
+        "reference": {
+          "title": "Kubernetes v1.37.1 pkg/apis/apps/v1/defaults.go:56",
+          "url": "https://github.com/kubernetes/kubernetes/blob/f78e722310e50bcaca9276be22276d9e91d91308/pkg/apis/apps/v1/defaults.go#L56",
+          "source_path": "v1.37.1:pkg/apis/apps/v1/defaults.go"
+        },
+        "applied_version": null,
+        "upstream": {
+          "repository": "kubernetes/kubernetes",
+          "tag": "v1.37.1",
+          "commit": "f78e722310e50bcaca9276be22276d9e91d91308",
+          "path": "pkg/apis/apps/v1/defaults.go",
+          "line": 56,
+          "anchor": "maxUnavailable := intstr.FromString(\"25%\")",
+          "verified_at": [
+            "v1.34.12",
+            "v1.35.9",
+            "v1.36.5",
+            "v1.37.1"
+          ]
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "k8s/deployment.yaml",
+            "line_start": 4,
+            "line_end": 4,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        },
+        {
+          "role": "reference",
+          "source": null,
+          "fact_id": "f-92caba58de585b41"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-d013fba9506db3f9",
+      "kind": "k8s.deployment.replicas",
+      "subject": {
+        "kind": "k8s.deployment",
+        "key": "k8s:Deployment/_/app",
+        "display": "k8s:Deployment/_/app"
+      },
+      "value": 1,
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 8,
+        "line_end": 8,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-92caba58de585b41",
+      "kind": "k8s.deployment.strategy_type",
+      "subject": {
+        "kind": "k8s.deployment",
+        "key": "k8s:Deployment/_/app",
+        "display": "k8s:Deployment/_/app"
+      },
+      "value": "RollingUpdate",
+      "unit": null,
+      "status": "default",
+      "override_exposure": "none",
+      "scope": {},
+      "source": null,
+      "default_ref": {
+        "framework": "kubernetes",
+        "version_range": ">=1.34,<=1.37",
+        "reference": {
+          "title": "Kubernetes v1.37.1 pkg/apis/apps/v1/defaults.go:47",
+          "url": "https://github.com/kubernetes/kubernetes/blob/f78e722310e50bcaca9276be22276d9e91d91308/pkg/apis/apps/v1/defaults.go#L47",
+          "source_path": "v1.37.1:pkg/apis/apps/v1/defaults.go"
+        },
+        "applied_version": null,
+        "upstream": {
+          "repository": "kubernetes/kubernetes",
+          "tag": "v1.37.1",
+          "commit": "f78e722310e50bcaca9276be22276d9e91d91308",
+          "path": "pkg/apis/apps/v1/defaults.go",
+          "line": 47,
+          "anchor": "strategy.Type = appsv1.RollingUpdateDeploymentStrategyType",
+          "verified_at": [
+            "v1.34.12",
+            "v1.35.9",
+            "v1.36.5",
+            "v1.37.1"
+          ]
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "k8s/deployment.yaml",
+            "line_start": 4,
+            "line_end": 4,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-b73632a895a6e0b9",
+      "kind": "k8s.object",
+      "subject": {
+        "kind": "k8s.object",
+        "key": "k8s:apps/v1/Deployment/-/app:k8s/deployment.yaml:2",
+        "display": "Deployment/app"
+      },
+      "value": {
+        "apiVersion": "apps/v1",
+        "kind": "Deployment",
+        "name": "app",
+        "namespace": null
+      },
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "k8s/deployment.yaml",
+        "line_start": 2,
+        "line_end": 2,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "k8s-inventory-m1.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-f2d5e7d47c7841c5",
+      "kind": "k8s.object.namespace",
+      "subject": {
+        "kind": "k8s.object",
+        "key": "k8s:Deployment/_/app",
+        "display": "k8s:Deployment/_/app"
+      },
+      "value": null,
+      "unit": null,
+      "status": "unresolved",
+      "override_exposure": "none",
+      "scope": {},
+      "source": null,
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": "metadata.namespace is not set; the namespace is chosen when the manifest is applied.",
+      "extractor": "deployment-m2.1",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "k8s/deployment.yaml",
+            "line_start": 4,
+            "line_end": 4,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-0f47152dc2af87ca",
+      "kind": "k8s.pod.termination_grace_period",
+      "subject": {
+        "kind": "k8s.pod",
+        "key": "k8s:Deployment/_/app",
+        "display": "k8s:Deployment/_/app"
+      },
+      "value": 30,
+      "unit": "s",
+      "status": "default",
+      "override_exposure": "none",
+      "scope": {},
+      "source": null,
+      "default_ref": {
+        "framework": "kubernetes",
+        "version_range": ">=1.34,<=1.37",
+        "reference": {
+          "title": "Kubernetes v1.37.1 staging/src/k8s.io/api/core/v1/types.go:3987",
+          "url": "https://github.com/kubernetes/kubernetes/blob/f78e722310e50bcaca9276be22276d9e91d91308/staging/src/k8s.io/api/core/v1/types.go#L3987",
+          "source_path": "v1.37.1:staging/src/k8s.io/api/core/v1/types.go"
+        },
+        "applied_version": null,
+        "upstream": {
+          "repository": "kubernetes/kubernetes",
+          "tag": "v1.37.1",
+          "commit": "f78e722310e50bcaca9276be22276d9e91d91308",
+          "path": "staging/src/k8s.io/api/core/v1/types.go",
+          "line": 3987,
+          "anchor": "DefaultTerminationGracePeriodSeconds = 30",
+          "verified_at": [
+            "v1.34.12",
+            "v1.35.9",
+            "v1.36.5",
+            "v1.37.1"
+          ]
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "deployment-m2.1",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "k8s/deployment.yaml",
+            "line_start": 4,
+            "line_end": 4,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-ada1394c8be697d7",
+      "kind": "spring.active_profiles",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.",
+        "display": "spring:."
+      },
+      "value": [],
+      "unit": null,
+      "status": "default",
+      "override_exposure": "env_possible",
+      "scope": {},
+      "source": null,
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "src/main/resources/application.yml",
+            "line_start": 1,
+            "line_end": 1,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": "spring.default_profile",
+      "absent": false
+    },
+    {
+      "fact_id": "f-a6481e334ef8e0be",
+      "kind": "spring.actuator.endpoint",
+      "subject": {
+        "kind": "spring.actuator",
+        "key": "spring:.:health/liveness",
+        "display": "spring:.:health/liveness"
+      },
+      "value": null,
+      "unit": null,
+      "status": "unresolved",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": null,
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": "an input value is not known (the Spring Boot version is outside the defaults table, or a value is unresolved)",
+      "extractor": "spring-m2.2",
+      "inputs": [
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-91a829469f0caba7"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-f2f8d1e770ba8514"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-a2a503d278e6b71b"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-d8acda2e819c81aa"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-ce5aeedca55b8a35"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-19c7f63184e28416"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-5c39d135aa316d02"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-0fd1743d45ac04f0"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-11a5d76bacab5da0"
+        }
+      ],
+      "exposure_sources": [
+        {
+          "via": "inherited",
+          "object": null,
+          "variables": [],
+          "from_fact_ids": [
+            "f-0fd1743d45ac04f0",
+            "f-11a5d76bacab5da0",
+            "f-19c7f63184e28416",
+            "f-5c39d135aa316d02",
+            "f-91a829469f0caba7",
+            "f-a2a503d278e6b71b",
+            "f-ce5aeedca55b8a35",
+            "f-d8acda2e819c81aa",
+            "f-f2f8d1e770ba8514"
+          ]
+        }
+      ],
+      "link_ids": [],
+      "precedence": "spring.actuator.path_algorithm",
+      "absent": false
+    },
+    {
+      "fact_id": "f-3de9355c59a60f26",
+      "kind": "spring.actuator.endpoint",
+      "subject": {
+        "kind": "spring.actuator",
+        "key": "spring:.:health/readiness",
+        "display": "spring:.:health/readiness"
+      },
+      "value": null,
+      "unit": null,
+      "status": "unresolved",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": null,
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": "an input value is not known (the Spring Boot version is outside the defaults table, or a value is unresolved)",
+      "extractor": "spring-m2.2",
+      "inputs": [
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-91a829469f0caba7"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-f2f8d1e770ba8514"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-a2a503d278e6b71b"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-d8acda2e819c81aa"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-ce5aeedca55b8a35"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-19c7f63184e28416"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-5c39d135aa316d02"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-0fd1743d45ac04f0"
+        },
+        {
+          "role": "value_source",
+          "source": null,
+          "fact_id": "f-11a5d76bacab5da0"
+        }
+      ],
+      "exposure_sources": [
+        {
+          "via": "inherited",
+          "object": null,
+          "variables": [],
+          "from_fact_ids": [
+            "f-0fd1743d45ac04f0",
+            "f-11a5d76bacab5da0",
+            "f-19c7f63184e28416",
+            "f-5c39d135aa316d02",
+            "f-91a829469f0caba7",
+            "f-a2a503d278e6b71b",
+            "f-ce5aeedca55b8a35",
+            "f-d8acda2e819c81aa",
+            "f-f2f8d1e770ba8514"
+          ]
+        }
+      ],
+      "link_ids": [],
+      "precedence": "spring.actuator.path_algorithm",
+      "absent": false
+    },
+    {
+      "fact_id": "f-0fd1743d45ac04f0",
+      "kind": "spring.actuator.endpoint_access",
+      "subject": {
+        "kind": "spring.actuator",
+        "key": "spring:.:health",
+        "display": "spring:.:health"
+      },
+      "value": "unrestricted",
+      "unit": null,
+      "status": "default",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": null,
+      "default_ref": {
+        "framework": "spring-boot",
+        "version_range": "3.4.x",
+        "reference": {
+          "title": "Spring Boot v3.4.13 spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/endpoint/annotation/Endpoint.java:79",
+          "url": "https://github.com/spring-projects/spring-boot/blob/96f3fe7953b609b9be4ada70ee562d97d89092a1/spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/endpoint/annotation/Endpoint.java#L79",
+          "source_path": "v3.4.13:spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/endpoint/annotation/Endpoint.java"
+        },
+        "applied_version": "3.4.13",
+        "upstream": {
+          "repository": "spring-projects/spring-boot",
+          "tag": "v3.4.13",
+          "commit": "96f3fe7953b609b9be4ada70ee562d97d89092a1",
+          "path": "spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/endpoint/annotation/Endpoint.java",
+          "line": 79,
+          "anchor": "Access defaultAccess() default Access.UNRESTRICTED;",
+          "verified_at": [
+            "v3.4.0",
+            "v3.4.7",
+            "v3.4.13"
+          ]
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [
+        {
+          "role": "version_basis",
+          "source": null,
+          "fact_id": "f-61ab6505de02de62"
+        },
+        {
+          "role": "absence",
+          "source": {
+            "path": "src/main/resources/application.yml",
+            "line_start": 15,
+            "line_end": 15,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-d8acda2e819c81aa",
+      "kind": "spring.actuator.probe_groups",
+      "subject": {
+        "kind": "spring.actuator",
+        "key": "spring:.:health",
+        "display": "spring:.:health"
+      },
+      "value": null,
+      "unit": null,
+      "status": "unresolved",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": null,
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": "the probe groups exist only on a Kubernetes platform (KUBERNETES_SERVICE_HOST is set by the kubelet), and this module is not linked to a container in the repository",
+      "extractor": "spring-m2.2",
+      "inputs": [
+        {
+          "role": "version_basis",
+          "source": null,
+          "fact_id": "f-61ab6505de02de62"
+        },
+        {
+          "role": "absence",
+          "source": {
+            "path": "src/main/resources/application.yml",
+            "line_start": 15,
+            "line_end": 15,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-b3e6d14dcb5bf241",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.:management.endpoint.health.probes.add-additional-paths",
+        "display": "spring:.:management.endpoint.health.probes.add-additional-paths"
+      },
+      "value": false,
+      "unit": null,
+      "status": "default",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": null,
+      "default_ref": {
+        "framework": "spring-boot",
+        "version_range": "3.4.x",
+        "reference": {
+          "title": "Spring Boot v3.4.13 spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroupsPostProcessor.java:39",
+          "url": "https://github.com/spring-projects/spring-boot/blob/96f3fe7953b609b9be4ada70ee562d97d89092a1/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroupsPostProcessor.java#L39",
+          "source_path": "v3.4.13:spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroupsPostProcessor.java"
+        },
+        "applied_version": "3.4.13",
+        "upstream": {
+          "repository": "spring-projects/spring-boot",
+          "tag": "v3.4.13",
+          "commit": "96f3fe7953b609b9be4ada70ee562d97d89092a1",
+          "path": "spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroupsPostProcessor.java",
+          "line": 39,
+          "anchor": ".equalsIgnoreCase(environment.getProperty(\"management.endpoint.health.probes.add-additional-paths\"));",
+          "verified_at": [
+            "v3.4.0",
+            "v3.4.7",
+            "v3.4.13"
+          ]
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "src/main/resources/application.yml",
+            "line_start": 15,
+            "line_end": 15,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        },
+        {
+          "role": "version_basis",
+          "source": null,
+          "fact_id": "f-61ab6505de02de62"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-a2a503d278e6b71b",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.:management.endpoints.web.base-path",
+        "display": "spring:.:management.endpoints.web.base-path"
+      },
+      "value": "/actuator",
+      "unit": null,
+      "status": "default",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": null,
+      "default_ref": {
+        "framework": "spring-boot",
+        "version_range": "3.4.x",
+        "reference": {
+          "title": "Spring Boot v3.4.13 spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java:47",
+          "url": "https://github.com/spring-projects/spring-boot/blob/96f3fe7953b609b9be4ada70ee562d97d89092a1/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java#L47",
+          "source_path": "v3.4.13:spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java"
+        },
+        "applied_version": "3.4.13",
+        "upstream": {
+          "repository": "spring-projects/spring-boot",
+          "tag": "v3.4.13",
+          "commit": "96f3fe7953b609b9be4ada70ee562d97d89092a1",
+          "path": "spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java",
+          "line": 47,
+          "anchor": "private String basePath = \"/actuator\";",
+          "verified_at": [
+            "v3.4.0",
+            "v3.4.7",
+            "v3.4.13"
+          ]
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "src/main/resources/application.yml",
+            "line_start": 17,
+            "line_end": 17,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        },
+        {
+          "role": "version_basis",
+          "source": null,
+          "fact_id": "f-61ab6505de02de62"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-19c7f63184e28416",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.:management.endpoints.web.exposure.exclude",
+        "display": "spring:.:management.endpoints.web.exposure.exclude"
+      },
+      "value": [],
+      "unit": null,
+      "status": "default",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": null,
+      "default_ref": {
+        "framework": "spring-boot",
+        "version_range": "3.4.x",
+        "reference": {
+          "title": "Spring Boot v3.4.13 spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java:94",
+          "url": "https://github.com/spring-projects/spring-boot/blob/96f3fe7953b609b9be4ada70ee562d97d89092a1/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java#L94",
+          "source_path": "v3.4.13:spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java"
+        },
+        "applied_version": "3.4.13",
+        "upstream": {
+          "repository": "spring-projects/spring-boot",
+          "tag": "v3.4.13",
+          "commit": "96f3fe7953b609b9be4ada70ee562d97d89092a1",
+          "path": "spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java",
+          "line": 94,
+          "anchor": "private Set<String> exclude = new LinkedHashSet<>();",
+          "verified_at": [
+            "v3.4.0",
+            "v3.4.7",
+            "v3.4.13"
+          ]
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "src/main/resources/application.yml",
+            "line_start": 18,
+            "line_end": 18,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        },
+        {
+          "role": "version_basis",
+          "source": null,
+          "fact_id": "f-61ab6505de02de62"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-ce5aeedca55b8a35",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.:management.endpoints.web.exposure.include",
+        "display": "spring:.:management.endpoints.web.exposure.include"
+      },
+      "value": [
+        "health",
+        "info"
+      ],
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": {
+        "path": "src/main/resources/application.yml",
+        "line_start": 19,
+        "line_end": 19,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": "spring.packaged_application_file",
+      "absent": false
+    },
+    {
+      "fact_id": "f-5c39d135aa316d02",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.:management.endpoints.web.path-mapping.health",
+        "display": "spring:.:management.endpoints.web.path-mapping.health"
+      },
+      "value": null,
+      "unit": null,
+      "status": "default",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": null,
+      "default_ref": {
+        "framework": "spring-boot",
+        "version_range": "3.4.x",
+        "reference": {
+          "title": "Spring Boot v3.4.13 spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java:52",
+          "url": "https://github.com/spring-projects/spring-boot/blob/96f3fe7953b609b9be4ada70ee562d97d89092a1/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java#L52",
+          "source_path": "v3.4.13:spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java"
+        },
+        "applied_version": "3.4.13",
+        "upstream": {
+          "repository": "spring-projects/spring-boot",
+          "tag": "v3.4.13",
+          "commit": "96f3fe7953b609b9be4ada70ee562d97d89092a1",
+          "path": "spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java",
+          "line": 52,
+          "anchor": "private final Map<String, String> pathMapping = new LinkedHashMap<>();",
+          "verified_at": [
+            "v3.4.0",
+            "v3.4.7",
+            "v3.4.13"
+          ]
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "src/main/resources/application.yml",
+            "line_start": 17,
+            "line_end": 17,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        },
+        {
+          "role": "version_basis",
+          "source": null,
+          "fact_id": "f-61ab6505de02de62"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-b620994becc18759",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.:management.server.base-path",
+        "display": "spring:.:management.server.base-path"
+      },
+      "value": "",
+      "unit": null,
+      "status": "default",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": null,
+      "default_ref": {
+        "framework": "spring-boot",
+        "version_range": "3.4.x",
+        "reference": {
+          "title": "Spring Boot v3.4.13 spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java:55",
+          "url": "https://github.com/spring-projects/spring-boot/blob/96f3fe7953b609b9be4ada70ee562d97d89092a1/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java#L55",
+          "source_path": "v3.4.13:spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java"
+        },
+        "applied_version": "3.4.13",
+        "upstream": {
+          "repository": "spring-projects/spring-boot",
+          "tag": "v3.4.13",
+          "commit": "96f3fe7953b609b9be4ada70ee562d97d89092a1",
+          "path": "spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java",
+          "line": 55,
+          "anchor": "private String basePath = \"\";",
+          "verified_at": [
+            "v3.4.0",
+            "v3.4.7",
+            "v3.4.13"
+          ]
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "src/main/resources/application.yml",
+            "line_start": 15,
+            "line_end": 15,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        },
+        {
+          "role": "version_basis",
+          "source": null,
+          "fact_id": "f-61ab6505de02de62"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-f2f8d1e770ba8514",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.:management.server.port",
+        "display": "spring:.:management.server.port"
+      },
+      "value": null,
+      "unit": null,
+      "status": "default",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": null,
+      "default_ref": {
+        "framework": "spring-boot",
+        "version_range": "3.4.x",
+        "reference": {
+          "title": "Spring Boot v3.4.13 spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java:43",
+          "url": "https://github.com/spring-projects/spring-boot/blob/96f3fe7953b609b9be4ada70ee562d97d89092a1/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java#L43",
+          "source_path": "v3.4.13:spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java"
+        },
+        "applied_version": "3.4.13",
+        "upstream": {
+          "repository": "spring-projects/spring-boot",
+          "tag": "v3.4.13",
+          "commit": "96f3fe7953b609b9be4ada70ee562d97d89092a1",
+          "path": "spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementServerProperties.java",
+          "line": 43,
+          "anchor": "private Integer port;",
+          "verified_at": [
+            "v3.4.0",
+            "v3.4.7",
+            "v3.4.13"
+          ]
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "src/main/resources/application.yml",
+            "line_start": 15,
+            "line_end": 15,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        },
+        {
+          "role": "version_basis",
+          "source": null,
+          "fact_id": "f-61ab6505de02de62"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-c6282161c3269763",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.:server.compression.enabled",
+        "display": "spring:.:server.compression.enabled"
+      },
+      "value": true,
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": {
+        "path": "src/main/resources/application.yml",
+        "line_start": 13,
+        "line_end": 13,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": "spring.packaged_application_file",
+      "absent": false
+    },
+    {
+      "fact_id": "f-91a829469f0caba7",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.:server.port",
+        "display": "spring:.:server.port"
+      },
+      "value": 8080,
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": {
+        "path": "src/main/resources/application.yml",
+        "line_start": 8,
+        "line_end": 8,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": "spring.packaged_application_file",
+      "absent": false
+    },
+    {
+      "fact_id": "f-11a5d76bacab5da0",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.:server.servlet.context-path",
+        "display": "spring:.:server.servlet.context-path"
+      },
+      "value": "/returns",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": {
+        "path": "src/main/resources/application.yml",
+        "line_start": 10,
+        "line_end": 10,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": "spring.packaged_application_file",
+      "absent": false
+    },
+    {
+      "fact_id": "f-9cd9f173cb696931",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.:server.shutdown",
+        "display": "spring:.:server.shutdown"
+      },
+      "value": "graceful",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": {
+        "path": "src/main/resources/application.yml",
+        "line_start": 11,
+        "line_end": 11,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": "spring.packaged_application_file",
+      "absent": false
+    },
+    {
+      "fact_id": "f-46c9f4fa5b680b4b",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.:spring.application.name",
+        "display": "spring:.:spring.application.name"
+      },
+      "value": "returns-api",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": {
+        "path": "src/main/resources/application.yml",
+        "line_start": 3,
+        "line_end": 3,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": "spring.packaged_application_file",
+      "absent": false
+    },
+    {
+      "fact_id": "f-6e3ad73efec77553",
+      "kind": "spring.property",
+      "subject": {
+        "kind": "spring",
+        "key": "spring:.:spring.lifecycle.timeout-per-shutdown-phase",
+        "display": "spring:.:spring.lifecycle.timeout-per-shutdown-phase"
+      },
+      "value": 30,
+      "unit": "s",
+      "status": "default",
+      "override_exposure": "env_possible",
+      "scope": {
+        "profile": "default"
+      },
+      "source": null,
+      "default_ref": {
+        "framework": "spring-boot",
+        "version_range": "3.4.x",
+        "reference": {
+          "title": "Spring Boot v3.4.13 spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/context/LifecycleProperties.java:36",
+          "url": "https://github.com/spring-projects/spring-boot/blob/96f3fe7953b609b9be4ada70ee562d97d89092a1/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/context/LifecycleProperties.java#L36",
+          "source_path": "v3.4.13:spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/context/LifecycleProperties.java"
+        },
+        "applied_version": "3.4.13",
+        "upstream": {
+          "repository": "spring-projects/spring-boot",
+          "tag": "v3.4.13",
+          "commit": "96f3fe7953b609b9be4ada70ee562d97d89092a1",
+          "path": "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/context/LifecycleProperties.java",
+          "line": 36,
+          "anchor": "private Duration timeoutPerShutdownPhase = Duration.ofSeconds(30);",
+          "verified_at": [
+            "v3.4.0",
+            "v3.4.7",
+            "v3.4.13"
+          ]
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [
+        {
+          "role": "absence",
+          "source": {
+            "path": "src/main/resources/application.yml",
+            "line_start": 1,
+            "line_end": 1,
+            "column": null,
+            "excerpt": null
+          },
+          "fact_id": null
+        },
+        {
+          "role": "version_basis",
+          "source": null,
+          "fact_id": "f-61ab6505de02de62"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-61ac729ed1d4ec12",
+      "kind": "stack.java.version",
+      "subject": {
+        "kind": "stack.component",
+        "key": "java:pom.xml:20:maven property java.version",
+        "display": "java"
+      },
+      "value": "21",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {
+        "how": "maven property java.version"
+      },
+      "source": {
+        "path": "pom.xml",
+        "line_start": 20,
+        "line_end": 20,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "stack-detect-m1.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-06e7ced257afdb47",
+      "kind": "stack.spring-boot.version",
+      "subject": {
+        "kind": "stack.component",
+        "key": "spring-boot:pom.xml:10:maven parent spring-boot-starter-parent",
+        "display": "spring-boot"
+      },
+      "value": "3.4.13",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {
+        "how": "maven parent spring-boot-starter-parent"
+      },
+      "source": {
+        "path": "pom.xml",
+        "line_start": 10,
+        "line_end": 10,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "stack-detect-m1.1",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-2454f171cb8d3adb",
+      "kind": "stack.version",
+      "subject": {
+        "kind": "stack",
+        "key": "component:java",
+        "display": "component:java"
+      },
+      "value": "21",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "pom.xml",
+        "line_start": 20,
+        "line_end": 20,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-61ab6505de02de62",
+      "kind": "stack.version",
+      "subject": {
+        "kind": "stack",
+        "key": "component:spring-boot",
+        "display": "component:spring-boot"
+      },
+      "value": "3.4.13",
+      "unit": null,
+      "status": "declared",
+      "override_exposure": "none",
+      "scope": {},
+      "source": {
+        "path": "pom.xml",
+        "line_start": 10,
+        "line_end": 10,
+        "column": null,
+        "excerpt": null
+      },
+      "default_ref": null,
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    },
+    {
+      "fact_id": "f-6a1488edb5d26191",
+      "kind": "stack.version",
+      "subject": {
+        "kind": "stack",
+        "key": "component:spring-framework",
+        "display": "component:spring-framework"
+      },
+      "value": "6.2.15",
+      "unit": null,
+      "status": "default",
+      "override_exposure": "none",
+      "scope": {},
+      "source": null,
+      "default_ref": {
+        "framework": "spring-boot",
+        "version_range": "3.4.x",
+        "reference": {
+          "title": "Spring Boot v3.4.13 gradle.properties:22",
+          "url": "https://github.com/spring-projects/spring-boot/blob/96f3fe7953b609b9be4ada70ee562d97d89092a1/gradle.properties#L22",
+          "source_path": "v3.4.13:gradle.properties"
+        },
+        "applied_version": "3.4.13",
+        "upstream": {
+          "repository": "spring-projects/spring-boot",
+          "tag": "v3.4.13",
+          "commit": "96f3fe7953b609b9be4ada70ee562d97d89092a1",
+          "path": "gradle.properties",
+          "line": 22,
+          "anchor": "springFrameworkVersion=6.2.15",
+          "verified_at": [
+            "v3.4.13"
+          ]
+        }
+      },
+      "overridden_by": null,
+      "unresolved_reason": null,
+      "extractor": "spring-m2.2",
+      "inputs": [
+        {
+          "role": "version_basis",
+          "source": null,
+          "fact_id": "f-61ab6505de02de62"
+        }
+      ],
+      "exposure_sources": [],
+      "link_ids": [],
+      "precedence": null,
+      "absent": false
+    }
+  ],
+  "summary": {
+    "by_verdict": {
+      "VIOLATION": 0,
+      "CONDITIONAL": 0,
+      "UNKNOWN": 0,
+      "SATISFIED": 0
+    },
+    "by_severity": {
+      "info": 0,
+      "low": 0,
+      "medium": 0,
+      "high": 0,
+      "critical": 0
+    },
+    "blocking": 0,
+    "new": 0,
+    "suppressed": 0,
+    "rules_evaluated": 0,
+    "rules_not_applicable": 0,
+    "assessment_limits": {
+      "linkages_declared": 0,
+      "linkages_inferred": 0,
+      "linkages_unresolved": 1,
+      "findings_capped_by_linkage": 0,
+      "findings_with_override_assumption": 0,
+      "findings_conditional_on_external_config": 0,
+      "findings_conditional_on_untested_version": 0,
+      "results_unknown_unsupported_config": 0,
+      "results_unknown_unresolved_value": 0,
+      "rules_not_assessable": 0
+    }
+  },
+  "advisory": {
+    "enabled": false,
+    "items": []
+  }
+}

@@ -1,0 +1,47 @@
+[
+{"repo": "pb-13",
+ "verdict": "ALIGNED",
+ "probes": [
+  {"kind": "readiness", "port": 8080, "path": "/actuator/health", "expected_status": "200"},
+  {"kind": "liveness", "port": 8080, "path": "/actuator/health", "expected_status": "200"}],
+ "confidence": "high",
+ "reason": "k8s/deployment.yaml lines 30-43 probe /actuator/health on 8080, which matches server.port 8080 in application.yml line 6 with no separate management port. The health endpoint is exposed (application.yml line 13) and probes.enabled: false (line 17) only removes the liveness/readiness groups, which these probes do not use. The root health endpoint returns 200 when status is UP."},
+{"repo": "pb-14",
+ "verdict": "MISALIGNED",
+ "probes": [
+  {"kind": "readiness", "port": 8080, "path": "/actuator/health/readiness", "expected_status": "404"},
+  {"kind": "liveness", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "404"}],
+ "confidence": "high",
+ "reason": "application.yml line 17 sets management.endpoint.health.probes.enabled: false, and ProbesCondition in AvailabilityProbesAutoConfiguration returns noMatch when that property is 'false' before it checks for Kubernetes, so the liveness and readiness health groups are never created. management.health.livenessstate/readinessstate.enabled (lines 19-23) only register contributors named livenessState and readinessState, so /actuator/health/liveness and /actuator/health/readiness (deployment.yaml lines 32 and 39) match neither a group nor a component and return 404."},
+{"repo": "pb-15",
+ "verdict": "ALIGNED",
+ "probes": [
+  {"kind": "startup", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "200"},
+  {"kind": "readiness", "port": 8080, "path": "/actuator/health/readiness", "expected_status": "200"},
+  {"kind": "liveness", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "200"}],
+ "confidence": "medium",
+ "reason": "application.yml sets no probes property and no cloud-platform, so ProbesCondition enables probes when CloudPlatform.KUBERNETES detects KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT (CloudPlatform.java lines 104-127). enableServiceLinks: false (deployment.yaml line 17) does not remove those variables, because the kubelet always injects the master 'kubernetes' service variables, so the liveness and readiness groups exist on port 8080 and health is exposed by default. Confidence is medium because the result depends on Kubernetes auto-detection and not on explicit configuration."},
+{"repo": "pb-16",
+ "verdict": "MISALIGNED",
+ "probes": [
+  {"kind": "readiness", "port": 8080, "path": "/actuator/health", "expected_status": "200"},
+  {"kind": "liveness", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "404"}],
+ "confidence": "high",
+ "reason": "application.yml line 5 sets spring.main.cloud-platform: none, so CloudPlatform.getActive returns NONE and ProbesCondition (Spring Boot 3.5.16 AvailabilityProbesAutoConfiguration) returns noMatch, since probes.enabled is not set either. With no liveness group, the liveness probe at /actuator/health/liveness (deployment.yaml line 39) returns 404. The readiness probe at /actuator/health on the named port http (8080) returns 200."},
+{"repo": "pb-17",
+ "verdict": "ALIGNED",
+ "probes": [
+  {"kind": "startup", "port": 9090, "path": "/actuator/health/liveness", "expected_status": "200"},
+  {"kind": "readiness", "port": 8080, "path": "/readyz", "expected_status": "200"},
+  {"kind": "liveness", "port": 8080, "path": "/livez", "expected_status": "200"}],
+ "confidence": "high",
+ "reason": "Probes are auto-enabled on Kubernetes (Spring Boot 3.2.12, no probes.enabled set), and management.server.port 9090 (application.yml line 11) serves /actuator/health/liveness for the startup probe on the named port management (deployment.yaml lines 24-25, 32-35). add-additional-paths: true (line 19) maps /livez and /readyz to WebServerNamespace.SERVER (AvailabilityProbesHealthEndpointGroups.java lines 61-73), which is the main port 8080 that the readiness and liveness probes target as http."},
+{"repo": "pb-18",
+ "verdict": "NOT_DETERMINABLE",
+ "probes": [
+  {"kind": "readiness", "port": 8081, "path": "/actuator/health/readiness", "expected_status": "other"},
+  {"kind": "liveness", "port": 8081, "path": "/actuator/health/liveness", "expected_status": "other"}],
+ "deciding_input": "The contents of ConfigMap 'app-env' (deployment.yaml lines 21-23), which is not in the repository; in particular whether it sets MANAGEMENT_SERVER_PORT=8081 (and does not set MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED=false or SPRING_MAIN_CLOUD_PLATFORM to something other than kubernetes).",
+ "confidence": "high",
+ "reason": "Both probes target port 8081 (deployment.yaml lines 38 and 45), but application.yml sets no management.server.port, so from repository config alone Actuator listens only on server.port 8080 and port 8081 would refuse connections. The container loads all variables from the external ConfigMap app-env through envFrom, and that ConfigMap can set MANAGEMENT_SERVER_PORT=8081, which would make both probes return 200 because the probe groups are auto-enabled on Kubernetes. Whether the probes reach Actuator therefore depends on that ConfigMap."}
+]

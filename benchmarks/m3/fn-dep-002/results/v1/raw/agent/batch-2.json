@@ -1,0 +1,52 @@
+[
+  {"repo": "pb-07",
+   "verdict": "MISALIGNED",
+   "probes": [
+     {"kind": "readiness", "port": 8080, "path": "/actuator/health/readiness", "expected_status": "404"},
+     {"kind": "liveness", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "404"}
+   ],
+   "confidence": "high",
+   "reason": "k8s/deployment.yaml lines 21-23 set SPRING_PROFILES_ACTIVE=k8s, which activates application-k8s.yml where line 4 sets management.endpoints.web.base-path=/internal. Health groups are therefore served at /internal/health/readiness and /internal/health/liveness on 8080 (probes auto-enabled because Kubernetes injects KUBERNETES_SERVICE_HOST/PORT, per CloudPlatform and AvailabilityProbesAutoConfiguration.ProbesCondition). The probes at deployment.yaml lines 35 and 42 still request /actuator/health/*, which is not mapped and returns 404."},
+  {"repo": "pb-08",
+   "verdict": "ALIGNED",
+   "probes": [
+     {"kind": "startup", "port": 8080, "path": "/healthz/liveness", "expected_status": "200"},
+     {"kind": "readiness", "port": 8080, "path": "/healthz/readiness", "expected_status": "200"},
+     {"kind": "liveness", "port": 8080, "path": "/healthz/liveness", "expected_status": "200"}
+   ],
+   "confidence": "high",
+   "reason": "application.yml lines 12-14 set base-path / (WebEndpointProperties.cleanBasePath strips it to empty) and map health to healthz, so health lives at /healthz on server port 8080; no context path is set. The 3.5.16 WebEndpointAutoConfiguration root-path assertion only fails if an endpoint maps to '/', and health maps to /healthz. Liveness and readiness groups are auto-enabled on Kubernetes (ProbesCondition), so the startup, readiness and liveness probes at deployment.yaml lines 30-47 hit /healthz/liveness and /healthz/readiness and get 200."},
+  {"repo": "pb-09",
+   "verdict": "MISALIGNED",
+   "probes": [
+     {"kind": "readiness", "port": 8080, "path": "/mgmt/actuator/health/readiness", "expected_status": "404"},
+     {"kind": "liveness", "port": 8080, "path": "/mgmt/actuator/health/liveness", "expected_status": "404"}
+   ],
+   "confidence": "high",
+   "reason": "application.properties lines 2 and 6 set server.port and management.server.port both to 8080, so ManagementPortType.get returns SAME and no separate management context is created. ManagementServerProperties documents management.server.base-path as 'Requires a custom management.server.port', so /mgmt (line 7) is ignored and health is served at /actuator/health/readiness and /actuator/health/liveness. The probes at deployment.yaml lines 32 and 39 request /mgmt/actuator/health/*, which returns 404."},
+  {"repo": "pb-10",
+   "verdict": "ALIGNED",
+   "probes": [
+     {"kind": "readiness", "port": 8081, "path": "/actuator/health/readiness", "expected_status": "200"},
+     {"kind": "liveness", "port": 8081, "path": "/actuator/health/liveness", "expected_status": "200"}
+   ],
+   "confidence": "high",
+   "reason": "application.yml lines 12-13 put the management server on 8081, which runs as a separate child context, so server.servlet.context-path=/orders (line 8) does not apply to it and management.server.base-path is empty. Probes are explicitly enabled (lines 19-21), so the readiness and liveness groups are served at /actuator/health/readiness and /actuator/health/liveness on 8081, matching deployment.yaml lines 33-42. service.yaml only exposes 8080 and does not affect kubelet probes."},
+  {"repo": "pb-11",
+   "verdict": "MISALIGNED",
+   "probes": [
+     {"kind": "startup", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "404"},
+     {"kind": "readiness", "port": 8080, "path": "/actuator/health/readiness", "expected_status": "404"},
+     {"kind": "liveness", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "404"}
+   ],
+   "confidence": "high",
+   "reason": "application.yml line 10 sets server.servlet.context-path=/returns and no management.server.port, so Actuator shares the main servlet context and health is at /returns/actuator/health/{liveness,readiness}. No management.endpoint.health.group.*.additional-path is configured to expose the groups at the root. The startup, readiness and liveness probes at deployment.yaml lines 32, 38 and 44 request /actuator/health/* without the context path and get 404, so the startup probe never passes."},
+  {"repo": "pb-12",
+   "verdict": "MISALIGNED",
+   "probes": [
+     {"kind": "readiness", "port": 8081, "path": "/refunds/actuator/health/readiness", "expected_status": "404"},
+     {"kind": "liveness", "port": 8081, "path": "/refunds/actuator/health/liveness", "expected_status": "404"}
+   ],
+   "confidence": "high",
+   "reason": "application.yml lines 12-13 move the management server to 8081, a separate child context whose path comes from management.server.base-path (empty), not from server.servlet.context-path=/refunds (line 8). Health groups (auto-enabled on Kubernetes) are therefore at /actuator/health/readiness and /actuator/health/liveness on 8081. The probes at deployment.yaml lines 34 and 41 add the /refunds prefix on the management port and get 404."}
+]

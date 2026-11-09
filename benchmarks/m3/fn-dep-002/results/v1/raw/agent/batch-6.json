@@ -1,0 +1,56 @@
+[
+  {"repo": "pb-31",
+   "verdict": "ALIGNED",
+   "probes": [
+     {"kind": "startup", "port": 8085, "path": "/actuator/health/liveness", "expected_status": "200"},
+     {"kind": "readiness", "port": 8085, "path": "/actuator/health/readiness", "expected_status": "200"},
+     {"kind": "liveness", "port": 8085, "path": "/actuator/health/liveness", "expected_status": "200"}
+   ],
+   "confidence": "high",
+   "reason": "k8s/deployment.yaml defines env HTTP_LISTEN_PORT=8085 and passes args --server.port=$(HTTP_LISTEN_PORT); Kubernetes expands $(VAR) in args, and the args are appended to the Dockerfile ENTRYPOINT, so the command-line server.port=8085 overrides server.port: 8080 in application.yml. No management.server.port is set, so actuator runs on 8085, which is containerPort 'http'. Spring Boot 3.4.13 enables the liveness/readiness groups when CloudPlatform detects KUBERNETES_SERVICE_HOST/PORT (AvailabilityProbesAutoConfiguration ProbesCondition), so all three probes get 200."},
+  {"repo": "pb-32",
+   "verdict": "NOT_DETERMINABLE",
+   "probes": [
+     {"kind": "startup", "port": 8081, "path": "/actuator/health/liveness", "expected_status": "other"},
+     {"kind": "readiness", "port": 8081, "path": "/actuator/health/readiness", "expected_status": "other"},
+     {"kind": "liveness", "port": 8081, "path": "/actuator/health/liveness", "expected_status": "other"}
+   ],
+   "deciding_input": "Contents of ConfigMap contract-store-config (not in the repository), mounted at /app/config; with WORKDIR /app this is Spring Boot's file:./config/ location, so an application.yml/properties key there can override server.port or management.server.port.",
+   "confidence": "high",
+   "reason": "application.yml sets management.server.port: 8081 and all probes target named port 'management' (8081), which would return 200 on Boot 3.5.16 under Kubernetes. However k8s/deployment.yaml mounts ConfigMap contract-store-config at /app/config, and the Dockerfile sets WORKDIR /app, so files from that ConfigMap are loaded with higher precedence than the classpath application.yml. That ConfigMap is not in k8s/, so the effective management port cannot be determined from the repository."},
+  {"repo": "pb-33",
+   "verdict": "MISALIGNED",
+   "probes": [
+     {"kind": "startup", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "404"},
+     {"kind": "readiness", "port": 8081, "path": "/actuator/health/readiness", "expected_status": "200"},
+     {"kind": "liveness", "port": 8081, "path": "/actuator/health/liveness", "expected_status": "200"}
+   ],
+   "confidence": "high",
+   "reason": "application.yml sets server.port 8080 and management.server.port 8081, so actuator endpoints live only on 8081. k8s/deployment.yaml points the startupProbe at port 'http' (8080) /actuator/health/liveness, which the main server answers with 404, so the startup probe never passes and the container is restarted after 30 failures. Readiness and liveness on 'management' (8081) would return 200 on Boot 3.2.12 with Kubernetes detected."},
+  {"repo": "pb-34",
+   "verdict": "ALIGNED",
+   "probes": [
+     {"kind": "readiness", "port": 8081, "path": "/actuator/health/readiness", "expected_status": "200"},
+     {"kind": "liveness", "port": 8081, "path": "/actuator/health/liveness", "expected_status": "200"}
+   ],
+   "confidence": "high",
+   "reason": "The second document in application.yml is activated by spring.config.activate.on-cloud-platform: kubernetes and sets management.server.port: 8081. In a pod, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT are injected, so CloudPlatform.KUBERNETES is active, that document applies, and the probe groups are auto-enabled (Boot 3.3.13). Both probes in k8s/deployment.yaml target port 8081 with the actuator readiness/liveness paths, so they return 200; there is no startupProbe."},
+  {"repo": "pb-35",
+   "verdict": "ALIGNED",
+   "probes": [
+     {"kind": "readiness", "port": 9091, "path": "/actuator/health/readiness", "expected_status": "200"},
+     {"kind": "liveness", "port": 9091, "path": "/actuator/health/liveness", "expected_status": "200"}
+   ],
+   "confidence": "high",
+   "reason": "k8s/configmap.yaml (doc-renderer-config) provides application.yml with management.server.port: 9091, mounted at /app/config; with WORKDIR /app this is file:./config/application.yml, which overrides the classpath value 8081. The probes in k8s/deployment.yaml target named port 'management' = containerPort 9091 with /actuator/health/readiness and /liveness, which Boot 3.4.13 serves with 200 on Kubernetes."},
+  {"repo": "pb-36",
+   "verdict": "NOT_DETERMINABLE",
+   "probes": [
+     {"kind": "startup", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "other"},
+     {"kind": "readiness", "port": 8080, "path": "/actuator/health/readiness", "expected_status": "other"},
+     {"kind": "liveness", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "other"}
+   ],
+   "deciding_input": "Whether ConfigMap lead-scoring-overrides exists in the cluster and what keys it holds; via envFrom it can inject SERVER_PORT, MANAGEMENT_SERVER_PORT, MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED or similar variables that move or disable the actuator endpoints.",
+   "confidence": "high",
+   "reason": "From the repository alone, application.yml sets server.port 8080 with no management port, and all three probes target port 'http' (8080) on the actuator liveness/readiness paths, which would return 200 on Boot 3.5.16 in Kubernetes. But k8s/deployment.yaml loads envFrom configMapRef lead-scoring-overrides (optional: true), which is not in the repository; environment variables take precedence over application.yml, so its contents decide the effective ports."}
+]

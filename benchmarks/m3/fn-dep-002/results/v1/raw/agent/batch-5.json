@@ -1,0 +1,54 @@
+[
+  {"repo": "pb-25",
+   "verdict": "MISALIGNED",
+   "probes": [
+     {"kind": "readiness", "port": 9090, "path": "/actuator/health/readiness", "expected_status": "connection_refused"},
+     {"kind": "liveness", "port": 9090, "path": "/actuator/health/liveness", "expected_status": "connection_refused"}
+   ],
+   "confidence": "high",
+   "reason": "application.yml lines 9-11 set management.server.port to 8081, and nothing in the deployment overrides it. k8s/deployment.yaml lines 24-25 map the named port 'management' to containerPort 9090, and both probes (lines 32-45) target that named port. Nothing listens on 9090, so both probes get connection refused."},
+  {"repo": "pb-26",
+   "verdict": "ALIGNED",
+   "probes": [
+     {"kind": "startup", "port": 8081, "path": "/actuator/health/liveness", "expected_status": "200"},
+     {"kind": "readiness", "port": 8081, "path": "/actuator/health/readiness", "expected_status": "200"},
+     {"kind": "liveness", "port": 8081, "path": "/actuator/health/liveness", "expected_status": "200"}
+   ],
+   "confidence": "high",
+   "reason": "application.yml sets management.server.port 8081 (lines 9-11) and explicitly enables probes (lines 16-19); the deployment's 'management' port is containerPort 8081 (lines 24-25). The custom readiness group (lines 20-22) includes readinessState and diskSpace, both of which report UP on a healthy pod, and the liveness group is still auto-registered. All three probes reach existing groups on the listening port and return 200."},
+  {"repo": "pb-27",
+   "verdict": "NOT_DETERMINABLE",
+   "probes": [
+     {"kind": "startup", "port": 8081, "path": "/actuator/health/liveness", "expected_status": "other"},
+     {"kind": "readiness", "port": 8081, "path": "/actuator/health/readiness", "expected_status": "other"},
+     {"kind": "liveness", "port": 8081, "path": "/actuator/health/liveness", "expected_status": "other"}
+   ],
+   "deciding_input": "The value of key 'profile' in ConfigMap 'release-channel', which is not in k8s/. 'blue' gives management port 8081, so probes return 200. 'green' gives 8082, so the probes on 8081 are refused. Any other value, or no ConfigMap, leaves management on the main port 8080 or blocks container start, so the probes fail.",
+   "confidence": "high",
+   "reason": "k8s/deployment.yaml lines 21-26 set SPRING_PROFILES_ACTIVE from configMapKeyRef release-channel/profile, and no such ConfigMap exists in the repo. application.yml sets no management.server.port. application-blue.yml sets it to 8081 and application-green.yml sets it to 8082, while all probes hit the 'management' port 8081 (lines 30-31, 38-55). The outcome depends entirely on which profile the external ConfigMap selects."},
+  {"repo": "pb-28",
+   "verdict": "ALIGNED",
+   "probes": [
+     {"kind": "readiness", "port": 8081, "path": "/actuator/health/readiness", "expected_status": "200"},
+     {"kind": "liveness", "port": 8081, "path": "/actuator/health/liveness", "expected_status": "200"}
+   ],
+   "confidence": "high",
+   "reason": "application-prod.yml sets management.server.port 9090, but k8s/deployment.yaml lines 24-25 set the OS environment variable MANAGEMENT_SERVER_PORT=8081. OS environment variables take precedence over profile-specific application-prod.yml in Spring Boot's property ordering, so management listens on 8081, where the probes point (lines 37-50). On Kubernetes (Boot 3.5.16 detects KUBERNETES_SERVICE_HOST/PORT), the liveness and readiness groups are auto-enabled and return 200."},
+  {"repo": "pb-29",
+   "verdict": "ALIGNED",
+   "probes": [
+     {"kind": "startup", "port": 8081, "path": "/ops/health/liveness", "expected_status": "200"},
+     {"kind": "readiness", "port": 8081, "path": "/ops/health/readiness", "expected_status": "200"},
+     {"kind": "liveness", "port": 8081, "path": "/ops/health/liveness", "expected_status": "200"}
+   ],
+   "confidence": "high",
+   "reason": "k8s/configmap.yaml defines both referenced ConfigMaps. app-settings supplies MANAGEMENT_ENDPOINTS_WEB_BASEPATH=/ops (line 6), which binds to management.endpoints.web.base-path through relaxed env-var binding. app-ports supplies management_port 8081 (line 15), injected as MANAGEMENT_SERVER_PORT (deployment lines 25-29). Probes hit /ops/health/{liveness,readiness} on 8081 (lines 41-58), and the probe groups are auto-enabled on Kubernetes in Boot 3.2.12, so all return 200."},
+  {"repo": "pb-30",
+   "verdict": "MISALIGNED",
+   "probes": [
+     {"kind": "readiness", "port": 8081, "path": "/actuator/health/readiness", "expected_status": "connection_refused"},
+     {"kind": "liveness", "port": 8081, "path": "/actuator/health/liveness", "expected_status": "connection_refused"}
+   ],
+   "confidence": "high",
+   "reason": "The Dockerfile line 5 uses shell-form ENTRYPOINT ('java $JAVA_OPTS -jar /app/app.jar'), which runs via /bin/sh -c and ignores CMD and any appended arguments. So the Kubernetes args '--server.port=8081' (deployment lines 21-22) never reach java. The app listens on server.port 8080 from application.yml line 6, with no separate management port, while the 'http' port and both probes target 8081 (lines 24-45). Both probes are refused."}
+]

@@ -1,0 +1,268 @@
+{
+  "scan_id": "3e7ed51d-28bb-4dbd-8308-7e178d7ae619",
+  "timestamp": "2026-11-09T05:58:58.113018+00:00",
+  "repo": "pb-34",
+  "branch": "",
+  "commit_sha": "",
+  "trigger": "local",
+  "duration_ms": 17,
+  "readiness_pct": 80.0,
+  "service_name": "pb-34",
+  "scan_time": "2026-11-09T05:58:58.113018+00:00",
+  "summary": {
+    "total": 10,
+    "passing": 8,
+    "failing_red": 2,
+    "failing_yellow": 0,
+    "exceptions": 0,
+    "skipped": 0,
+    "readiness_pct": 80.0
+  },
+  "totals": {
+    "total": 10,
+    "passing": 8,
+    "failing": 2,
+    "p0": 2
+  },
+  "results": [
+    {
+      "checkpoint_id": "pa-01",
+      "title": "Kubernetes probes target an Actuator health group path",
+      "status": "pass",
+      "severity": "red",
+      "type": "code",
+      "confidence": "verified",
+      "evidence": [
+        "k8s/deployment.yaml:34",
+        "k8s/deployment.yaml:41"
+      ],
+      "evidence_count": 2,
+      "duration_ms": 6,
+      "message": "Passing",
+      "fix_hint": "",
+      "doc_link": "",
+      "guideline": "",
+      "guideline_section": ""
+    },
+    {
+      "checkpoint_id": "pa-02",
+      "title": "Management server port is not moved (properties, env or args)",
+      "status": "pass",
+      "severity": "red",
+      "type": "code",
+      "confidence": "verified",
+      "evidence": [],
+      "evidence_count": 0,
+      "duration_ms": 1,
+      "message": "Passing",
+      "fix_hint": "",
+      "doc_link": "",
+      "guideline": "",
+      "guideline_section": ""
+    },
+    {
+      "checkpoint_id": "pa-03",
+      "title": "Management server port is not moved (nested YAML)",
+      "status": "fail",
+      "severity": "red",
+      "type": "code",
+      "confidence": "verified",
+      "evidence": [
+        "src/main/resources/application.yml:21"
+      ],
+      "evidence_count": 1,
+      "duration_ms": 0,
+      "message": "Failing",
+      "fix_hint": "",
+      "doc_link": "",
+      "guideline": "",
+      "guideline_section": ""
+    },
+    {
+      "checkpoint_id": "pa-04",
+      "title": "Server port is not moved away from 8080",
+      "status": "fail",
+      "severity": "red",
+      "type": "code",
+      "confidence": "verified",
+      "evidence": [
+        "src/main/resources/application.yml:6"
+      ],
+      "evidence_count": 1,
+      "duration_ms": 1,
+      "message": "Failing",
+      "fix_hint": "",
+      "doc_link": "",
+      "guideline": "",
+      "guideline_section": ""
+    },
+    {
+      "checkpoint_id": "pa-05",
+      "title": "Actuator and management base paths are not changed",
+      "status": "pass",
+      "severity": "red",
+      "type": "code",
+      "confidence": "verified",
+      "evidence": [],
+      "evidence_count": 0,
+      "duration_ms": 1,
+      "message": "Passing",
+      "fix_hint": "",
+      "doc_link": "",
+      "guideline": "",
+      "guideline_section": ""
+    },
+    {
+      "checkpoint_id": "pa-06",
+      "title": "Servlet context path is not set",
+      "status": "pass",
+      "severity": "red",
+      "type": "code",
+      "confidence": "verified",
+      "evidence": [],
+      "evidence_count": 0,
+      "duration_ms": 0,
+      "message": "Passing",
+      "fix_hint": "",
+      "doc_link": "",
+      "guideline": "",
+      "guideline_section": ""
+    },
+    {
+      "checkpoint_id": "pa-07",
+      "title": "Health endpoint path mapping is not changed",
+      "status": "pass",
+      "severity": "red",
+      "type": "code",
+      "confidence": "verified",
+      "evidence": [],
+      "evidence_count": 0,
+      "duration_ms": 0,
+      "message": "Passing",
+      "fix_hint": "",
+      "doc_link": "",
+      "guideline": "",
+      "guideline_section": ""
+    },
+    {
+      "checkpoint_id": "pa-08",
+      "title": "Health probe groups are not disabled",
+      "status": "pass",
+      "severity": "red",
+      "type": "code",
+      "confidence": "verified",
+      "evidence": [],
+      "evidence_count": 0,
+      "duration_ms": 1,
+      "message": "Passing",
+      "fix_hint": "",
+      "doc_link": "",
+      "guideline": "",
+      "guideline_section": ""
+    },
+    {
+      "checkpoint_id": "pa-09",
+      "title": "Health endpoint is not excluded from web exposure or made inaccessible",
+      "status": "pass",
+      "severity": "red",
+      "type": "code",
+      "confidence": "verified",
+      "evidence": [],
+      "evidence_count": 0,
+      "duration_ms": 1,
+      "message": "Passing",
+      "fix_hint": "",
+      "doc_link": "",
+      "guideline": "",
+      "guideline_section": ""
+    },
+    {
+      "checkpoint_id": "pa-10",
+      "title": "Deployment takes no configuration from ConfigMaps or Secrets",
+      "status": "pass",
+      "severity": "yellow",
+      "type": "code",
+      "confidence": "verified",
+      "evidence": [],
+      "evidence_count": 0,
+      "duration_ms": 0,
+      "message": "Passing",
+      "fix_hint": "",
+      "doc_link": "",
+      "guideline": "",
+      "guideline_section": ""
+    }
+  ],
+  "checkpoint_results": [
+    {
+      "checkpoint_id": "pa-01",
+      "status": "pass",
+      "severity": "red",
+      "evidence_count": 2,
+      "duration_ms": 6
+    },
+    {
+      "checkpoint_id": "pa-02",
+      "status": "pass",
+      "severity": "red",
+      "evidence_count": 0,
+      "duration_ms": 1
+    },
+    {
+      "checkpoint_id": "pa-03",
+      "status": "fail",
+      "severity": "red",
+      "evidence_count": 1,
+      "duration_ms": 0
+    },
+    {
+      "checkpoint_id": "pa-04",
+      "status": "fail",
+      "severity": "red",
+      "evidence_count": 1,
+      "duration_ms": 1
+    },
+    {
+      "checkpoint_id": "pa-05",
+      "status": "pass",
+      "severity": "red",
+      "evidence_count": 0,
+      "duration_ms": 1
+    },
+    {
+      "checkpoint_id": "pa-06",
+      "status": "pass",
+      "severity": "red",
+      "evidence_count": 0,
+      "duration_ms": 0
+    },
+    {
+      "checkpoint_id": "pa-07",
+      "status": "pass",
+      "severity": "red",
+      "evidence_count": 0,
+      "duration_ms": 0
+    },
+    {
+      "checkpoint_id": "pa-08",
+      "status": "pass",
+      "severity": "red",
+      "evidence_count": 0,
+      "duration_ms": 1
+    },
+    {
+      "checkpoint_id": "pa-09",
+      "status": "pass",
+      "severity": "red",
+      "evidence_count": 0,
+      "duration_ms": 1
+    },
+    {
+      "checkpoint_id": "pa-10",
+      "status": "pass",
+      "severity": "yellow",
+      "evidence_count": 0,
+      "duration_ms": 0
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+[
+  {"repo": "pb-19",
+   "verdict": "MISALIGNED",
+   "probes": [
+     {"kind": "startup", "port": 9090, "path": "/actuator/health/liveness", "expected_status": "200"},
+     {"kind": "readiness", "port": 8080, "path": "/readyz", "expected_status": "200"},
+     {"kind": "liveness", "port": 9090, "path": "/livez", "expected_status": "404"}
+   ],
+   "confidence": "high",
+   "reason": "application.yml sets management.server.port 9090 (lines 10-11) with probes.enabled and add-additional-paths true (lines 18-20) on Boot 3.4.13. AvailabilityProbesHealthEndpointGroups registers /livez and /readyz with WebServerNamespace.SERVER, so they exist only on the main port 8080. k8s/deployment.yaml lines 44-47 send the liveness probe to /livez on the management port 9090, where that path is not mapped and returns 404, so the pod gets restarted; startup (/actuator/health/liveness on 9090) and readiness (/readyz on 8080) are fine."},
+  {"repo": "pb-20",
+   "verdict": "ALIGNED",
+   "probes": [
+     {"kind": "readiness", "port": 8080, "path": "/actuator/health/readiness", "expected_status": "200"},
+     {"kind": "liveness", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "200"}
+   ],
+   "confidence": "high",
+   "reason": "Boot 3.5.16 supports management.endpoints.access.default: none, and application.yml lines 16-18 grant health read-only access and expose it over web (line 15), so /actuator/health is served on port 8080. Probe groups are not set explicitly, but AvailabilityProbesAutoConfiguration.ProbesCondition matches when CloudPlatform detects KUBERNETES_SERVICE_HOST/PORT, which the kubelet always injects, so the liveness and readiness groups exist. Both probes in k8s/deployment.yaml (lines 30-43) hit 8080 and return 200 when healthy."},
+  {"repo": "pb-21",
+   "verdict": "MISALIGNED",
+   "probes": [
+     {"kind": "readiness", "port": 8080, "path": "/readyz", "expected_status": "404"},
+     {"kind": "liveness", "port": 8080, "path": "/livez", "expected_status": "404"}
+   ],
+   "confidence": "medium",
+   "reason": "application.properties line 5 exposes only info,metrics over web, so health is not web-exposed on Boot 3.2.12. Line 6 sets add-additional-paths and probes auto-enable on Kubernetes, but the /livez and /readyz handler mapping (AdditionalHealthEndpointPathsWebMvcHandlerMapping in HealthEndpointWebExtensionConfiguration) is only registered when the health endpoint is available with WEB exposure. The probes in k8s/deployment.yaml lines 30-43 therefore get 404 on port 8080."},
+  {"repo": "pb-22",
+   "verdict": "ALIGNED",
+   "probes": [
+     {"kind": "startup", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "200"},
+     {"kind": "readiness", "port": 8080, "path": "/actuator/health/readiness", "expected_status": "200"},
+     {"kind": "liveness", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "200"}
+   ],
+   "confidence": "high",
+   "reason": "pom.xml line 10 pins Boot 3.3.13, which predates the management.endpoints.access.* properties added in 3.4, so access.default: none in application.yml lines 10-12 is an unbound property and health stays enabled by default. Health is web-exposed (line 15), and probe groups auto-enable on Kubernetes through CloudPlatform detection. All three probes in k8s/deployment.yaml lines 30-47 target 8080 and return 200 when healthy."},
+  {"repo": "pb-23",
+   "verdict": "MISALIGNED",
+   "probes": [
+     {"kind": "readiness", "port": 8080, "path": "/actuator/health/readiness", "expected_status": "404"},
+     {"kind": "liveness", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "404"}
+   ],
+   "confidence": "high",
+   "reason": "application.yml lines 13-14 include '*' but list health in exposure.exclude, and exclude takes precedence, so Boot 3.4.13 maps no /actuator/health endpoint on the web. The probe groups exist in the health endpoint but cannot be reached, so both probes in k8s/deployment.yaml lines 30-43 return 404."},
+  {"repo": "pb-24",
+   "verdict": "MISALIGNED",
+   "probes": [
+     {"kind": "readiness", "port": 8080, "path": "/actuator/health/readiness", "expected_status": "404"},
+     {"kind": "liveness", "port": 8080, "path": "/actuator/health/liveness", "expected_status": "404"}
+   ],
+   "confidence": "high",
+   "reason": "application.yml line 11 sets management.endpoints.enabled-by-default: false, which Boot 3.5.16 still honors as the deprecated alias of access.default=none. Only info and metrics are re-enabled (lines 15-19), so health has no access, and listing it in exposure.include (line 14) does not make it available. Both probes in k8s/deployment.yaml lines 30-43 get 404 on port 8080."}
+]

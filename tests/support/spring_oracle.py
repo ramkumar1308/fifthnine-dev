@@ -745,7 +745,10 @@ def check_spring(root: Path, facts: list[Fact], links: list[Linkage], rep: Oracl
                 _docker_env(root, link, ctx)
         words = [t for t, _p, _l in _stream(ctx)]
         first = next((w for w in words if w.rsplit("/", 1)[-1] not in ("tini", "dumb-init", "--") and not w.startswith("-")), None)
-        if any("$(" in w or w.startswith("@") for w in words) or (first is not None and first.rsplit("/", 1)[-1] not in ("java", "java.exe")):
+        opts_files = any(("@" in (ctx.env.get(v) or ("",))[0] or "VMOptionsFile" in (ctx.env.get(v) or ("",))[0])
+                         for v in ("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS") if ctx.env.get(v) and ctx.env.get(v)[0])
+        if opts_files or any("$(" in w or w.startswith(("@", "-XX:VMOptionsFile")) for w in words) or (
+                first is not None and first.rsplit("/", 1)[-1] not in ("java", "java.exe")):
             # the oracle reads only commands that start java directly; shells, scripts and kubelet $(VAR) are covered by runtime cases
             rep.skip("spring: the container command does not start java directly")
             continue

@@ -262,3 +262,50 @@ def test_environment_list_without_trailing_underscore(tmp_path: Path) -> None:
     r = _scan(tmp_path, Repo(env={"MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE_0": "health", "MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE_1": "info"}),
               oracle=False)
     assert _props(r)["management.endpoints.web.exposure.include"].value == ["health", "info"]
+
+
+# ---------------------------------------------------------------- review round 5 findings
+
+
+def test_env_options_change_the_environment(tmp_path: Path) -> None:
+    for i, entry in enumerate(('ENTRYPOINT ["env", "-i", "java", "-jar", "/app/app.jar"]\n',
+                               'ENTRYPOINT ["env", "-u", "SERVER_PORT", "java", "-jar", "/app/app.jar"]\n')):
+        r, p = _port(_sub(tmp_path, str(i)), Repo(entrypoint=entry, env={"SERVER_PORT": "9100"}))
+        assert p.status is FactStatus.UNRESOLVED, (entry, p)
+
+
+def test_options_files_make_properties_unresolved(tmp_path: Path) -> None:
+    (tmp_path / "a").mkdir()
+    r, p = _port(tmp_path / "a", Repo(env={"JDK_JAVA_OPTIONS": "@/app/jvm.args"}))
+    assert p.status is FactStatus.UNRESOLVED
+    r, p = _port(_sub(tmp_path, "b"), Repo(entrypoint='ENTRYPOINT ["java", "-XX:VMOptionsFile=/app/vm.opts", "-jar", "/app/app.jar"]\n'))
+    assert p.status is FactStatus.UNRESOLVED
+
+
+def test_ansi_c_quoting_and_quoted_brace_bodies_are_opaque(tmp_path: Path) -> None:
+    for i, entry in enumerate(('ENTRYPOINT ["bash", "-c", "exec java -jar /app/app.jar --server.port=$\'9000\'"]\n',
+                               'ENTRYPOINT ["bash", "-c", "exec java -jar /app/app.jar --spring.profiles.active={\\"a\\",b}"]\n')):
+        r, p = _port(_sub(tmp_path, str(i)), Repo(entrypoint=entry))
+        assert p.status is FactStatus.UNRESOLVED, (entry, p)
+
+
+def test_java_from_java_home_is_followed(tmp_path: Path) -> None:
+    r, p = _port(tmp_path, Repo(entrypoint='ENTRYPOINT ["sh", "-c", "exec $JAVA_HOME/bin/java -Dserver.port=9000 -jar /app/app.jar"]\n'))
+    assert p.value == 9000, (p, _notices(r))
+
+
+def test_tini_options_with_values_are_skipped(tmp_path: Path) -> None:
+    r, p = _port(tmp_path, Repo(entrypoint='ENTRYPOINT ["tini", "-e", "143", "--", "java", "-Dserver.port=9000", "-jar", "/app/app.jar"]\n'))
+    assert p.value == 9000
+
+
+def test_shell_service_link_variable_is_unknown(tmp_path: Path) -> None:
+    entry = 'ENTRYPOINT ["sh", "-c", "exec java -jar /app/app.jar --spring.data.redis.port=\\"${REDIS_SERVICE_PORT:-6379}\\""]\n'
+    r = _scan(tmp_path, Repo(entrypoint=entry), oracle=False)
+    assert _props(r)["spring.data.redis.port"].status is FactStatus.UNRESOLVED
+
+
+def test_both_index_spellings_set_is_unresolved(tmp_path: Path) -> None:
+    r = _scan(tmp_path, Repo(env={"MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE_0": "health", "MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE_0_": "info"}),
+              oracle=False)
+    assert _props(r)["management.endpoints.web.exposure.include"].status is FactStatus.UNRESOLVED

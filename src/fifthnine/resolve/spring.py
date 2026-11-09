@@ -281,6 +281,7 @@ class _Run:
         self.shell_vars: list[str] = []  # variables whose unknown value a shell or kubelet expansion puts where it can add options
         self.command_opaque: tuple[str, tuple[str, int] | None] | None = None  # the command line may set anything
         self.kubelet_unknown: dict[int, tuple[str, bool]] = {}
+        self._services: dict[str, set[str]] | None = None
 
     # -- inputs from the linked container
 
@@ -297,6 +298,26 @@ class _Run:
         self.docker_path, self.docker_stage_index = dpath, target.index
         self.docker_env = dict(target.env)
 
+    def _service_link(self, var: str) -> str | None:
+        """The in-repository Service whose service-link variables include `var` (<NAME>_SERVICE_HOST, <NAME>_PORT, ...)."""
+        if not _SERVICE_VAR.fullmatch(var):
+            return None
+        if self._services is None:
+            self._services = {}
+            for f in self.dep.facts.facts():
+                key = f.subject.key
+                if key.startswith("k8s:Service/"):
+                    parts = key[len("k8s:Service/"):].split("#", 1)[0].split("/")
+                    if len(parts) >= 2:
+                        self._services.setdefault(parts[0], set()).add(parts[1])
+        ns = self.csub.split("/")[1] if self.csub and self.csub.count("/") >= 2 else "_"
+        for name in sorted(self._services.get(ns, set())):
+            prefix = name.upper().replace("-", "_") + "_"
+            if var.startswith(prefix) and _SERVICE_VAR.fullmatch(var) and re.fullmatch(
+                    r"(SERVICE_HOST|SERVICE_PORT(_[A-Z0-9_]+)?|PORT(_\d+_(TCP|UDP|SCTP)(_(PROTO|PORT|ADDR))?)?)", var[len(prefix):]):
+                return name
+        return None
+
     def env_get(self, var: str) -> list[Hit]:
         """OS environment hits for `var`, highest first: the container's own environment, then the Dockerfile ENV."""
         out: list[Hit] = []
@@ -308,6 +329,10 @@ class _Run:
             elif res is not None:
                 out.append(Hit(var, res.value, "env", "spring.os_environment", "", res.source, res.status, res.via_fact, var,
                                unresolved=res.reason if res.status is FactStatus.UNRESOLVED else None))
+        if not out and self.csub is not None and (svc := self._service_link(var)) is not None:
+            out.append(Hit(var, None, "env", "spring.os_environment", "", None, FactStatus.UNRESOLVED, None, var,
+                           unresolved=f"the kubelet sets {var} for Service {svc} in the namespace (service links)"))
+            return out
         v = self.docker_env.get(var)
         if v is not None and self.docker_path is not None:
             fid = fact_id("docker.env", f"docker:{self.docker_path}#{self.docker_stage_index}#{var}", {})
@@ -518,6 +543,9 @@ class _Run:
                                                    message=f"{var} cannot be read from the repository; system properties it sets are unknown."))
                     continue
                 for word in self._words(str(hit.raw), hit):
+                    if word.startswith("@") or word.startswith("-XX:VMOptionsFile="):
+                        self._opaque_command(f"{var} reads JVM options from a file ({word})", hit.source, None)
+                        continue
                     self._add_d(word, hit.source, hit.status, hit.via_fact, var)
         after_jar = False
         skip_next = False
@@ -546,7 +574,7 @@ class _Run:
                 if seen_java and word.startswith("--module="):
                     after_jar = True
                     continue
-                if seen_java and word.startswith("@"):  # an argument file the scanner does not read
+                if seen_java and (word.startswith("@") or word.startswith("-XX:VMOptionsFile=")):  # an options file the scanner does not read
                     self._opaque_command(f"java reads options from the argument file {word}", src, None)
                     continue
                 if seen_java and _MAIN_CLASS.match(word):  # the main class: everything after it is a program argument
@@ -680,17 +708,17 @@ class _Run:
             base = tokens[i][0].rsplit("/", 1)[-1]
             if base in ("tini", "tini-static", "dumb-init", "catatonit"):
                 i += 1
+                with_value = {"-e", "-p", "-r", "--rewrite"} if base != "catatonit" else set()
                 while i < len(tokens) and tokens[i][0].startswith("-") and tokens[i][0] != "--":
-                    i += 1
+                    i += 2 if tokens[i][0] in with_value else 1
                 if i < len(tokens) and tokens[i][0] == "--":
                     i += 1
                 continue
             if base == "env":
                 j = i + 1
-                while j < len(tokens) and tokens[j][0].startswith("-"):
-                    j += 1
-                if j < len(tokens) and "=" in tokens[j][0]:
-                    self._opaque_command("the command sets environment variables with env before java", tokens[i][1], None)
+                if j < len(tokens) and (tokens[j][0].startswith("-") or "=" in tokens[j][0]):
+                    # options (-i, -u NAME, -) or assignments change the environment java sees
+                    self._opaque_command("the command changes the environment with env before java", tokens[i][1], None)
                     return []
                 i = j
                 continue
@@ -742,9 +770,12 @@ class _Run:
         if not words:
             return []
         if 0 in unknowns:
-            self._opaque_command(f"the shell command starts a program named by {unknowns[0][0]}, whose value the repository does not show",
-                                 s_src, None)
-            return []
+            if words[0][0].endswith("/bin/java"):
+                unknowns.pop(0)  # "$JAVA_HOME/bin/java": the directory is unknown, the program is java
+            else:
+                self._opaque_command(f"the shell command starts a program named by {unknowns[0][0]}, whose value the repository does not show",
+                                     s_src, None)
+                return []
         inner = self._launch(words, depth + 1)
         if not inner:
             return []
@@ -763,8 +794,8 @@ class _Run:
             if h.status is FactStatus.UNRESOLVED or h.raw is None or h.unresolved is not None:
                 return None, False
             return str(h.raw), True
-        if var in _RUNTIME_NAMES:
-            return None, False  # supplied by the kubelet or the image at runtime
+        if var in _RUNTIME_NAMES or _SERVICE_VAR.fullmatch(var):
+            return None, False  # supplied by the kubelet (service links) or the image at runtime
         return None, True
 
     def _kubelet_expand(self, token: str) -> tuple[str | None, tuple[str, bool] | None]:
@@ -835,8 +866,16 @@ class _Run:
                 out.append(Hit(key, h.raw, h.layer, h.precedence, h.profile, h.source, h.status, h.via_fact, name, unresolved=h.unresolved))
             items: list[Hit] = []
             # indexed names: NAME_0_ or NAME_0 (SystemEnvironmentPropertyMapper reads a numeric element as an index either way)
+            both = None
             while len(items) < 64 and (got := (self.env_get(f"{name}_{len(items)}_") or self.env_get(f"{name}_{len(items)}"))[:1]):
+                if both is None and self.env_get(f"{name}_{len(items)}_") and self.env_get(f"{name}_{len(items)}"):
+                    both = f"{name}_{len(items)}"
                 items.append(got[0])
+            if both is not None:
+                g = self.env_get(both)[0]
+                out.append(Hit(key, None, g.layer, g.precedence, g.profile, g.source, FactStatus.UNRESOLVED, g.via_fact, both,
+                               unresolved=f"both {both} and {both}_ are set; which one Spring Boot binds is not modelled"))
+                continue
             gap = next((g for j in range(len(items) + 1, 64) for g in (f"{name}_{j}_", f"{name}_{j}") if self.env_get(g)), None)
             if gap is not None:
                 # Boot binds indexed elements until the first missing index and then fails at startup on the elements left over

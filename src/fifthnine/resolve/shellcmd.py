@@ -187,7 +187,7 @@ class _Expander:
         if end < 0:
             return False
         body = self.s[self.i + 1:end]
-        return not any(c in body for c in " \t'\"") and ("," in body or ".." in body)
+        return not any(c in body for c in " \t") and ("," in body or ".." in body)
 
     def _redirect(self) -> None:
         """`[n]>file`, `>>file`, `<file`, `n>&m`: the redirection and its target are not arguments."""
@@ -251,6 +251,8 @@ class _Expander:
         c = s[j]
         if c == "(":
             raise _Opaque("the script uses command substitution or arithmetic")
+        if c in "'\"" and not quoted:
+            raise _Opaque("the script uses $'...' or $\"...\" quoting")
         if c in "@*":
             self.i = j + 1
             self._positional_all(quoted=quoted, star=c == "*")

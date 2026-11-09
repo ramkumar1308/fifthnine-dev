@@ -406,6 +406,8 @@ class View:
                     seen_java = True
                 elif not program_args and seen_java and w in ("-m", "--module"):
                     program_args = skip = True
+                elif not program_args and seen_java and w.startswith("--module="):
+                    program_args = True
                 elif not program_args and seen_java and re.fullmatch(r"[A-Za-z_][\w$]*(\.[A-Za-z_][\w$]*)+", w):
                     program_args = True
                 elif not program_args and w == "-jar":
@@ -741,9 +743,11 @@ def check_spring(root: Path, facts: list[Fact], links: list[Linkage], rep: Oracl
                 ctx.linked = True
                 _container_env(root, link.from_ref, ctx)
                 _docker_env(root, link, ctx)
-        if any(t.rsplit("/", 1)[-1] in ("sh", "bash", "ash", "dash", "zsh", "ksh") or "$(" in t for t, _p, _l in _stream(ctx)):
-            # the oracle does not model shells or kubelet $(VAR) expansion; the JVM runtime cases cover them
-            rep.skip("spring: shell or $(...) in the container command")
+        words = [t for t, _p, _l in _stream(ctx)]
+        first = next((w for w in words if w.rsplit("/", 1)[-1] not in ("tini", "dumb-init", "--") and not w.startswith("-")), None)
+        if any("$(" in w or w.startswith("@") for w in words) or (first is not None and first.rsplit("/", 1)[-1] not in ("java", "java.exe")):
+            # the oracle reads only commands that start java directly; shells, scripts and kubelet $(VAR) are covered by runtime cases
+            rep.skip("spring: the container command does not start java directly")
             continue
         version_fact = boot.get("component:spring-boot" if mod == "." else f"component:spring-boot@{mod}")
         version = str(version_fact.value) if version_fact is not None and version_fact.value else None

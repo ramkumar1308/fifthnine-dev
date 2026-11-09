@@ -184,3 +184,81 @@ def test_argument_list_with_a_missing_index_is_unresolved(tmp_path: Path) -> Non
     r = _scan(tmp_path, Repo(command=["--management.endpoints.web.exposure.include[1]=health"]), oracle=False)
     p = _props(r)["management.endpoints.web.exposure.include"]
     assert p.status is FactStatus.UNRESOLVED and "index" in (p.unresolved_reason or ""), p
+
+
+# ---------------------------------------------------------------- review round 4 findings
+
+
+def test_shell_options_before_c_are_read(tmp_path: Path) -> None:
+    for i, entry in enumerate(('SHELL ["/bin/bash", "-o", "pipefail", "-c"]\nENTRYPOINT java -Dserver.port=9000 -jar /app/app.jar\n',
+                               'ENTRYPOINT ["sh", "-e", "-c", "exec java -Dserver.port=9000 -jar /app/app.jar"]\n',
+                               'ENTRYPOINT ["sh", "-c", "--", "exec java -Dserver.port=9000 -jar /app/app.jar"]\n',
+                               'ENTRYPOINT ["bash", "--norc", "-c", "exec java -Dserver.port=9000 -jar /app/app.jar"]\n')):
+        r, p = _port(_sub(tmp_path, str(i)), Repo(entrypoint=entry))
+        assert p.value == 9000, (entry, p, _notices(r))
+
+
+def test_commands_that_do_not_start_java_make_properties_unresolved(tmp_path: Path) -> None:
+    for i, entry in enumerate(('ENTRYPOINT ["/app/start.sh"]\n', 'ENTRYPOINT ["sh", "-c", "exec /app/start.sh"]\n',
+                               'ENTRYPOINT ["sh", "/app/start.sh"]\n', 'ENTRYPOINT ["env", "SERVER_PORT=9000", "java", "-jar", "/app/app.jar"]\n',
+                               'ENTRYPOINT ["sh", "-c", "exec sh -c \'java -jar /app/app.jar\'"]\n',
+                               'ENTRYPOINT ["zsh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]\n',
+                               'ENTRYPOINT ["bash", "-lc", "exec java -jar /app/app.jar"]\n',
+                               'ENTRYPOINT ["java", "@/app/jvm.args", "-jar", "/app/app.jar"]\n')):
+        r, p = _port(_sub(tmp_path, str(i)), Repo(entrypoint=entry))
+        assert p.status is FactStatus.UNRESOLVED, (entry, p, _notices(r))
+
+
+def test_wrappers_that_keep_the_environment_are_followed(tmp_path: Path) -> None:
+    for i, entry in enumerate(('ENTRYPOINT ["tini", "--", "java", "-Dserver.port=9000", "-jar", "/app/app.jar"]\n',
+                               'ENTRYPOINT ["dumb-init", "--", "sh", "-c", "exec java -Dserver.port=9000 -jar /app/app.jar"]\n')):
+        r, p = _port(_sub(tmp_path, str(i)), Repo(entrypoint=entry))
+        assert p.value == 9000, (entry, p, _notices(r))
+
+
+def test_assigning_expansions_and_brace_expansion_are_opaque(tmp_path: Path) -> None:
+    for i, entry in enumerate(('ENTRYPOINT ["sh", "-c", "exec java -Dserver.port=${P:=9000} -jar /app/app.jar"]\n',
+                               'ENTRYPOINT ["bash", "-c", "exec java -jar /app/app.jar --spring.profiles.active={a,b}"]\n')):
+        r, p = _port(_sub(tmp_path, str(i)), Repo(entrypoint=entry))
+        assert p.status is FactStatus.UNRESOLVED, (entry, p)
+
+
+def test_braced_positional_and_redirections_are_modelled(tmp_path: Path) -> None:
+    for i, entry in enumerate(('ENTRYPOINT ["sh", "-c", "exec java ${JAVA_OPTS} -jar /app/app.jar ${@}", "app"]\n',
+                               'ENTRYPOINT ["sh", "-c", "exec java -jar /app/app.jar \\"$@\\" 2>&1", "app"]\n')):
+        r, p = _port(_sub(tmp_path, str(i)), Repo(entrypoint=entry, command=["--server.port=9000"]))
+        assert p.value == 9000, (entry, p, _notices(r))
+
+
+def test_module_equals_form_ends_jvm_options(tmp_path: Path) -> None:
+    r, p = _port(tmp_path, Repo(entrypoint='ENTRYPOINT ["java", "--module=app/bench.App", "-Dserver.port=9000"]\n'))
+    assert p.value == 8080
+
+
+def test_kubelet_service_link_variables_are_unknown(tmp_path: Path) -> None:
+    r, p = _port(tmp_path, Repo(command=["--server.port=$(REDIS_SERVICE_PORT)"]), oracle=False)
+    assert p.status is FactStatus.UNRESOLVED, p
+
+
+def test_env_value_with_a_kubelet_reference_is_unresolved(tmp_path: Path) -> None:
+    r, p = _port(tmp_path, Repo(env={"B": "9000", "SERVER_PORT": "$(B)"}), oracle=False)
+    assert p.status is FactStatus.UNRESOLVED, p
+
+
+def test_indexed_environment_group_matches_the_profile(tmp_path: Path) -> None:
+    for i, var in enumerate(("SPRING_PROFILES_GROUP_PROD_0_", "SPRING_PROFILES_GROUP_PROD_0")):
+        r = _scan(_sub(tmp_path, str(i)), Repo(resources={"application.yml": "server:\n  port: 8081\n", "application-db.yml": "server:\n  port: 9000\n"},
+                                                env={"SPRING_PROFILES_ACTIVE": "prod", var: "db"}), oracle=False)
+        assert _profiles(r).value == ["prod", "db"], var
+
+
+def test_file_list_with_a_missing_index_is_unresolved(tmp_path: Path) -> None:
+    r = _scan(tmp_path, Repo(resources={"application.properties": "management.endpoints.web.exposure.include[1]=health\n"}), oracle=False)
+    p = _props(r)["management.endpoints.web.exposure.include"]
+    assert p.status is FactStatus.UNRESOLVED, p
+
+
+def test_environment_list_without_trailing_underscore(tmp_path: Path) -> None:
+    r = _scan(tmp_path, Repo(env={"MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE_0": "health", "MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE_1": "info"}),
+              oracle=False)
+    assert _props(r)["management.endpoints.web.exposure.include"].value == ["health", "info"]

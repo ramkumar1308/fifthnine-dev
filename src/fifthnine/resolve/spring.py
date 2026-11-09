@@ -76,6 +76,7 @@ _MAIN_CLASS = re.compile(r"^[A-Za-z_][\w$]*(\.[A-Za-z_][\w$]*)+$")
 SYSPROP_VARS = ("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS")
 OVERRIDE_VARS = (*JSON_VARS, *SYSPROP_VARS)
 IGNORED_JVM_VARS = ("JAVA_OPTS", "JAVA_OPTIONS")  # not read by the JVM or by Spring Boot
+_SERVICE_VAR = re.compile(r"[A-Z0-9_]+_(SERVICE_HOST|SERVICE_PORT(_[A-Z0-9_]+)?|PORT(_\d+_(TCP|UDP|SCTP)(_(PROTO|PORT|ADDR))?)?)")
 # java launcher options whose value is the next word (java -help, JDK 21); the value is not a main class
 _JVM_OPTS_WITH_VALUE = frozenset({
     "-cp", "-classpath", "--class-path", "-p", "--module-path", "--upgrade-module-path", "--add-modules", "--limit-modules",
@@ -149,7 +150,7 @@ class _GroupMap:
         prefix = "spring.profiles.group."
         exact = [h for h in self.run.hits(key) if h.unresolved is not None and h.layer == "args"
                  or (h.layer in ("env", "docker_env") and h.var is not None and h.var.upper().startswith("SPRING_PROFILES_GROUP_")
-                     and h.var[len(prefix):].lower().replace("_", ".") == name)
+                     and re.sub(r"(_\d+_?)+$", "", h.var[len(prefix):]).lower().replace("_", ".") == name)
                  or (h.layer not in ("env", "docker_env") and h.key[len(prefix):] == name)]
         for h in exact[:1]:
             mat = self.run.materialize(key, h)
@@ -301,7 +302,10 @@ class _Run:
         out: list[Hit] = []
         if self.model is not None:
             res = self.model.resolve(var)
-            if res is not None:
+            if res is not None and res.status is not FactStatus.UNRESOLVED and isinstance(res.value, str) and "$(" in res.value:
+                out.append(Hit(var, None, "env", "spring.os_environment", "", res.source, FactStatus.UNRESOLVED, res.via_fact, var,
+                               unresolved="the value uses a $(...) reference, which the kubelet expands from other variables"))
+            elif res is not None:
                 out.append(Hit(var, res.value, "env", "spring.os_environment", "", res.source, res.status, res.via_fact, var,
                                unresolved=res.reason if res.status is FactStatus.UNRESOLVED else None))
         v = self.docker_env.get(var)
@@ -354,6 +358,13 @@ class _Run:
             hits[canon(e.key)] = Hit(e.key, e.value, "file", precedence, label, (doc.path, e.line), profile_selected=selected, doc=doc)
         for c, items in lists.items():
             items.sort()
+            seen_idx: list[int] = sorted({int(i) for i, _, _ in items})
+            if seen_idx != list(range(len(seen_idx))):
+                missing = next(i for i in range(len(seen_idx) + 1) if i not in seen_idx)
+                hits[c] = Hit(spelled[c], None, "file", precedence, label, (doc.path, items[0][2]), FactStatus.UNRESOLVED,
+                              profile_selected=selected, doc=doc,
+                              unresolved=f"index [{missing}] is missing; Spring Boot fails to bind the list at startup")
+                continue
             hits[c] = Hit(spelled[c], [v for _, v, _ in items], "file", precedence, label, (doc.path, items[0][2]),
                           profile_selected=selected, doc=doc)
         return {c: [h] for c, h in hits.items()}
@@ -532,6 +543,12 @@ class _Run:
                 if seen_java and word in ("-m", "--module"):  # the main module: everything after it is a program argument
                     after_jar, skip_next = True, True
                     continue
+                if seen_java and word.startswith("--module="):
+                    after_jar = True
+                    continue
+                if seen_java and word.startswith("@"):  # an argument file the scanner does not read
+                    self._opaque_command(f"java reads options from the argument file {word}", src, None)
+                    continue
                 if seen_java and _MAIN_CLASS.match(word):  # the main class: everything after it is a program argument
                     after_jar = True
                     continue
@@ -638,7 +655,6 @@ class _Run:
         `sh -c "<script>"` (the Dockerfile shell form, or a shell in command/args) is expanded by `shellcmd`: positional
         arguments after the script reach java only through "$@" or $1..$9. Kubernetes `$(VAR)` references are expanded from the
         container's env as the kubelet does. A word carries (variable, unknown before '=', unquoted) when part of it is unknown."""
-        out: list[tuple[str, tuple[str, int], FactStatus, str | None, tuple[str, bool, bool] | None]] = []
         k8s_tokens: list[tuple[str, tuple[str, int], FactStatus, str | None]] = []
         for token, src, status, via_id in stream:
             if status is FactStatus.DECLARED and "$(" in token:
@@ -652,46 +668,88 @@ class _Run:
                 continue
             k8s_tokens.append((token, src, status, via_id))
         tokens = k8s_tokens
-        shell_at = None
-        for i, (t, *_rest) in enumerate(tokens):
-            if t.rsplit("/", 1)[-1] in shellcmd.SHELLS:
-                shell_at = i
-                break
-            if t.rsplit("/", 1)[-1] in ("java", "java.exe"):
-                break
-        if shell_at is None:
-            for i, (t, src, status, via_id) in enumerate(tokens):
-                ku = self.kubelet_unknown.get(i)
-                if ku is not None:
-                    out.append((t, src, status, via_id, (ku[0], ku[1], False)))
-                else:
-                    out.append((t, src, status, via_id, None))
+        return self._launch(tokens, 0)
+
+    def _launch(self, tokens: list[tuple[str, tuple[str, int], FactStatus, str | None]], depth: int
+                ) -> list[tuple[str, tuple[str, int], FactStatus, str | None, tuple[str, bool, bool] | None]]:
+        """Follow the command to the java launcher: wrappers that do not change the environment (tini, dumb-init, `--`, `env` with
+        no assignments) are skipped; a modelled shell is expanded; anything else runs a program the scanner does not read, so
+        every option it could pass to java is unknown."""
+        i = 0
+        while i < len(tokens):
+            base = tokens[i][0].rsplit("/", 1)[-1]
+            if base in ("tini", "tini-static", "dumb-init", "catatonit"):
+                i += 1
+                while i < len(tokens) and tokens[i][0].startswith("-") and tokens[i][0] != "--":
+                    i += 1
+                if i < len(tokens) and tokens[i][0] == "--":
+                    i += 1
+                continue
+            if base == "env":
+                j = i + 1
+                while j < len(tokens) and tokens[j][0].startswith("-"):
+                    j += 1
+                if j < len(tokens) and "=" in tokens[j][0]:
+                    self._opaque_command("the command sets environment variables with env before java", tokens[i][1], None)
+                    return []
+                i = j
+                continue
+            if tokens[i][0] == "--":
+                i += 1
+                continue
+            break
+        if i >= len(tokens):
+            return []
+        word, src0 = tokens[i][0], tokens[i][1]
+        base = word.rsplit("/", 1)[-1]
+        if base in ("java", "java.exe"):
+            out: list[tuple[str, tuple[str, int], FactStatus, str | None, tuple[str, bool, bool] | None]] = []
+            for k, (t, src, status, via_id) in enumerate(tokens[i:], start=i):
+                ku = self.kubelet_unknown.get(k) if depth == 0 else None
+                out.append((t, src, status, via_id, (ku[0], ku[1], False) if ku is not None else None))
             return out
-        flag = tokens[shell_at + 1][0] if shell_at + 1 < len(tokens) else ""
-        if not re.fullmatch(r"-[a-zA-Z]*c[a-zA-Z]*", flag) or shell_at + 2 >= len(tokens):
-            # a script file: like an entrypoint script, its content is not read (a documented limit), and java options in it are unknown
-            self.cov.append(CoverageNotice(code="FN-OPS-002", scope=f"{tokens[shell_at][1][0]}:{tokens[shell_at][1][1]}",
-                                           message="The container runs a shell script file, which the scanner does not read; "
-                                                   "options it passes to java are unknown."))
+        if base not in shellcmd.SHELLS:
+            self._opaque_command(f"the container runs {base or word!r}, which is not java or a modelled shell, so the options it passes to "
+                                 "the JVM are not known", src0, None)
+            return []
+        if depth > 0:
+            self._opaque_command("a shell command starts another shell", src0, None)
             return []
         if self.kubelet_unknown:
-            self._opaque_command("a $(...) reference with an unknown value is part of a shell command", tokens[shell_at][1], None)
+            self._opaque_command("a $(...) reference with an unknown value is part of a shell command", src0, None)
             return []
-        if any("=" in t and not t.startswith("-") for t, *_r in tokens[:shell_at]):
-            self._opaque_command("the command sets environment variables before the shell", tokens[0][1], None)
+        inv = shellcmd.invocation([t for t, *_r in tokens], i)
+        if inv.opaque is not None:
+            self._opaque_command(inv.opaque, src0, None)
             return []
-        script, s_src, s_status, s_via = tokens[shell_at + 2]
-        positional = tokens[shell_at + 3:]
-        parsed = shellcmd.expand(script, [t for t, *_r in positional], self._shell_lookup)
+        if inv.script is None:
+            self._opaque_command("the container runs a shell script file, which the scanner does not read", src0, None)
+            return []
+        _script, s_src, s_status, s_via = tokens[inv.script_index]
+        positional = tokens[inv.script_index + 1:]
+        parsed = shellcmd.expand(inv.script, [t for t, *_r in positional], self._shell_lookup, brace=inv.shell in shellcmd.BRACE_SHELLS)
         self.shell_referenced.update(parsed.referenced)
         if parsed.opaque is not None:
             self._opaque_command(f"the shell command cannot be modelled: {parsed.opaque}", s_src, None)
             return []
+        words: list[tuple[str, tuple[str, int], FactStatus, str | None]] = []
+        unknowns: dict[int, tuple[str, bool, bool]] = {}
         for w in parsed.words:
             src, status, via_id = (s_src, s_status, s_via) if w.origin < 0 else positional[w.origin][1:]
-            unknown = (w.unknown[0][0], w.unknown_before_eq, any(not q for _, q in w.unknown)) if w.unknown else None
-            out.append((w.text, src, _worst([status, s_status]), via_id, unknown))
-        return out
+            if w.unknown:
+                unknowns[len(words)] = (w.unknown[0][0], w.unknown_before_eq, any(not q for _, q in w.unknown))
+            words.append((w.text, src, _worst([status, s_status]), via_id))
+        if not words:
+            return []
+        if 0 in unknowns:
+            self._opaque_command(f"the shell command starts a program named by {unknowns[0][0]}, whose value the repository does not show",
+                                 s_src, None)
+            return []
+        inner = self._launch(words, depth + 1)
+        if not inner:
+            return []
+        offset = len(words) - len(inner)
+        return [(t, src, st, vid, unknowns.get(k + offset)) for k, (t, src, st, vid, _u) in enumerate(inner)]
 
     def _shell_lookup(self, var: str) -> tuple[str | None, bool]:
         """A variable's value as the container's shell sees it: (value, known). Unset (and not replaceable from outside) is known."""
@@ -720,12 +778,15 @@ class _Run:
                 out.append("$")
                 i += 2
                 continue
-            m = re.match(r"\$\(([A-Za-z_][A-Za-z0-9_]*)\)", token[i:])
+            m = re.match(r"\$\(([-._a-zA-Z0-9]+)\)", token[i:])
             if m:
                 var = m.group(1)
                 res = self.model.resolve(var) if self.model is not None else None
                 external = bool(self.model.exposure_for(var)) if self.model is not None else True
-                if res is not None and res.status is not FactStatus.UNRESOLVED and not external and res.value is not None:
+                # the kubelet also defines service link variables (<SVC>_SERVICE_HOST, <SVC>_PORT_...) that the repository does not list
+                external = external or (res is None and bool(_SERVICE_VAR.fullmatch(var)))
+                if res is not None and res.status is not FactStatus.UNRESOLVED and not external and res.value is not None \
+                        and "$(" not in str(res.value):
                     out.append(str(res.value))
                 elif res is None and not external:
                     out.append(m.group(0))  # not set: the kubelet leaves the reference as it is
@@ -773,9 +834,10 @@ class _Run:
             for h in self.env_get(name):
                 out.append(Hit(key, h.raw, h.layer, h.precedence, h.profile, h.source, h.status, h.via_fact, name, unresolved=h.unresolved))
             items: list[Hit] = []
-            while len(items) < 64 and (got := self.env_get(f"{name}_{len(items)}_")[:1]):  # indexed names: NAME_0_, NAME_1_
+            # indexed names: NAME_0_ or NAME_0 (SystemEnvironmentPropertyMapper reads a numeric element as an index either way)
+            while len(items) < 64 and (got := (self.env_get(f"{name}_{len(items)}_") or self.env_get(f"{name}_{len(items)}"))[:1]):
                 items.append(got[0])
-            gap = next((f"{name}_{j}_" for j in range(len(items) + 1, 64) if self.env_get(f"{name}_{j}_")), None)
+            gap = next((g for j in range(len(items) + 1, 64) for g in (f"{name}_{j}_", f"{name}_{j}") if self.env_get(g)), None)
             if gap is not None:
                 # Boot binds indexed elements until the first missing index and then fails at startup on the elements left over
                 g = self.env_get(gap)[0]

@@ -32,7 +32,9 @@ jobs:
         run: python -m pip install pyyaml==6.0.2
       - name: Install kind
         run: |
-          curl -fsSL --retry 5 --retry-all-errors -o kind https://github.com/kubernetes-sigs/kind/releases/download/v0.27.0/kind-linux-amd64
+          if ! curl -fsSL --retry 8 --retry-delay 10 --retry-all-errors -o kind https://github.com/kubernetes-sigs/kind/releases/download/v0.27.0/kind-linux-amd64; then
+            GOBIN="$PWD" go install sigs.k8s.io/kind@v0.27.0
+          fi
           chmod +x kind && sudo mv kind /usr/local/bin/kind
           kind create cluster --name bench --wait 120s
           kubectl version

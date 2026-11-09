@@ -1,0 +1,232 @@
+{
+  "builds": [
+    {
+      "build": "ok",
+      "build_seconds": 25.3,
+      "case": "smoke-a"
+    }
+  ],
+  "runs": [
+    {
+      "case": "smoke-a",
+      "events": [],
+      "first_ready_seconds": 26.1,
+      "input": null,
+      "namespace": "smoke-a",
+      "observed_seconds": 157.8,
+      "pod": "app-7486cbd574-f78pk",
+      "probes": [
+        {
+          "declared_port": "http",
+          "http_status": "200",
+          "kind": "readiness",
+          "path": "/actuator/health/readiness",
+          "port": 8080
+        },
+        {
+          "declared_port": 8080,
+          "http_status": "200",
+          "kind": "liveness",
+          "path": "/actuator/health/liveness",
+          "port": 8080
+        }
+      ],
+      "ready_at_end": true,
+      "ready_stable_tail": true,
+      "restart_count": 0,
+      "runtime_class": "ALIGNED",
+      "started": true,
+      "timeline": [
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": false,
+          "t": 0.6
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 5.7
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 10.8
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 15.9
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 21.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 26.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 31.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 36.3
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 41.4
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 46.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 51.6
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 56.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 61.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 66.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 72.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 77.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 82.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 87.3
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 92.4
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 97.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 102.6
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 107.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 112.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 117.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 123.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 128.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 133.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 138.3
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 143.4
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 148.5
+        }
+      ],
+      "window_seconds": 150
+    }
+  ],
+  "shard": "1/6",
+  "versions": {
+    "docker": "29.4.2",
+    "java": "openjdk version \"21.0.13\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-21.0.13+9 (build 21.0.13+9-LTS)\nOpenJDK 64-Bit Server VM Temurin-21.0.13+9 (build 21.0.13+9-LTS, mixed mode, sharing)",
+    "kind": "kind v0.27.0 go1.23.6 linux/amd64",
+    "kubectl": "{\n  \"clientVersion\": {\n    \"major\": \"1\",\n    \"minor\": \"37\",\n    \"gitVersion\": \"v1.37.2\",\n    \"gitCommit\": \"c50e5395f1ae2d4a2c05f28fdcc38c0916cc1a32\",\n    \"gitTreeState\": \"clean\",\n    \"buildDate\": \"2026-10-28T18:54:26Z\",\n    \"goVersion\": \"go1.26.10\",\n    \"compiler\": \"gc\",\n    \"platform\": \"linux/amd64\"\n  },\n  \"kustomizeVersion\": \"v5.8.1\",\n  \"serverVersion\": {\n    \"major\": \"1\",\n    \"minor\": \"32\",\n    \"gitVersion\": \"v1.32.2\",\n    \"gitCommit\": \"67a30c0adcf52bd3f56ff0893ce19966be12991f\",\n    \"gitTreeState\": \"clean\",\n    \"buildDate\": \"2025-02-12T21:19:47Z\",\n    \"goVersion\": \"go1.23.6\",\n    \"compiler\"",
+    "mvn": "Apache Maven 3.9.15 (98b2cdbfdb5f1ac8781f537ea9acccaed7922349)\nMaven home: /usr/share/apache-maven-3.9.15\nJava version: 21.0.13, vendor: Eclipse Adoptium, runtime: /usr/lib/jvm/temurin-21-jdk-amd64\nDefault locale: en, platform encoding: UTF-8\nOS name: \"linux\", version: \"7.0.0-1019-azure\", arch: \"amd64\", family: \"unix\""
+  }
+}

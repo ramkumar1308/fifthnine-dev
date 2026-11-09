@@ -1,0 +1,248 @@
+{
+  "builds": [
+    {
+      "build": "ok",
+      "build_seconds": 30.7,
+      "case": "smoke-b"
+    }
+  ],
+  "runs": [
+    {
+      "case": "smoke-b",
+      "events": [
+        {
+          "count": 13,
+          "message": "Liveness probe failed: HTTP probe failed with statuscode: 404",
+          "reason": "Unhealthy"
+        },
+        {
+          "count": 12,
+          "message": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "reason": "Unhealthy"
+        },
+        {
+          "count": 3,
+          "message": "Container app failed liveness probe, will be restarted",
+          "reason": "Killing"
+        }
+      ],
+      "first_ready_seconds": null,
+      "input": null,
+      "namespace": "smoke-b",
+      "observed_seconds": 157.5,
+      "pod": "app-7558947447-7f6rz",
+      "probes": [
+        {
+          "declared_port": "http",
+          "http_status": "404",
+          "kind": "readiness",
+          "path": "/actuator/health/readiness",
+          "port": 8080
+        },
+        {
+          "declared_port": 8080,
+          "http_status": "404",
+          "kind": "liveness",
+          "path": "/actuator/health/liveness",
+          "port": 8080
+        }
+      ],
+      "ready_at_end": false,
+      "ready_stable_tail": false,
+      "restart_count": 3,
+      "runtime_class": "MISALIGNED",
+      "started": true,
+      "timeline": [
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": false,
+          "t": 0.6
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 5.7
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 10.8
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 15.9
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 21.0
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 26.1
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 31.1
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 36.2
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 41.3
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 46.4
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 51.5
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 56.6
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 61.7
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 66.7
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 71.8
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 76.9
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 82.0
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 87.1
+        },
+        {
+          "ready": false,
+          "restarts": 2,
+          "started": true,
+          "t": 92.2
+        },
+        {
+          "ready": false,
+          "restarts": 2,
+          "started": true,
+          "t": 97.3
+        },
+        {
+          "ready": false,
+          "restarts": 2,
+          "started": true,
+          "t": 102.4
+        },
+        {
+          "ready": false,
+          "restarts": 2,
+          "started": true,
+          "t": 107.4
+        },
+        {
+          "ready": false,
+          "restarts": 2,
+          "started": true,
+          "t": 112.5
+        },
+        {
+          "ready": false,
+          "restarts": 2,
+          "started": true,
+          "t": 117.6
+        },
+        {
+          "ready": false,
+          "restarts": 2,
+          "started": true,
+          "t": 122.7
+        },
+        {
+          "ready": false,
+          "restarts": 2,
+          "started": true,
+          "t": 127.8
+        },
+        {
+          "ready": false,
+          "restarts": 2,
+          "started": true,
+          "t": 132.8
+        },
+        {
+          "ready": false,
+          "restarts": 3,
+          "started": true,
+          "t": 138.0
+        },
+        {
+          "ready": false,
+          "restarts": 3,
+          "started": true,
+          "t": 143.1
+        },
+        {
+          "ready": false,
+          "restarts": 3,
+          "started": true,
+          "t": 148.1
+        }
+      ],
+      "window_seconds": 150
+    }
+  ],
+  "shard": "2/6",
+  "versions": {
+    "docker": "29.4.2",
+    "java": "openjdk version \"21.0.13\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-21.0.13+9 (build 21.0.13+9-LTS)\nOpenJDK 64-Bit Server VM Temurin-21.0.13+9 (build 21.0.13+9-LTS, mixed mode, sharing)",
+    "kind": "kind v0.27.0 go1.23.6 linux/amd64",
+    "kubectl": "{\n  \"clientVersion\": {\n    \"major\": \"1\",\n    \"minor\": \"37\",\n    \"gitVersion\": \"v1.37.2\",\n    \"gitCommit\": \"c50e5395f1ae2d4a2c05f28fdcc38c0916cc1a32\",\n    \"gitTreeState\": \"clean\",\n    \"buildDate\": \"2026-10-28T18:54:26Z\",\n    \"goVersion\": \"go1.26.10\",\n    \"compiler\": \"gc\",\n    \"platform\": \"linux/amd64\"\n  },\n  \"kustomizeVersion\": \"v5.8.1\",\n  \"serverVersion\": {\n    \"major\": \"1\",\n    \"minor\": \"32\",\n    \"gitVersion\": \"v1.32.2\",\n    \"gitCommit\": \"67a30c0adcf52bd3f56ff0893ce19966be12991f\",\n    \"gitTreeState\": \"clean\",\n    \"buildDate\": \"2025-02-12T21:19:47Z\",\n    \"goVersion\": \"go1.23.6\",\n    \"compiler\"",
+    "mvn": "Apache Maven 3.9.15 (98b2cdbfdb5f1ac8781f537ea9acccaed7922349)\nMaven home: /usr/share/apache-maven-3.9.15\nJava version: 21.0.13, vendor: Eclipse Adoptium, runtime: /usr/lib/jvm/temurin-21-jdk-amd64\nDefault locale: en, platform encoding: UTF-8\nOS name: \"linux\", version: \"7.0.0-1019-azure\", arch: \"amd64\", family: \"unix\""
+  }
+}

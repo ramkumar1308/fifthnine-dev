@@ -29,7 +29,8 @@ RESOLVED = (FactStatus.DECLARED, FactStatus.DEFAULT, FactStatus.INFERRED)
 
 
 def _env(facts: list[Fact], case: Case) -> dict[str, str]:
-    env = {k: v for k, v in (case.env or {}).items() if v is not None}
+    env = dict(case.docker_env)  # image ENV, then the container env over it
+    env.update({k: v for k, v in (case.env or {}).items() if v is not None})
     env.update(case.run_env)
     return env
 
@@ -55,7 +56,7 @@ def _command(facts: list[Fact]) -> list[str] | None:
         v = next((x.value for x in facts if x.kind == kind and x.value), None)
         if not isinstance(v, dict):
             return []
-        return ["/bin/sh", "-c", *v["argv"]] if v.get("form") == "shell" else list(v["argv"])
+        return list(v["argv"])  # the Dockerfile model already writes shell form as SHELL + the string
 
     argv = [*argv_of("docker.entrypoint"), *argv_of("docker.cmd")]
     return [str(a) for a in argv] or None
@@ -71,7 +72,7 @@ def _launched(argv: list[str], env: dict[str, str], cwd: Path) -> list[str]:
         out = b / "argv.jsonl"
         run_argv = [w.rsplit("/", 1)[-1] if w.rsplit("/", 1)[-1] in ("gunicorn", "uvicorn", "python", "python3") else w for w in argv]
         subprocess.run(run_argv, cwd=cwd, env={"PATH": f"{b}:/usr/bin:/bin", "FN_ARGV_OUT": str(out), **env}, capture_output=True, timeout=60,
-                       check=False)
+                       check=False, stdin=subprocess.DEVNULL)
         if not out.exists():
             return []
         return json.loads(out.read_text().splitlines()[0])

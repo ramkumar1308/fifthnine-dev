@@ -113,7 +113,7 @@ def test_app_and_routes_with_router_prefixes(tmp_path: Path) -> None:
     routes = _all(r, "fastapi.route")
     assert set(routes) == {"python:app.main:app#GET:/healthz", "python:app.main:app#GET:/v2/items/{i}", "python:app.main:app#PUT:/v2/items/{i}"}
     assert routes["python:app.main:app#GET:/v2/items/{i}"].inputs[0].source.line_start == 5  # type: ignore[union-attr]
-    assert _f(r, "fastapi.route_table", "python:app.main:app").value == {"complete": True, "routes": 3}
+    assert _f(r, "fastapi.route_table", "python:app.main:app").value == {"complete": True, "routes": 3, "documentation_routes": "not listed"}
     assert _f(r, "python.asgi_app", "python:app.main:app").value == {"framework": "fastapi", "module": "app.main", "attribute": "app"}
 
 
@@ -192,9 +192,11 @@ def test_gunicorn_bind_default_depends_on_port(tmp_path: Path) -> None:
     assert _f(r, "gunicorn.setting", f"{CSUB}#workers").status is FactStatus.UNRESOLVED
 
 
-def test_gunicorn_cmd_args_in_the_repository_is_not_guessed(tmp_path: Path) -> None:
-    r = _repo(tmp_path, {}, command=["gunicorn", "app.main:app"], env={"GUNICORN_CMD_ARGS": "--timeout 5"})
-    assert _f(r, "gunicorn.setting", f"{CSUB}#timeout").status is FactStatus.UNRESOLVED
+def test_gunicorn_cmd_args_in_the_repository_is_read_below_the_command_line(tmp_path: Path) -> None:
+    r = _repo(tmp_path, {}, command=["gunicorn", "app.main:app", "--workers=2"], env={"GUNICORN_CMD_ARGS": "--timeout 5 --workers 9"})
+    t = _f(r, "gunicorn.setting", f"{CSUB}#timeout")
+    assert t.value == 5 and t.precedence == "gunicorn.env"
+    assert _f(r, "gunicorn.setting", f"{CSUB}#workers").value == 2  # the command line wins
 
 
 def test_uvicorn_from_the_image_cmd(tmp_path: Path) -> None:
@@ -209,7 +211,7 @@ def test_uvicorn_from_the_image_cmd(tmp_path: Path) -> None:
 def test_uvicorn_env_var_sets_a_setting(tmp_path: Path) -> None:
     r = _repo(tmp_path, {}, command=["uvicorn", "app.main:app"], env={"UVICORN_PORT": "9001"})
     p = _f(r, "uvicorn.setting", f"{CSUB}#port")
-    assert p.value == "9001" and p.precedence == "uvicorn.env"
+    assert p.value == 9001 and p.precedence == "uvicorn.env"
 
 
 def test_python_m_launcher(tmp_path: Path) -> None:
@@ -376,3 +378,123 @@ def test_scan_is_deterministic(tmp_path: Path) -> None:
     a = _repo(tmp_path, HANDLERS, command=["uvicorn", "app.main:app"])
     b = run_scan(ScanOptions(path=tmp_path, facts="all"))
     assert dump(a) == dump(b)
+
+
+# ---------------------------------------------------------------- review findings (M2-3 review round 1)
+
+
+def _sub(tmp: Path, name: str) -> Path:
+    d = tmp / name
+    d.mkdir()
+    return d
+
+
+def test_image_env_feeds_server_settings_and_settings_fields(tmp_path: Path) -> None:
+    r = _repo(_sub(tmp_path, "a"), {}, cmd='ENV PORT=9000 WEB_CONCURRENCY=4\nCMD ["gunicorn", "app.main:app"]\n')
+    assert _f(r, "gunicorn.setting", f"{CSUB}#bind").status is FactStatus.UNRESOLVED
+    assert _f(r, "gunicorn.setting", f"{CSUB}#workers").status is FactStatus.UNRESOLVED
+    files = dict(HANDLERS)
+    r = _repo(_sub(tmp_path, "b"), files, cmd='ENV BUDGET=1\nCMD ["uvicorn", "app.main:app"]\n')
+    assert _f(r, "python.deadline", "python:app.routes.a").value == {"mechanism": "asyncio.timeout", "seconds": 1.0}
+
+
+def test_gunicorn_config_files_leave_settings_unresolved(tmp_path: Path) -> None:
+    r = _repo(_sub(tmp_path, "a"), {"gunicorn.conf.py": "workers = 8\n"}, command=["gunicorn", "app.main:app"])
+    assert _f(r, "gunicorn.setting", f"{CSUB}#workers").status is FactStatus.UNRESOLVED
+    r = _repo(_sub(tmp_path, "b"), {}, command=["gunicorn", "-cconf.py", "app.main:app", "--timeout=5"])
+    assert _f(r, "gunicorn.setting", f"{CSUB}#workers").status is FactStatus.UNRESOLVED
+    assert _f(r, "gunicorn.setting", f"{CSUB}#timeout").value == 5  # the command line still wins
+
+
+def test_unknown_gunicorn_option_makes_the_command_opaque(tmp_path: Path) -> None:
+    r = _repo(tmp_path, {}, command=["gunicorn", "--made-up", "x", "app.main:app"])
+    assert _f(r, "gunicorn.setting", f"{CSUB}#timeout").status is FactStatus.UNRESOLVED
+    assert not _all(r, "python.asgi_app")
+
+
+def test_uvicorn_socket_and_app_dir(tmp_path: Path) -> None:
+    r = _repo(_sub(tmp_path, "a"), {}, command=["uvicorn", "--uds", "/tmp/s.sock", "app.main:app"])
+    assert _f(r, "uvicorn.setting", f"{CSUB}#port").status is FactStatus.UNRESOLVED
+    assert _f(r, "python.asgi_app", "python:app.main:app").value["module"] == "app.main"
+    r = _repo(_sub(tmp_path, "b"), {}, command=["uvicorn", "--app-dir", "src", "app.main:app"])
+    assert not _all(r, "python.asgi_app")
+
+
+def test_routes_registered_from_another_module_or_through_app_router(tmp_path: Path) -> None:
+    files = {"app/main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+             "app/views.py": "from app.main import app\n@app.post('/x')\ndef x():\n    return 1\n"}
+    r = _repo(_sub(tmp_path, "a"), files, command=["uvicorn", "app.main:app"])
+    assert _f(r, "fastapi.route_table", "python:app.main:app").value["complete"] is False
+    files = {"app/main.py": "from fastapi import FastAPI, APIRouter\nr = APIRouter()\napp = FastAPI()\napp.router.include_router(r, prefix='/h')\n"}
+    r = _repo(_sub(tmp_path, "b"), files, command=["uvicorn", "app.main:app"])
+    assert _f(r, "fastapi.route_table", "python:app.main:app").value["complete"] is False
+
+
+def test_late_registration_before_fastapi_0_137(tmp_path: Path) -> None:
+    files = {"app/main.py": "from fastapi import FastAPI, APIRouter\nrouter = APIRouter()\napp = FastAPI()\napp.include_router(router, prefix='/v1')\n"
+                            "@router.get('/late')\ndef late():\n    return 1\n"}
+    r = _repo(_sub(tmp_path, "a"), files, command=["uvicorn", "app.main:app"], fastapi="0.115.0")
+    assert _f(r, "fastapi.route_table", "python:app.main:app").value["complete"] is False
+    r = _repo(_sub(tmp_path, "b"), files, command=["uvicorn", "app.main:app"], fastapi="0.159.1")
+    assert _f(r, "fastapi.route_table", "python:app.main:app").value["complete"] is True
+    assert "python:app.main:app#GET:/v1/late" in _all(r, "fastapi.route")
+
+
+def test_settings_inheritance_annotated_alias_and_custom_sources(tmp_path: Path) -> None:
+    files = {"app/settings.py": """
+        from typing import Annotated
+        from pydantic import Field
+        from pydantic_settings import BaseSettings, SettingsConfigDict
+
+        class Base(BaseSettings):
+            model_config = SettingsConfigDict(env_prefix="APP_")
+
+        class Settings(Base):
+            deadline: float = 5.0
+            timeout: Annotated[float, Field(validation_alias="REQ_TIMEOUT")] = 2.0
+
+        class Custom(BaseSettings):
+            x: int = 1
+
+            @classmethod
+            def settings_customise_sources(cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings):
+                return (init_settings,)
+        """}
+    r = _repo(tmp_path, files, command=["uvicorn", "app.main:app"])
+    s = _all(r, "python.settings_field")
+    assert s["python:app.settings.Settings#deadline"].value["env"] == "APP_DEADLINE"
+    assert s["python:app.settings.Settings#timeout"].value["env"] == "REQ_TIMEOUT"
+    assert any("customised sources" in c.message or "env file" in c.message for c in r.coverage)
+
+
+def test_one_deadline_per_block_and_the_innermost_applies(tmp_path: Path) -> None:
+    files = dict(HANDLERS)
+    files["app/routes.py"] = """
+        import asyncio
+        from fastapi import APIRouter
+        from app import client
+
+        router = APIRouter()
+
+        @router.get("/a")
+        async def a():
+            async with asyncio.timeout(1):
+                pass
+            async with asyncio.timeout(20):
+                return await client.fetch()
+        """
+    r = _repo(tmp_path, files, command=["uvicorn", "app.main:app"])
+    d = [f for f in r.facts if f.kind == "python.deadline"]
+    assert sorted(f.value["seconds"] for f in d) == [1.0, 20.0]
+    call = _f(r, "python.call_reaches", "python:app.routes.a")
+    twenty = next(f for f in d if f.value["seconds"] == 20.0)
+    assert any(i.fact_id == twenty.fact_id for i in call.inputs)
+
+
+def test_client_timeout_reassignment_and_per_request_timeout(tmp_path: Path) -> None:
+    files = {"app/r.py": "import httpx\nfrom tenacity import retry\nc = httpx.Client()\nc.timeout = httpx.Timeout(60.0)\n"
+                         "d = httpx.Client(timeout=2)\n@retry\ndef f():\n    return c.get('/')\n@retry\ndef g():\n    return d.get('/', timeout=30.0)\n"}
+    r = _repo(tmp_path, files)
+    assert _f(r, "python.http_client.timeout", "python:app.r.c").value["read"] == 60.0
+    g = _f(r, "python.retry.client", "python:app.r.g")
+    assert g.value["request_timeout"]["read"] == 30.0

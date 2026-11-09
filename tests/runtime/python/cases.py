@@ -44,12 +44,14 @@ class Case:
     run_env: dict[str, str] = field(default_factory=dict)
     cmd: str = 'CMD ["uvicorn", "app.main:app"]\n'
     sample: str | None = None
+    docker_env: dict[str, str] = field(default_factory=dict)  # Dockerfile ENV lines; the probe environment includes them
     covers: str = ""
 
 
 def write_case(d: Path, c: Case) -> None:
     (d / "pyproject.toml").write_text(PYPROJECT)
-    (d / "Dockerfile").write_text(DOCKERFILE.format(cmd=c.cmd))
+    env_lines = "".join(f"ENV {k}={json.dumps(v)}\n" for k, v in c.docker_env.items())
+    (d / "Dockerfile").write_text(DOCKERFILE.format(cmd=env_lines + c.cmd))
     for rel, text in {"app/__init__.py": "", "app/main.py": MAIN, **c.files}.items():
         p = d / rel
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -125,4 +127,29 @@ CASES: list[Case] = [
     Case("sh-c-gunicorn", command=["sh", "-c", "exec gunicorn app.main:app -k uvicorn_worker.UvicornWorker --timeout=${T:-45}"], covers="shell default parameter"),
     Case("settings-prefix-alias", files=SETTINGS, command=["uvicorn", "app.main:app"], covers="env_prefix, alias, plain names"),
     Case("tenacity-httpx", files=RETRY, command=["uvicorn", "app.main:app"], covers="stop combinations, wait sums, positional wait args, httpx Timeout forms"),
+    # -- review findings: image ENV, option forms, settings inheritance
+    Case("gunicorn-image-env-cmd-args", command=["gunicorn", "app.main:app", "-k", "uvicorn_worker.UvicornWorker", "--workers=2"],
+         docker_env={"GUNICORN_CMD_ARGS": "--workers 4 --timeout 90"}, covers="GUNICORN_CMD_ARGS from the image, below the command line"),
+    Case("gunicorn-equals-short", command=["gunicorn", "-w=3", "-b=0.0.0.0:9000", "-k", "uvicorn_worker.UvicornWorker", "app.main:app"],
+         covers="argparse -w=3 and -b=..."),
+    Case("gunicorn-prefix-abbrev", command=["gunicorn", "--time", "120", "-k", "uvicorn_worker.UvicornWorker", "app.main:app"],
+         covers="argparse long-option prefix"),
+    Case("gunicorn-option-with-value-before-app", command=["gunicorn", "--log-level", "info", "-k", "uvicorn_worker.UvicornWorker", "app.main:app"],
+         covers="an option's value is not the application"),
+    Case("gunicorn-shell-port-from-image-env", cmd="CMD gunicorn -k uvicorn_worker.UvicornWorker -b 0.0.0.0:$PORT app.main:app\n",
+         docker_env={"PORT": "8080"}, covers="shell-form CMD expands PORT from the image ENV"),
+    Case("uvicorn-image-env-port", cmd='CMD ["uvicorn", "app.main:app"]\n', docker_env={"UVICORN_PORT": "9000", "UVICORN_HOST": "0.0.0.0"},
+         covers="UVICORN_* from the image ENV"),
+    Case("settings-inherited-prefix-annotated", files={"app/settings.py": """
+        from typing import Annotated
+        from pydantic import Field
+        from pydantic_settings import BaseSettings, SettingsConfigDict
+
+        class Base(BaseSettings):
+            model_config = SettingsConfigDict(env_prefix="APP_")
+
+        class Settings(Base):
+            deadline: float = 5.0
+            timeout: Annotated[float, Field(validation_alias="REQ_TIMEOUT")] = 2.0
+        """}, command=["uvicorn", "app.main:app"], covers="env_prefix inherited from a base class; Field inside Annotated"),
 ]

@@ -259,6 +259,129 @@ class PythonResult:
 
 
 @dataclass
+class _EnvVal:
+    value: str | None
+    known: bool
+    source: tuple[str, int] | None
+    via: str | None
+    exposure: list[ExposureSource]
+    layer: str  # env | docker_env | external | unknown
+
+
+@dataclass
+class _Cli:
+    values: dict[str, list[tuple[str | None, int]]] = field(default_factory=dict)  # setting -> [(value, word index)]
+    app: tuple[str, int] | None = None
+    opaque: str | None = None
+
+
+_BAD = object()
+
+
+@cache
+def _cli_table() -> dict[str, dict[str, dict[str, Any]]]:
+    text = resources.files("fifthnine.data").joinpath("python_cli.v1.yaml").read_text(encoding="utf-8")
+    data: dict[str, Any] = to_plain(load_yaml_documents(text)[0].data)
+    return {"gunicorn": data["gunicorn"], "uvicorn": data["uvicorn"]}
+
+
+def _parse_cli(server: str, words: list[str], *, positional: bool = True) -> _Cli:
+    """Parse the arguments after the server name as argparse (gunicorn: long options by unique prefix, `-w4`, `-w=4`) or click
+    (uvicorn: no abbreviations) would, from the option tables. An option outside the table makes the command opaque."""
+    table = _cli_table()[server]
+    out = _Cli()
+    i = 0
+    rest_positional = False
+    while i < len(words):
+        w = words[i]
+        if w == "--" and not rest_positional:
+            rest_positional = True
+            i += 1
+            continue
+        if not rest_positional and w.startswith("--"):
+            flag, eq, val = w.partition("=")
+            opt = flag if flag in table else None
+            if opt is None and server == "gunicorn":
+                matches = [k for k in table if k.startswith(flag) and k.startswith("--")]
+                opt = matches[0] if len(matches) == 1 else None
+            if opt is None:
+                out.opaque = f"option {flag} is not in the option table"
+                return out
+            takes = table[opt]["value"]
+            setting = str(table[opt]["setting"])
+            if takes == "optional":
+                out.opaque = f"option {opt} takes an optional value"
+                return out
+            if takes:
+                if not eq:
+                    if i + 1 >= len(words):
+                        out.opaque = f"option {opt} has no value"
+                        return out
+                    val = words[i + 1]
+                    i += 1
+                out.values.setdefault(setting, []).append((val, i))
+            else:
+                if eq:
+                    out.opaque = f"flag {opt} is given a value"
+                    return out
+                out.values.setdefault(setting, []).append((None, i))
+            i += 1
+            continue
+        if not rest_positional and w.startswith("-") and len(w) > 1:
+            opt = w[:2]
+            if opt not in table:
+                out.opaque = f"option {opt} is not in the option table"
+                return out
+            takes = table[opt]["value"]
+            setting = str(table[opt]["setting"])
+            attached = w[2:]
+            if takes is True:
+                if attached.startswith("="):
+                    attached = attached[1:]
+                if attached:
+                    out.values.setdefault(setting, []).append((attached, i))
+                elif i + 1 < len(words):
+                    out.values.setdefault(setting, []).append((words[i + 1], i))
+                    i += 1
+                else:
+                    out.opaque = f"option {opt} has no value"
+                    return out
+            elif attached:
+                out.opaque = f"combined short options {w} are not modelled"
+                return out
+            else:
+                out.values.setdefault(setting, []).append((None, i))
+            i += 1
+            continue
+        if positional and out.app is None:
+            out.app = (w, i)
+        elif positional:
+            out.opaque = f"unexpected argument {w}"
+            return out
+        i += 1
+    return out
+
+
+def _int_or(raw: str | None, numeric: bool) -> Any:
+    if numeric and raw is not None and re.fullmatch(r"-?\d+", raw):
+        return int(raw)
+    return raw
+
+
+def _click_value(raw: str, name: str) -> Any:
+    if name in ("port", "timeout_graceful_shutdown"):
+        return int(raw) if re.fullmatch(r"-?\d+", raw.strip()) else _BAD
+    if name == "reload":
+        v = raw.strip().lower()
+        if v in ("1", "true", "t", "yes", "y", "on"):
+            return True
+        if v in ("0", "false", "f", "no", "n", "off", ""):
+            return False
+        return _BAD
+    return raw
+
+
+@dataclass
 class _Setting:
     fid: str
     value: Any
@@ -279,10 +402,10 @@ def resolve_python(ws: Workspace, detection: DetectionResult, dep: DeploymentRes
         if not index.entries:
             continue
         run = _Root(ws, index, fb, res, dep, versions, contexts)
-        run.settings()
-        run.retries()
         for csub, link in contexts:
             run.container(csub, link)
+        run.settings()
+        run.retries()
         run.handlers()
         res.parsed += index.parsed
     res.parsed = sorted(set(res.parsed))
@@ -327,6 +450,9 @@ class _Root:
         self.retry_funcs: dict[str, str] = {}  # dotted function -> its python subject
         self.clients: dict[str, str] = {}  # dotted client variable -> timeout fact id
         self.routes: dict[str, str] = {}  # dotted endpoint function -> route fact id (first route that names it)
+        self._docker_cache: dict[str, dict[str, tuple[str, int, str, bool]]] = {}
+        self.env_changed: set[str] = set()
+        self.settings_classes: dict[str, tuple[PyModule, ast.ClassDef]] = {}  # containers whose server sets extra environment variables (--env, --env-file)
 
     def _cov(self, scope: str, message: str) -> None:
         self.res.coverage.append(CoverageNotice(code="FN-OPS-002", scope=scope, message=message))
@@ -374,6 +500,7 @@ class _Root:
             keywords = sorted({d.rsplit(".", 1)[1] for d in classes if is_settings(d)} - used)
             if not keywords:
                 break
+        self.settings_classes = {d: v for d, v in classes.items() if is_settings(d)}
         for dotted, (mod, cls) in sorted(classes.items()):
             if not is_settings(dotted) or dotted in ("pydantic_settings.BaseSettings",):
                 continue
@@ -394,12 +521,22 @@ class _Root:
                     if cls_dotted is not None and cls_dotted in classes and is_settings(cls_dotted):
                         self.instances[f"{mod.name}.{node.targets[0].id}"] = cls_dotted
 
-    def _settings_config(self, mod: PyModule, cls: ast.ClassDef) -> tuple[str | None, bool]:
-        """(env_prefix, env_file configured). None prefix: not a literal."""
+    def _settings_config(self, mod: PyModule, cls: ast.ClassDef, depth: int = 0) -> tuple[str | None, bool]:
+        """(env_prefix, special) for a settings class, with model_config inherited from settings base classes in the repository.
+        None prefix: not a literal. special: an env file, secrets directory, case-sensitive matching or customised sources."""
         prefix: str | None = ""
-        env_file = False
+        special = False
+        if depth < 10:
+            for b in reversed(cls.bases):  # later bases first, so the first base wins, as in the class's MRO for these keys
+                d = self.index.dotted(mod, b) or ""
+                if d in self.settings_classes:
+                    bmod, bcls = self.settings_classes[d]
+                    bp, bs = self._settings_config(bmod, bcls, depth + 1)
+                    prefix, special = (bp if bp != "" else prefix), special or bs
         for node in cls.body:
             call: ast.Call | None = None
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "settings_customise_sources":
+                special = True
             if isinstance(node, (ast.Assign, ast.AnnAssign)):
                 tgt = node.targets[0] if isinstance(node, ast.Assign) else node.target
                 if isinstance(tgt, ast.Name) and tgt.id == "model_config" and isinstance(node.value, ast.Call):
@@ -411,8 +548,8 @@ class _Root:
                     if k.arg == "env_prefix":
                         ok, v = _literal(k.value)
                         prefix = v if ok and isinstance(v, str) else None
-                    elif k.arg in ("env_file", "secrets_dir", "case_sensitive") or k.arg is None:
-                        env_file = True
+                    elif k.arg in ("env_file", "secrets_dir", "case_sensitive", "env_nested_delimiter") or k.arg is None:
+                        special = True
             if isinstance(node, ast.ClassDef) and node.name == "Config":
                 for sub in node.body:
                     if isinstance(sub, ast.Assign) and isinstance(sub.targets[0], ast.Name):
@@ -420,8 +557,8 @@ class _Root:
                             ok, v = _literal(sub.value)
                             prefix = v if ok and isinstance(v, str) else None
                         elif sub.targets[0].id in ("env_file", "secrets_dir", "case_sensitive"):
-                            env_file = True
-        return prefix, env_file
+                            special = True
+        return prefix, special
 
     def _settings_field(self, mod: PyModule, cls: ast.ClassDef, name: str, node: ast.AnnAssign, prefix: str | None, special: bool) -> None:
         subject = f"python:{mod.name}.{cls.name}#{name}"
@@ -429,6 +566,19 @@ class _Root:
         env: str | None = (prefix + name).upper() if prefix is not None else None
         required = value_node is None
         default_ok, default = (True, None) if required else _literal(value_node)
+        ann_field = None
+        if isinstance(node.annotation, ast.Subscript) and _is(self.index, mod, node.annotation.value, "typing.Annotated", "typing_extensions.Annotated"):
+            elts = node.annotation.slice.elts if isinstance(node.annotation.slice, ast.Tuple) else []
+            ann_field = next((e for e in elts if isinstance(e, ast.Call) and _is(self.index, mod, e.func, "pydantic.Field", "pydantic.fields.Field")), None)
+        if ann_field is not None:
+            for alias_kw in ("validation_alias", "alias"):
+                k = _kw(ann_field, alias_kw)
+                if k is not None:
+                    ok, v = _literal(k.value)
+                    env = v.upper() if ok and isinstance(v, str) else None
+                    break
+            if _kw(ann_field, "default_factory") is not None or ann_field.args or _kw(ann_field, "default") is not None:
+                default_ok = False
         if isinstance(value_node, ast.Call) and _is(self.index, mod, value_node.func, "pydantic.Field", "pydantic.fields.Field"):
             call = value_node
             d_node = call.args[0] if call.args else (_kw(call, "default").value if _kw(call, "default") else None)  # type: ignore[union-attr]
@@ -454,7 +604,8 @@ class _Root:
             fid = self.fb.add("python.settings_field", subject, value, FactStatus.DECLARED, source=src, exposure=exposure,
                               exposure_sources=sources, link_ids=link_ids)
         if special:
-            self._cov(f"{mod.path}:{cls.lineno}", f"{cls.name} reads an env file, secrets directory or a case-sensitive configuration; "
+            self._cov(f"{mod.path}:{cls.lineno}", f"{cls.name} reads an env file or secrets directory, matches names case-sensitively, "
+                      "or customises its sources; "
                       "values that depend on its fields are unresolved.")
         effective = env_value if env_value is not None else (None if required else default)
         self.settings_fields[f"{mod.name}.{cls.name}.{name}"] = _Setting(
@@ -462,29 +613,31 @@ class _Root:
             exposure, link_ids)
 
     def _settings_exposure(self, env: str | None) -> tuple[OverrideExposure, list[ExposureSource], list[str], str | None]:
-        """Exposure of an env-bound field across the containers that run this root, and an in-repository env value if one sets it
-        (pydantic-settings matches names case-insensitively by default)."""
+        """Exposure of an env-bound field across the containers that run this root, and the value the container environment gives it
+        (Kubernetes env over the image ENV; pydantic-settings matches names case-insensitively by default)."""
         models = self._env_models()
         link_ids = [link.link_id for _c, _m, link in models]
         if not models:
             return OverrideExposure.ENV_POSSIBLE, [], [], None  # no container is linked: what the environment sets is unknown
         sources: list[ExposureSource] = []
         env_value: str | None = None
-        for _csub, model, _link in models:
+        for csub, model, _link in models:
             if model is None or env is None:
                 return OverrideExposure.ENV_POSSIBLE, sources, link_ids, None
-            names = [n for n in model.explicit if n.upper() == env] or [env]
-            for n in names:
-                srcs = model.exposure_for(n)
-                for s in srcs:
-                    s2 = s.model_copy(update={"variables": [env]})
-                    if all((x.via, x.object) != (s2.via, s2.object) for x in sources):
-                        sources.append(s2)
-                r = model.resolve(n)
-                if r is not None and r.status is not FactStatus.UNRESOLVED and r.value is not None and len(models) == 1:
-                    env_value = str(r.value)
-                elif r is not None and r.status is FactStatus.UNRESOLVED:
-                    sources.append(ExposureSource(via="valueFrom", object=f"{_csub}#{n}", variables=[n]))
+            if csub in self.env_changed:
+                sources.append(ExposureSource(via="valueFrom", object=f"{csub}#server-env", variables=[env]))
+            v = self.env_lookup(csub, env, case_insensitive=True)
+            if v is None:
+                continue
+            for x in v.exposure:
+                x2 = x.model_copy(update={"variables": [env]})
+                if all((y.via, y.object) != (x2.via, x2.object) for y in sources):
+                    sources.append(x2)
+            if v.layer in ("env", "docker_env"):
+                if v.known and len(models) == 1:
+                    env_value = v.value
+                elif not v.known:
+                    sources.append(ExposureSource(via="valueFrom", object=f"{csub}#{env}", variables=[env]))
         return (OverrideExposure.ENV_POSSIBLE if sources else OverrideExposure.NONE), sources, link_ids, env_value
 
     # -- tenacity and httpx
@@ -610,8 +763,21 @@ class _Root:
                 tfid = self._client_timeout(cmod, cname, cval)
                 cdotted = f"{cmod.name}.{cname}"
                 scope = {} if len(seen) == 1 else {"client": cdotted}
-                self.fb.add("python.retry.client", subject, {"client": f"python:{cdotted}"}, FactStatus.DECLARED,
-                            source=ref(mod.path, node.lineno), scope=scope, inputs=[via(R.REFERENCE, tfid)])
+                rk = _kw(node, "timeout")
+                if rk is None and any(k.arg is None for k in node.keywords):
+                    self.fb.add("python.retry.client", subject, None, FactStatus.UNRESOLVED, source=ref(mod.path, node.lineno), scope=scope,
+                                inputs=[via(R.REFERENCE, tfid)], unresolved_reason="the request passes **kwargs, which may set a timeout")
+                elif rk is None:
+                    self.fb.add("python.retry.client", subject, {"client": f"python:{cdotted}"}, FactStatus.DECLARED,
+                                source=ref(mod.path, node.lineno), scope=scope, inputs=[via(R.REFERENCE, tfid)])
+                else:
+                    rt = self._timeout_value(mod, rk.value)
+                    if rt is None:
+                        self.fb.add("python.retry.client", subject, None, FactStatus.UNRESOLVED, source=ref(mod.path, node.lineno), scope=scope,
+                                    inputs=[via(R.REFERENCE, tfid)], unresolved_reason="the request sets a timeout that is not a literal")
+                    else:  # a per-request timeout replaces the client's for this request
+                        self.fb.add("python.retry.client", subject, {"client": f"python:{cdotted}", "request_timeout": rt}, FactStatus.DECLARED,
+                                    source=ref(mod.path, node.lineno), scope=scope, inputs=[via(R.REFERENCE, tfid)])
 
     def _client_timeout(self, mod: PyModule, name: str, call: ast.Call) -> str:
         dotted = f"{mod.name}.{name}"
@@ -620,6 +786,17 @@ class _Root:
         subject = f"python:{dotted}"
         kind = "python.http_client.timeout"
         kw = _kw(call, "timeout")
+        later = [n for n in ast.walk(mod.tree) if isinstance(n, ast.Assign) and any(
+            isinstance(t, ast.Attribute) and isinstance(t.value, ast.Name) and t.value.id == name and t.attr == "timeout" for t in n.targets)]
+        if later:  # client.timeout = ... replaces the constructor value
+            top = [n for n in later if n in mod.tree.body]
+            if len(later) == len(top) == 1:
+                kw = ast.keyword(arg="timeout", value=top[0].value)
+            else:
+                fid = self.fb.add(kind, subject, None, FactStatus.UNRESOLVED, source=ref(mod.path, later[-1].lineno),
+                                  unresolved_reason="the client's timeout is reassigned in code the scanner does not follow")
+                self.clients[dotted] = fid
+                return fid
         if kw is None:
             if any(k.arg is None for k in call.keywords) or call.args:
                 fid = self.fb.add(kind, subject, None, FactStatus.UNRESOLVED, source=ref(mod.path, call.lineno),
@@ -674,6 +851,54 @@ class _Root:
 
     # -- containers: ASGI app, routes, server settings
 
+    # -- the container environment: Kubernetes env and envFrom over the linked image's ENV
+
+    def env_lookup(self, csub: str | None, var: str, *, case_insensitive: bool = False) -> _EnvVal | None:
+        """How `var` reaches the process. None: unset and not replaceable from outside the repository."""
+        if csub is None:
+            return _EnvVal(None, False, None, None, [], "unknown")
+        model = self.dep.env_models.get(csub)
+        if model is None:
+            return _EnvVal(None, False, None, None, [], "unknown")  # no environment model: what the container sees is unknown
+        names = [var]
+        docker = self._docker_env(csub)
+        if case_insensitive:
+            names = sorted({n for n in [*model.explicit, *docker] if n.upper() == var.upper()} | {var})
+        for n in names:
+            r = model.resolve(n)
+            if r is not None:
+                if r.status is FactStatus.UNRESOLVED or r.value is None or "$(" in str(r.value):
+                    return _EnvVal(None, False, r.source, r.via_fact, list(r.exposure), "env")
+                return _EnvVal(str(r.value), True, r.source, r.via_fact, list(r.exposure), "env")
+        for n in names:
+            d = docker.get(n)
+            if d is not None:
+                value, line, path, unresolved = d
+                expo = model.exposure_for(n)
+                if unresolved:
+                    return _EnvVal(None, False, (path, line), None, expo, "docker_env")
+                return _EnvVal(value, True, (path, line), None, expo, "docker_env")
+        expo = model.exposure_for(var)
+        if expo:
+            return _EnvVal(None, False, None, None, expo, "external")
+        return None
+
+    def _docker_env(self, csub: str) -> dict[str, tuple[str, int, str, bool]]:
+        if csub in self._docker_cache:
+            return self._docker_cache[csub]
+        out: dict[str, tuple[str, int, str, bool]] = {}
+        link = self.dep.container_links.get(csub)
+        dpath = self.dep.dockerfile_for_link.get(link.link_id) if link is not None else None
+        model = self.dep.dockerfiles.get(dpath) if dpath else None
+        target = model.default_target if model is not None else None
+        if target is not None and dpath is not None:
+            for k, v in target.env.items():
+                out[k] = (str(v.value), v.line, dpath, v.unresolved is not None)
+        self._docker_cache[csub] = out
+        return out
+
+    # -- containers: ASGI app, routes, server settings
+
     def container(self, csub: str, link: Linkage) -> None:
         tokens = self._command(csub)
         if tokens is None:
@@ -689,7 +914,7 @@ class _Root:
         elif launcher == "uvicorn":
             app_ref = self._uvicorn(csub, tokens, start, cmd_fid)
         if app_ref is not None:
-            self._app(csub, link, tokens[app_ref[1]], app_ref[0])
+            self._app(csub, link, tokens[app_ref[1]] if app_ref[1] >= 0 else tokens[0], app_ref[0])
 
     def _command(self, csub: str) -> list[tuple[str, str, int, FactStatus]] | None:
         k8s = [(t, p, ln, FactStatus.DECLARED) for t, p, ln in self.dep.container_args.get(csub, [])]
@@ -701,156 +926,170 @@ class _Root:
             ep, cm, _e, _c = image
             out = [(t, p, ln, FactStatus.INFERRED) for t, p, ln in ep]
             out += k8s if args_set else ([(t, p, ln, FactStatus.INFERRED) for t, p, ln in cm] if (ep or not k8s) else [])
+            if not ep:
+                self._cov(csub, "The Dockerfile sets no ENTRYPOINT, so the base image's ENTRYPOINT is unknown; the Python server settings "
+                                "read from CMD assume it runs CMD as the command.")
             k8s = out
         if any("$(" in t for t, *_r in k8s):
             self._cov(csub, "The container command uses $(VAR) expansion; the Python server settings in it are not read.")
             return None
         if k8s and k8s[0][0].rsplit("/", 1)[-1] in shellcmd.SHELLS:
-            if len(k8s) >= 3 and re.fullmatch(r"-[a-zA-Z]*c[a-zA-Z]*", k8s[1][0]):
-                model = self.dep.env_models.get(csub)
+            inv = shellcmd.invocation([t for t, *_r in k8s], 0)
+            if inv.opaque is None and inv.script is not None:
 
                 def lookup(var: str) -> tuple[str | None, bool]:
-                    if model is None or model.exposure_for(var):
-                        return None, False
-                    r = model.resolve(var)
-                    if r is None:
+                    v = self.env_lookup(csub, var)
+                    if v is None:
                         return None, True
-                    return (str(r.value), True) if r.status is not FactStatus.UNRESOLVED and r.value is not None else (None, False)
+                    return (v.value, True) if v.known and not v.exposure else (None, False)
 
-                parsed = shellcmd.expand(k8s[2][0], [t for t, *_r in k8s[3:]], lookup)
+                positional = k8s[inv.script_index + 1:]
+                parsed = shellcmd.expand(inv.script, [t for t, *_r in positional], lookup, brace=inv.shell in shellcmd.BRACE_SHELLS)
                 if parsed.opaque is None and not any(w.unknown for w in parsed.words):
-                    _t, p, ln, st = k8s[2]
-                    return [(w.text, p if w.origin < 0 else k8s[3 + w.origin][1], ln if w.origin < 0 else k8s[3 + w.origin][2],
-                             FactStatus.INFERRED if st is FactStatus.INFERRED else st) for w in parsed.words]
+                    _t, p, ln, st = k8s[inv.script_index]
+                    return [(w.text, p if w.origin < 0 else positional[w.origin][1], ln if w.origin < 0 else positional[w.origin][2], st)
+                            for w in parsed.words]
             self._cov(csub, "The container runs a shell command the scanner does not model; Python server settings in it are not read.")
             return None
         return k8s
 
-    def _server_setting(self, csub: str, name: str, value: Any, src: tuple[str, int], status: FactStatus, cmd_fid: str | None,
-                        precedence: str, unit: str | None) -> None:
-        inputs = [via(R.VALUE_SOURCE, cmd_fid)] if cmd_fid else []
-        self.fb.add(f"{precedence.split('.')[0]}.setting", f"{csub}#{name}", value, status, unit=unit, source=ref(*src), inputs=inputs,
-                    precedence=precedence)
+    def _server_setting(self, csub: str, name: str, value: Any, src: tuple[str, int] | None, status: FactStatus, cmd_fid: str | None,
+                        precedence: str, unit: str | None, *, exposure: list[ExposureSource] | None = None, via_fact: str | None = None) -> None:
+        inputs = [via(R.VALUE_SOURCE, cmd_fid)] if cmd_fid and precedence.endswith(".cli") else []
+        if via_fact:
+            inputs.append(via(R.ENV_ATTACHMENT, via_fact))
+        self.fb.add(f"{precedence.split('.')[0]}.setting", f"{csub}#{name}", value, status, unit=unit, source=ref(*src) if src else None,
+                    inputs=inputs, precedence=precedence, exposure=OverrideExposure.ENV_POSSIBLE if exposure else OverrideExposure.NONE,
+                    exposure_sources=_dedupe(exposure or []))
+
+    def _unresolved_setting(self, server: str, csub: str, name: str, reason: str, cmd_fid: str | None) -> None:
+        self.fb.add(f"{server}.setting", f"{csub}#{name}", None, FactStatus.UNRESOLVED, inputs=[via(R.VALUE_SOURCE, cmd_fid)] if cmd_fid else [],
+                    unresolved_reason=reason)
 
     def _gunicorn(self, csub: str, tokens: list[tuple[str, str, int, FactStatus]], start: int, cmd_fid: str | None) -> tuple[str, int] | None:
-        opts = {"-w": "workers", "--workers": "workers", "-k": "worker_class", "--worker-class": "worker_class", "-b": "bind", "--bind": "bind",
-                "-t": "timeout", "--timeout": "timeout", "--graceful-timeout": "graceful_timeout", "-c": "config", "--config": "config"}
+        names = ("bind", "workers", "worker_class", "timeout", "graceful_timeout")
         units = {"timeout": "s", "graceful_timeout": "s"}
-        found: dict[str, tuple[Any, tuple[str, int], FactStatus]] = {}
-        binds: list[tuple[str, tuple[str, int], FactStatus]] = []
-        app: tuple[str, int] | None = None
-        i = start
-        unknown_flag = False
-        while i < len(tokens):
-            w, p, ln, st = tokens[i]
-            name: str | None = None
-            raw_value: str | None = None
-            if w.startswith("--") and "=" in w:
-                flag, _, raw_value = w.partition("=")
-                name = opts.get(flag)
-            elif w in opts and i + 1 < len(tokens):
-                name, raw_value = opts[w], tokens[i + 1][0]
-                i += 1
-            elif re.fullmatch(r"-[wkbt]\S+", w):
-                name, raw_value = opts[w[:2]], w[2:]
-            elif w.startswith("-"):
-                unknown_flag = unknown_flag or w in ("--paste", "--env", "-e")
-                i += 1
+        cli = _parse_cli("gunicorn", [t[0] for t in tokens[start:]])
+        if cli.opaque is not None:
+            self._cov(csub, f"gunicorn command line: {cli.opaque}; its settings and application are not read.")
+            for n in names:
+                self._unresolved_setting("gunicorn", csub, n, f"the gunicorn command line is not fully understood ({cli.opaque})", cmd_fid)
+            return None
+        env_args = self.env_lookup(csub, "GUNICORN_CMD_ARGS")
+        env_cli: _Cli | None = None
+        if env_args is not None and env_args.known and env_args.value is not None:
+            try:
+                env_cli = _parse_cli("gunicorn", shlex.split(env_args.value), positional=False)
+            except ValueError:
+                env_cli = _Cli(opaque="GUNICORN_CMD_ARGS cannot be split into words")
+        config = "config" in cli.values or (env_cli is not None and "config" in env_cli.values)
+        default_conf = any(f.path.rsplit("/", 1)[-1] == "gunicorn.conf.py" and (f.path.startswith(self.index.root.rstrip("/") + "/")
+                                                                                   or self.index.root == ".") for f in self.ws.files)
+        for n in names:
+            if n in cli.values:
+                raw, i = cli.values[n][-1]
+                vals = [v for v, _ in cli.values[n]]
+                value: Any = (vals[0] if len(vals) == 1 else vals) if n == "bind" else _int_or(raw, n in ("workers", "timeout", "graceful_timeout"))
+                t = tokens[start + i]
+                self._server_setting(csub, n, value, (t[1], t[2]), t[3], cmd_fid, "gunicorn.cli", units.get(n))
                 continue
-            elif app is None:
-                app = (w, i)
-            if name is not None and raw_value is not None:
-                if name == "bind":
-                    binds.append((raw_value, (p, ln), st))
-                else:
-                    found[name] = (raw_value, (p, ln), st)
-            i += 1
-        if "config" in found:
-            self._cov(csub, "gunicorn reads a configuration file (-c); settings it sets are not read, so settings not on the command line are unresolved.")
-        model = self.dep.env_models.get(csub)
-        cmd_args_expo = model.exposure_for("GUNICORN_CMD_ARGS") if model is not None else []
-        explicit_cmd_args = model.resolve("GUNICORN_CMD_ARGS") if model is not None else None
-        for name in ("bind", "workers", "worker_class", "timeout", "graceful_timeout"):
-            if name == "bind" and binds:
-                value: Any = binds[0][0] if len(binds) == 1 else [b[0] for b in binds]
-                self._server_setting(csub, name, value, binds[0][1], binds[0][2], cmd_fid, "gunicorn.cli", None)
+            if env_args is not None and not env_args.known and env_args.layer != "external":
+                self._unresolved_setting("gunicorn", csub, n, "GUNICORN_CMD_ARGS is set from a value the repository does not show", cmd_fid)
                 continue
-            if name in found:
-                raw, src, st = found[name]
-                value = int(raw) if name in ("workers", "timeout", "graceful_timeout") and str(raw).lstrip("-").isdigit() else raw
-                self._server_setting(csub, name, value, src, st, cmd_fid, "gunicorn.cli", units.get(name))
+            if env_cli is not None and env_cli.opaque is not None:
+                self._unresolved_setting("gunicorn", csub, n, f"GUNICORN_CMD_ARGS is not understood ({env_cli.opaque})", cmd_fid)
                 continue
-            subject = f"{csub}#{name}"
-            if "config" in found or explicit_cmd_args is not None or unknown_flag:
-                self.fb.add("gunicorn.setting", subject, None, FactStatus.UNRESOLVED, inputs=[via(R.VALUE_SOURCE, cmd_fid)] if cmd_fid else [],
-                            unresolved_reason="a configuration file or GUNICORN_CMD_ARGS in the repository may set it, and the scanner does not read them")
+            if env_cli is not None and n in env_cli.values:
+                assert env_args is not None
+                vals = [v for v, _ in env_cli.values[n]]
+                value = (vals[0] if len(vals) == 1 else vals) if n == "bind" else _int_or(vals[-1], n in ("workers", "timeout", "graceful_timeout"))
+                self._server_setting(csub, n, value, env_args.source, FactStatus.DECLARED if env_args.layer == "env" else FactStatus.INFERRED,
+                                     cmd_fid, "gunicorn.env", units.get(n), exposure=env_args.exposure, via_fact=env_args.via)
                 continue
-            expo_srcs = [s.model_copy(update={"variables": ["GUNICORN_CMD_ARGS"]}) for s in cmd_args_expo]
-            env_dep = {"workers": "WEB_CONCURRENCY", "bind": "PORT"}.get(name)
-            if env_dep is not None and model is not None:
-                if model.resolve(env_dep) is not None:
-                    self.fb.add("gunicorn.setting", subject, None, FactStatus.UNRESOLVED, inputs=[via(R.VALUE_SOURCE, cmd_fid)] if cmd_fid else [],
-                                unresolved_reason=f"the default depends on {env_dep}, which the container sets; the scanner does not derive it")
-                    continue
-                expo_srcs += [s.model_copy(update={"variables": [env_dep]}) for s in model.exposure_for(env_dep)]
+            if config or default_conf:
+                why = "a gunicorn configuration file is read" + ("" if config else " (gunicorn.conf.py in the repository, loaded from the working directory)")
+                self._unresolved_setting("gunicorn", csub, n, f"{why}; the scanner does not read it", cmd_fid)
+                continue
+            env_dep = {"workers": "WEB_CONCURRENCY", "bind": "PORT"}.get(n)
+            dep_val = self.env_lookup(csub, env_dep) if env_dep else None
+            if env_dep is not None and dep_val is not None and (dep_val.known or dep_val.layer != "external"):
+                self._unresolved_setting("gunicorn", csub, n, f"the default depends on {env_dep}, which the container sets; the scanner does not derive it",
+                                         cmd_fid)
+                continue
+            model = self.dep.env_models.get(csub)
+            expo_srcs = [x.model_copy(update={"variables": ["GUNICORN_CMD_ARGS"]}) for x in (env_args.exposure if env_args else [])]
+            if env_dep is not None and dep_val is not None:
+                expo_srcs += [x.model_copy(update={"variables": [env_dep]}) for x in dep_val.exposure]
             expo = OverrideExposure.ENV_POSSIBLE if (expo_srcs or model is None) else OverrideExposure.NONE
-            absence = (tokens[0][1], tokens[0][2])
-            self._default("gunicorn.setting", subject, f"gunicorn.{name}", "gunicorn", absence,
+            self._default("gunicorn.setting", f"{csub}#{n}", f"gunicorn.{n}", "gunicorn", (tokens[0][1], tokens[0][2]),
                           extra_inputs=[via(R.VALUE_SOURCE, cmd_fid)] if cmd_fid else [], exposure=expo, exposure_sources=_dedupe(expo_srcs),
                           precedence="gunicorn.default")
-        return app
+        if "chdir" in cli.values or "pythonpath" in cli.values:
+            self._cov(csub, "gunicorn changes the working directory or the import path (--chdir, --pythonpath); the application module is not resolved.")
+            return None
+        if "raw_env" in cli.values:
+            self.env_changed.add(csub)
+            self._cov(csub, "gunicorn sets environment variables for the application (--env); settings read from the environment may change.")
+        if cli.app is None:
+            return None
+        return cli.app[0], start + cli.app[1]
 
     def _uvicorn(self, csub: str, tokens: list[tuple[str, str, int, FactStatus]], start: int, cmd_fid: str | None) -> tuple[str, int] | None:
-        opts = {"--host": "host", "--port": "port", "--timeout-graceful-shutdown": "timeout_graceful_shutdown", "--workers": "workers"}
-        flags = {"--reload": "reload", "--factory": "factory"}
-        found: dict[str, tuple[Any, tuple[str, int], FactStatus]] = {}
-        app: tuple[str, int] | None = None
-        i = start
-        while i < len(tokens):
-            w, p, ln, st = tokens[i]
-            if w.startswith("--") and "=" in w and w.partition("=")[0] in opts:
-                found[opts[w.partition("=")[0]]] = (w.partition("=")[2], (p, ln), st)
-            elif w in opts and i + 1 < len(tokens):
-                found[opts[w]] = (tokens[i + 1][0], (p, ln), st)
-                i += 1
-            elif w in flags:
-                found[flags[w]] = (True, (p, ln), st)
-            elif w.startswith("-"):
-                pass
-            elif app is None:
-                app = (w, i)
-            i += 1
-        model = self.dep.env_models.get(csub)
-        for name in ("host", "port", "timeout_graceful_shutdown", "reload"):
-            subject = f"{csub}#{name}"
-            if name in found:
-                raw, src, st = found[name]
-                value = int(raw) if name in ("port", "timeout_graceful_shutdown") and str(raw).isdigit() else raw
-                self._server_setting(csub, name, value, src, st, cmd_fid, "uvicorn.cli", "s" if name == "timeout_graceful_shutdown" else None)
+        names = ("host", "port", "timeout_graceful_shutdown", "reload")
+        cli = _parse_cli("uvicorn", [t[0] for t in tokens[start:]])
+        if cli.opaque is not None:
+            self._cov(csub, f"uvicorn command line: {cli.opaque}; its settings and application are not read.")
+            for n in names:
+                self._unresolved_setting("uvicorn", csub, n, f"the uvicorn command line is not fully understood ({cli.opaque})", cmd_fid)
+            return None
+        socket = next((n for n in ("uds", "fd") if n in cli.values), None)
+        for n in names:
+            if socket and n in ("host", "port"):
+                self._unresolved_setting("uvicorn", csub, n, f"uvicorn binds the --{socket} socket, so host and port are not used", cmd_fid)
                 continue
-            var = f"UVICORN_{name.upper()}"  # click auto_envvar_prefix
-            if model is not None and model.resolve(var) is not None:
-                r = model.resolve(var)
-                assert r is not None
-                if r.status is FactStatus.UNRESOLVED or r.value is None:
-                    self.fb.add("uvicorn.setting", subject, None, FactStatus.UNRESOLVED,
-                                unresolved_reason=f"{var} is set from a value the repository does not show")
-                else:
-                    self.fb.add("uvicorn.setting", subject, r.value, FactStatus.DECLARED, source=ref(*r.source) if r.source else None,
-                                inputs=[via(R.ENV_ATTACHMENT, r.via_fact)] if r.via_fact else [], precedence="uvicorn.env",
-                                exposure=OverrideExposure.ENV_POSSIBLE if r.exposure else OverrideExposure.NONE, exposure_sources=r.exposure)
+            if n in cli.values:
+                raw, i = cli.values[n][-1]
+                t = tokens[start + i]
+                value: Any = True if raw is None else _int_or(raw, n in ("port", "timeout_graceful_shutdown"))
+                self._server_setting(csub, n, value, (t[1], t[2]), t[3], cmd_fid, "uvicorn.cli", "s" if n == "timeout_graceful_shutdown" else None)
                 continue
-            if name == "reload":
+            var = f"UVICORN_{n.upper()}"  # click auto_envvar_prefix
+            ev = self.env_lookup(csub, var)
+            if ev is not None and ev.layer != "external":
+                if not ev.known or ev.value is None:
+                    self._unresolved_setting("uvicorn", csub, n, f"{var} is set from a value the repository does not show", cmd_fid)
+                    continue
+                value = _click_value(ev.value, n)
+                if value is _BAD:
+                    self._unresolved_setting("uvicorn", csub, n, f"{var}={ev.value!r} is not a value uvicorn accepts", cmd_fid)
+                    continue
+                self._server_setting(csub, n, value, ev.source, FactStatus.DECLARED if ev.layer == "env" else FactStatus.INFERRED, cmd_fid,
+                                     "uvicorn.env", "s" if n == "timeout_graceful_shutdown" else None, exposure=ev.exposure, via_fact=ev.via)
                 continue
-            srcs = [s.model_copy(update={"variables": [var]}) for s in (model.exposure_for(var) if model is not None else [])]
+            if n == "reload":
+                continue
+            model = self.dep.env_models.get(csub)
+            srcs = [x.model_copy(update={"variables": [var]}) for x in (ev.exposure if ev else [])]
             expo = OverrideExposure.ENV_POSSIBLE if (srcs or model is None) else OverrideExposure.NONE
-            self._default("uvicorn.setting", subject, f"uvicorn.{name}", "uvicorn", (tokens[0][1], tokens[0][2]),
+            self._default("uvicorn.setting", f"{csub}#{n}", f"uvicorn.{n}", "uvicorn", (tokens[0][1], tokens[0][2]),
                           extra_inputs=[via(R.VALUE_SOURCE, cmd_fid)] if cmd_fid else [], exposure=expo, exposure_sources=srcs,
                           precedence="uvicorn.default")
-        if "factory" in found and app is not None:
+        if "env_file" in cli.values:
+            self.env_changed.add(csub)
+            self._cov(csub, "uvicorn loads an env file (--env-file); settings read from the environment may change.")
+        if "factory" in cli.values:
             self._cov(csub, "uvicorn --factory builds the application by calling a function; its routes are not read.")
             return None
-        return app
+        app_dir = cli.values.get("app_dir", [(".", -1)])[-1][0]
+        if app_dir not in (".", "", "./"):
+            self._cov(csub, f"uvicorn --app-dir {app_dir} changes where the application module is imported from; the module is not resolved.")
+            return None
+        if cli.app is None:
+            ev = self.env_lookup(csub, "UVICORN_APP")
+            if ev is not None and ev.known and ev.value:
+                return ev.value, -1
+            return None
+        return cli.app[0], start + cli.app[1]
 
     def _app(self, csub: str, link: Linkage, token: tuple[str, str, int, FactStatus], ref_text: str) -> None:
         m = re.fullmatch(r"([A-Za-z_][\w.]*):([A-Za-z_]\w*)", ref_text)
@@ -907,43 +1146,46 @@ class _Root:
             if fn is None:
                 continue
             subject = f"python:{dotted}"
-            deadline_fid, spans = self._deadline(mod, fn, subject)
-            calls: list[tuple[str, int, bool]] = []
+            spans = self._deadline(mod, fn, subject)
+            calls: list[tuple[str, int, tuple[int, int, str] | None]] = []
             for node in ast.walk(fn):
                 if isinstance(node, ast.Call):
                     d = self.index.dotted(mod, node.func)
                     if d is not None and d in self.retry_funcs and all(c[0] != d for c in calls):
-                        inside = any(a <= node.lineno <= b for a, b in spans)
-                        calls.append((d, node.lineno, inside))
-            for k, (d, line, inside) in enumerate(calls):
-                inputs = [via(R.REFERENCE, route_fid)] + ([via(R.REFERENCE, deadline_fid)] if inside and deadline_fid else [])
-                self.fb.add("python.call_reaches", subject, {"callee": self.retry_funcs[d], "within_deadline": subject if inside else None},
+                        around = [sp for sp in spans if sp[0] <= node.lineno <= sp[1]]
+                        inner = max(around, key=lambda sp: sp[0]) if around else None  # the innermost deadline applies first
+                        calls.append((d, node.lineno, inner))
+            for k, (d, line, inner) in enumerate(calls):
+                inputs = [via(R.REFERENCE, route_fid)] + ([via(R.REFERENCE, inner[2])] if inner else [])
+                self.fb.add("python.call_reaches", subject, {"callee": self.retry_funcs[d], "within_deadline": subject if inner else None},
                             FactStatus.DECLARED, source=ref(mod.path, line), scope={} if k == 0 else {"callee": d}, inputs=inputs)
 
-    def _deadline(self, mod: PyModule, fn: ast.FunctionDef | ast.AsyncFunctionDef, subject: str) -> tuple[str | None, list[tuple[int, int]]]:
-        spans: list[tuple[int, int]] = []
-        fid: str | None = None
-        for node in ast.walk(fn):
-            if isinstance(node, (ast.With, ast.AsyncWith)):
-                for item in node.items:
-                    ce = item.context_expr
-                    if isinstance(ce, ast.Call) and _is(self.index, mod, ce.func, "asyncio.timeout", "anyio.fail_after", "asyncio.timeouts.timeout"):
-                        mech = self.index.dotted(mod, ce.func) or "asyncio.timeout"
-                        mech = "asyncio.timeout" if mech.startswith("asyncio") else "anyio.fail_after"
-                        arg = ce.args[0] if ce.args else (_kw(ce, "delay").value if _kw(ce, "delay") else None)  # type: ignore[union-attr]
-                        end = getattr(node, "end_lineno", node.lineno) or node.lineno
-                        spans.append((node.lineno, end))
-                        if fid is None:
-                            fid = self._deadline_fact(mod, subject, mech, arg, node.lineno)
-        return fid, spans
+    def _deadline(self, mod: PyModule, fn: ast.FunctionDef | ast.AsyncFunctionDef, subject: str) -> list[tuple[int, int, str]]:
+        """One deadline fact per `with` block: (first line, last line, fact id)."""
+        spans: list[tuple[int, int, str]] = []
+        for node in sorted((n for n in ast.walk(fn) if isinstance(n, (ast.With, ast.AsyncWith))), key=lambda n: n.lineno):
+            for item in node.items:
+                ce = item.context_expr
+                if isinstance(ce, ast.Call) and _is(self.index, mod, ce.func, "asyncio.timeout", "anyio.fail_after", "asyncio.timeouts.timeout"):
+                    mech = self.index.dotted(mod, ce.func) or "asyncio.timeout"
+                    mech = "asyncio.timeout" if mech.startswith("asyncio") else "anyio.fail_after"
+                    arg = ce.args[0] if ce.args else (_kw(ce, "delay").value if _kw(ce, "delay") else None)  # type: ignore[union-attr]
+                    end = getattr(node, "end_lineno", node.lineno) or node.lineno
+                    fid = self._deadline_fact(mod, subject, mech, arg, node.lineno, first=not spans)
+                    spans.append((node.lineno, end, fid))
+        return spans
 
-    def _deadline_fact(self, mod: PyModule, subject: str, mech: str, arg: ast.expr | None, line: int) -> str:
+    def _add_deadline(self, scope: dict[str, str], subject: str, value: Any, status: FactStatus, **kw: Any) -> str:
+        return self.fb.add("python.deadline", subject, value, status, scope=scope, **kw)
+
+    def _deadline_fact(self, mod: PyModule, subject: str, mech: str, arg: ast.expr | None, line: int, *, first: bool = True) -> str:
         src = ref(mod.path, line)
+        scope = {} if first else {"line": str(line)}
         ok, v = _literal(arg)
         if ok and isinstance(v, (int, float)) and not isinstance(v, bool):
-            return self.fb.add("python.deadline", subject, {"mechanism": mech, "seconds": float(v)}, FactStatus.DECLARED, unit="s", source=src)
+            return self._add_deadline(scope, subject, {"mechanism": mech, "seconds": float(v)}, FactStatus.DECLARED, unit="s", source=src)
         if ok and v is None:
-            return self.fb.add("python.deadline", subject, {"mechanism": mech, "seconds": None}, FactStatus.DECLARED, unit="s", source=src)
+            return self._add_deadline(scope, subject, {"mechanism": mech, "seconds": None}, FactStatus.DECLARED, unit="s", source=src)
         if isinstance(arg, ast.Attribute):
             inst = self.index.dotted(mod, arg.value)
             cls = self.instances.get(inst or "")
@@ -953,11 +1195,11 @@ class _Root:
                 expo = setting.exposure
                 srcs = [ExposureSource(via="inherited", from_fact_ids=[setting.fid])] if expo is not OverrideExposure.NONE else []
                 if setting.known and isinstance(setting.value, (int, float)) and not isinstance(setting.value, bool):
-                    return self.fb.add("python.deadline", subject, {"mechanism": mech, "seconds": float(setting.value)}, FactStatus.DECLARED,
+                    return self._add_deadline(scope, subject, {"mechanism": mech, "seconds": float(setting.value)}, FactStatus.DECLARED,
                                        unit="s", source=src, inputs=inputs, exposure=expo, exposure_sources=srcs, link_ids=setting.link_ids)
-                return self.fb.add("python.deadline", subject, None, FactStatus.UNRESOLVED, source=src, inputs=inputs, exposure=expo,
+                return self._add_deadline(scope, subject, None, FactStatus.UNRESOLVED, source=src, inputs=inputs, exposure=expo,
                                    exposure_sources=srcs, link_ids=setting.link_ids, unresolved_reason="the settings value it uses is unresolved")
-        return self.fb.add("python.deadline", subject, None, FactStatus.UNRESOLVED, source=src,
+        return self._add_deadline(scope, subject, None, FactStatus.UNRESOLVED, source=src,
                            unresolved_reason=f"the deadline {ast.unparse(arg)[:60] if arg is not None else '(none)'} is not a literal or a settings field")
 
 
@@ -1007,6 +1249,11 @@ class _Routes:
         self.r, self.mod, self.attr, self.call, self.app_subject = root, mod, attr, call, app_subject
         self.incomplete: list[str] = []
         self.count = 0
+        self.walked: set[tuple[str, str]] = set()
+        version = root.versions.get("fastapi", (None, ""))[0]
+        parts = [int(x) for x in re.findall(r"\d+", version or "")[:3]]
+        # from 0.137.0 an included router stays live; before it, include_router copies the routes that exist at that moment
+        self.live_includes = len(parts) == 3 and tuple(parts) >= (0, 137, 0)
 
     def collect(self) -> None:
         if _kw(self.call, "root_path") is not None:
@@ -1014,18 +1261,39 @@ class _Routes:
         if _kw(self.call, "routes") is not None:
             self.incomplete.append(f"{self.mod.path}:{self.call.lineno}: routes=")
         self._object(self.mod, self.attr, "", [], 0)
+        self._foreign()
         complete = not self.incomplete
-        self.r.fb.add("fastapi.route_table", self.app_subject, {"complete": complete, "routes": self.count}, FactStatus.DECLARED,
-                      source=ref(self.mod.path, self.call.lineno))
+        # the built-in documentation routes (docs_url, redoc_url, openapi_url) are not counted or listed
+        self.r.fb.add("fastapi.route_table", self.app_subject, {"complete": complete, "routes": self.count, "documentation_routes": "not listed"},
+                      FactStatus.DECLARED, source=ref(self.mod.path, self.call.lineno))
         if not complete:
             shown = "; ".join(self.incomplete[:5])
             self.r._cov(self.app_subject, f"The route table may be incomplete ({shown}); a path not listed may still be served.")
+
+    def _foreign(self) -> None:
+        """Routes or routers registered on the application or one of its routers from another module (which the scanner does not know
+        is imported at runtime) make the table incomplete."""
+        for mname, oname in sorted(self.walked):
+            for other in self.r.index.candidates(oname):
+                if other.name == mname:
+                    continue
+                for node in ast.walk(other.tree):
+                    target: ast.expr | None = None
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in (
+                            *HTTP_METHODS, "api_route", "route", "include_router", "add_api_route", "add_route", "mount", "websocket"):
+                        target = node.func.value
+                    if target is not None and self.r.index.dotted(other, target) == f"{mname}.{oname}":
+                        self.incomplete.append(f"{other.path}:{getattr(node, 'lineno', 0)}: registered on {oname} from another module")
+                        break
 
     def _object(self, mod: PyModule, name: str, prefix: str, refs: list[tuple[str, int]], depth: int) -> None:
         if depth > 10:
             self.incomplete.append(f"{mod.path}: routers nest too deeply")
             return
+        self.walked.add((mod.name, name))
         for node in ast.walk(mod.tree):
+            if isinstance(node, ast.Attribute) and node.attr == "router" and isinstance(node.value, ast.Name) and node.value.id == name:
+                self.incomplete.append(f"{mod.path}:{node.lineno}: {name}.router is used directly")
             # decorators: @name.get("/p")
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 for dec in node.decorator_list:
@@ -1066,6 +1334,12 @@ class _Routes:
             self.incomplete.append(f"{mod.path}:{call.lineno}: include_router of an object the scanner cannot follow")
             return
         rmod, rname, rcall = obj
+        if not self.live_includes and rmod.name == mod.name:
+            late = [n for n in ast.walk(mod.tree) if getattr(n, "lineno", 0) > call.lineno and (
+                isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and isinstance(n.func.value, ast.Name) and n.func.value.id == rname)]
+            if late:
+                self.incomplete.append(f"{mod.path}:{getattr(late[0], 'lineno', 0)}: {rname} changes after it is included "
+                                       "(fastapi before 0.137 copies routes at include time)")
         router_prefix = ""
         rk = _kw(rcall, "prefix")  # type: ignore[arg-type]
         if rk is not None:
@@ -1105,4 +1379,3 @@ class _Routes:
 
 __all__ = ["PythonResult", "py_default", "resolve_python"]
 
-_ = shlex  # kept for symmetry with spring.py command handling

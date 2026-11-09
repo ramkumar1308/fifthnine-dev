@@ -90,7 +90,10 @@ def test_duration_boolean_and_list_normalisation() -> None:
 def test_case_names_are_unique_and_entrypoints_name_the_jar() -> None:
     names = [c.name for c in CASES]
     assert len(names) == len(set(names))
-    assert all(c.entrypoint is None or "/app/app.jar" in c.entrypoint for c in CASES)
+    # the harness swaps /app/app.jar for the built jar, as a whole argument or inside a shell script
+    assert all(c.entrypoint is None or any("/app/app.jar" in a for a in c.entrypoint) for c in CASES)
+    assert all(c.entry_shell is None or "/app/app.jar" in c.entry_shell for c in CASES)
+    assert all(not (c.entrypoint and c.entry_shell) for c in CASES)
     assert all(c.resources for c in CASES)
 
 

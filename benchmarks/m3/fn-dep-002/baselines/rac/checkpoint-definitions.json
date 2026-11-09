@@ -1,0 +1,146 @@
+{
+  "version": "1.0",
+  "checkpoints": [
+    {
+      "id": "pa-01",
+      "title": "Kubernetes probes target an Actuator health group path",
+      "severity": "red",
+      "type": "code",
+      "verification": {
+        "method": "grep",
+        "target": "k8s/*.yaml",
+        "pattern": "path:\\s*[\"']?/actuator/health/(liveness|readiness)",
+        "min_matches": 1
+      }
+    },
+    {
+      "id": "pa-02",
+      "title": "Management server port is not moved (properties, env or args)",
+      "severity": "red",
+      "type": "code",
+      "verification": {
+        "method": "grep",
+        "evidence_paths": [
+          "src/main/resources/application*",
+          "k8s/*.yaml"
+        ],
+        "pattern": "management\\.server\\.port|MANAGEMENT_SERVER_PORT",
+        "pass_condition": "absent"
+      }
+    },
+    {
+      "id": "pa-03",
+      "title": "Management server port is not moved (nested YAML)",
+      "severity": "red",
+      "type": "code",
+      "verification": {
+        "method": "grep",
+        "target": "src/main/resources/application*.y*ml",
+        "pattern": "^\\s{2,4}server:\\s*$",
+        "pass_condition": "absent"
+      }
+    },
+    {
+      "id": "pa-04",
+      "title": "Server port is not moved away from 8080",
+      "severity": "red",
+      "type": "code",
+      "verification": {
+        "method": "grep",
+        "evidence_paths": [
+          "src/main/resources/application*",
+          "k8s/*.yaml"
+        ],
+        "pattern": "(?<!management\\.)server\\.port|(?<!MANAGEMENT_)SERVER_PORT|^\\s{2}port:\\s*[\"']?(?!8080\\b)",
+        "pass_condition": "absent"
+      }
+    },
+    {
+      "id": "pa-05",
+      "title": "Actuator and management base paths are not changed",
+      "severity": "red",
+      "type": "code",
+      "verification": {
+        "method": "grep",
+        "evidence_paths": [
+          "src/main/resources/application*",
+          "k8s/*.yaml"
+        ],
+        "pattern": "base-path|BASE_PATH|basePath",
+        "pass_condition": "absent"
+      }
+    },
+    {
+      "id": "pa-06",
+      "title": "Servlet context path is not set",
+      "severity": "red",
+      "type": "code",
+      "verification": {
+        "method": "grep",
+        "evidence_paths": [
+          "src/main/resources/application*",
+          "k8s/*.yaml"
+        ],
+        "pattern": "context-path|CONTEXT_PATH|contextPath",
+        "pass_condition": "absent"
+      }
+    },
+    {
+      "id": "pa-07",
+      "title": "Health endpoint path mapping is not changed",
+      "severity": "red",
+      "type": "code",
+      "verification": {
+        "method": "grep",
+        "evidence_paths": [
+          "src/main/resources/application*",
+          "k8s/*.yaml"
+        ],
+        "pattern": "path-mapping|PATH_MAPPING|pathMapping",
+        "pass_condition": "absent"
+      }
+    },
+    {
+      "id": "pa-08",
+      "title": "Health probe groups are not disabled",
+      "severity": "red",
+      "type": "code",
+      "verification": {
+        "method": "grep",
+        "evidence_paths": [
+          "src/main/resources/application*",
+          "k8s/*.yaml"
+        ],
+        "pattern": "(probes\\.enabled|PROBES_ENABLED)\\s*[=:]?\\s*[\"']?(false|off|no)|^\\s+probes:\\s*$",
+        "pass_condition": "absent"
+      }
+    },
+    {
+      "id": "pa-09",
+      "title": "Health endpoint is not excluded from web exposure or made inaccessible",
+      "severity": "red",
+      "type": "code",
+      "verification": {
+        "method": "grep",
+        "evidence_paths": [
+          "src/main/resources/application*",
+          "k8s/*.yaml"
+        ],
+        "pattern": "exclude[^\\n]*health|EXCLUDE[^\\n]*HEALTH|health\\.(access|enabled)\\s*[=:]\\s*[\"']?(none|false)|HEALTH_(ACCESS|ENABLED)",
+        "pass_condition": "absent"
+      }
+    },
+    {
+      "id": "pa-10",
+      "title": "Deployment takes no configuration from ConfigMaps or Secrets",
+      "severity": "yellow",
+      "type": "code",
+      "verification": {
+        "method": "grep",
+        "target": "k8s/*.yaml",
+        "pattern": "envFrom:|configMapKeyRef|secretKeyRef",
+        "pass_condition": "absent"
+      }
+    }
+  ]
+}

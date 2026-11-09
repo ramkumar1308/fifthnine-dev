@@ -100,12 +100,14 @@ def observe(unit: dict, out: Path) -> dict:
     case_dir: Path = unit["case_dir"]
     cid = case_dir.name
     ns = unit["ns"]
-    manifests = sorted((case_dir / "repo" / "k8s").glob("*.y*ml"))
-    if unit.get("input"):
-        manifests.append(case_dir / "runtime" / unit["input"])
-    docs = load_docs(manifests)
+    repo_manifests = sorted((case_dir / "repo" / "k8s").glob("*.y*ml"))
+    runtime_manifests = [case_dir / f for f in unit.get("files", [])]
+    docs = load_docs(repo_manifests + runtime_manifests)
+    # out-of-repository inputs first, then everything that is not a Deployment, then the Deployments
+    has_deploy = {m: any(d.get("kind") == "Deployment" for d in load_docs([m])) for m in repo_manifests}
+    manifests = runtime_manifests + [m for m in repo_manifests if not has_deploy[m]] + [m for m in repo_manifests if has_deploy[m]]
     window = window_for(docs)
-    rec: dict = {"case": cid, "input": unit.get("input"), "namespace": ns, "window_seconds": window}
+    rec: dict = {"case": cid, "input": unit.get("input"), "input_files": unit.get("files", []), "namespace": ns, "window_seconds": window}
     t0 = time.time()
     run(["kubectl", "create", "namespace", ns])
     for m in manifests:
@@ -219,13 +221,16 @@ def main() -> int:
         if builds[c.name]["build"] != "ok":
             continue
         meta = yaml.safe_load((c / "case.yaml").read_text()) or {}
-        inputs = [ri if isinstance(ri, str) else (ri.get("file") or ri.get("path")) for ri in (meta.get("runtime_inputs") or [])]
-        inputs = [Path(x).name for x in inputs if x]
+        # only the names of the runtime input files are read here; the expected outcome is never read
+        inputs: list[list[str]] = []
+        for ri in meta.get("runtime_inputs") or []:
+            files = [ri] if isinstance(ri, str) else (ri.get("files") or [ri.get("file") or ri.get("path")])
+            inputs.append([str(f) for f in files if f])
         if inputs:
-            for k, inp in enumerate(inputs):
-                units.append({"case_dir": c, "input": inp, "ns": f"{c.name}-r{k + 1}"})
+            for k, files in enumerate(inputs):
+                units.append({"case_dir": c, "input": f"r{k + 1}", "files": files, "ns": f"{c.name}-r{k + 1}"})
         else:
-            units.append({"case_dir": c, "input": None, "ns": c.name})
+            units.append({"case_dir": c, "input": None, "files": [], "ns": c.name})
     results = []
     with ThreadPoolExecutor(max_workers=a.parallel) as ex:
         for r in ex.map(lambda u: _safe_observe(u, out), units):

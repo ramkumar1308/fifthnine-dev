@@ -271,7 +271,7 @@ def test_env_options_change_the_environment(tmp_path: Path) -> None:
     for i, entry in enumerate(('ENTRYPOINT ["env", "-i", "java", "-jar", "/app/app.jar"]\n',
                                'ENTRYPOINT ["env", "-u", "SERVER_PORT", "java", "-jar", "/app/app.jar"]\n')):
         r, p = _port(_sub(tmp_path, str(i)), Repo(entrypoint=entry, env={"SERVER_PORT": "9100"}))
-        assert p.status is FactStatus.UNRESOLVED, (entry, p)
+        assert p.status is FactStatus.UNRESOLVED and "env before java" in (p.unresolved_reason or ""), (entry, p)
 
 
 def test_options_files_make_properties_unresolved(tmp_path: Path) -> None:
@@ -309,3 +309,26 @@ def test_both_index_spellings_set_is_unresolved(tmp_path: Path) -> None:
     r = _scan(tmp_path, Repo(env={"MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE_0": "health", "MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE_0_": "info"}),
               oracle=False)
     assert _props(r)["management.endpoints.web.exposure.include"].status is FactStatus.UNRESOLVED
+
+
+def test_combined_shell_flags_with_c(tmp_path: Path) -> None:
+    r, p = _port(tmp_path, Repo(entrypoint='ENTRYPOINT ["sh", "-ec", "exec java -Dserver.port=9000 -jar /app/app.jar"]\n'))
+    assert p.value == 9000, (p, _notices(r))
+
+
+def test_field_splitting_uses_only_space_tab_newline() -> None:
+    from fifthnine.resolve import shellcmd
+
+    words = shellcmd.expand("java $V", [], lambda n: ("a\x0bb c", True)).words
+    assert [w.text for w in words] == ["java", "a\x0bb", "c"]
+
+
+def test_in_repository_service_link_variable_is_unresolved(tmp_path: Path) -> None:
+    from fifthnine.core.engine import ScanOptions, run_scan
+
+    Repo().write(tmp_path)
+    (tmp_path / "svc.yaml").write_text("apiVersion: v1\nkind: Service\nmetadata:\n  name: server\n  namespace: shop\n"
+                                       "spec:\n  selector: {app: other}\n  ports:\n    - port: 80\n")
+    r = run_scan(ScanOptions(path=tmp_path, facts="all"))
+    p = _props(r)[PORT]
+    assert p.status is FactStatus.UNRESOLVED and "Service server" in (p.unresolved_reason or ""), p

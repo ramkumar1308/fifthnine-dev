@@ -32,6 +32,7 @@ from fifthnine.extract.spring_config import (
     evaluate_profile_expression,
     parse_config_file,
 )
+from fifthnine.resolve import shellcmd
 from fifthnine.resolve.defaults import SpringDefault, spring_default, spring_minor
 from fifthnine.resolve.deployment import DeploymentResult, EnvModel
 from fifthnine.resolve.springprops import (
@@ -75,6 +76,10 @@ _MAIN_CLASS = re.compile(r"^[A-Za-z_][\w$]*(\.[A-Za-z_][\w$]*)+$")
 SYSPROP_VARS = ("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS")
 OVERRIDE_VARS = (*JSON_VARS, *SYSPROP_VARS)
 IGNORED_JVM_VARS = ("JAVA_OPTS", "JAVA_OPTIONS")  # not read by the JVM or by Spring Boot
+# java launcher options whose value is the next word (java -help, JDK 21); the value is not a main class
+_JVM_OPTS_WITH_VALUE = frozenset({
+    "-cp", "-classpath", "--class-path", "-p", "--module-path", "--upgrade-module-path", "--add-modules", "--limit-modules",
+    "--add-reads", "--add-exports", "--add-opens", "--patch-module", "--enable-native-access", "--source"})
 
 # keys reported with their cited default when no source sets them
 DEFAULT_KEYS = (
@@ -139,7 +144,14 @@ class _GroupMap:
 
     def get(self, name: str) -> list[str]:
         key = f"spring.profiles.group.{name}"
-        for h in self.run.hits(key)[:1]:
+        # Boot binds the groups as a map and looks a profile up by its exact name: the map key keeps the spelling of a file,
+        # argument, JSON or system property key, and an environment variable gives its lower-case name with "_" read as "."
+        prefix = "spring.profiles.group."
+        exact = [h for h in self.run.hits(key) if h.unresolved is not None and h.layer == "args"
+                 or (h.layer in ("env", "docker_env") and h.var is not None and h.var.upper().startswith("SPRING_PROFILES_GROUP_")
+                     and h.var[len(prefix):].lower().replace("_", ".") == name)
+                 or (h.layer not in ("env", "docker_env") and h.key[len(prefix):] == name)]
+        for h in exact[:1]:
             mat = self.run.materialize(key, h)
             if mat.unresolved is not None:
                 self.run.group_unresolved.append(f"{key}: {mat.unresolved}")
@@ -253,6 +265,7 @@ class _Run:
         self.group_unresolved: list[str] = []
         self.cond_profile_doc: tuple[str, int] | None = None
         self.uncertain: dict[str, tuple[str, tuple[str, int]]] = {}  # canonical key -> why a skipped document may have set it
+        self.uncertain_spelled: set[str] = set()  # the same keys as spelled in the documents
         self.files_unknown: tuple[str, tuple[str, int] | None] | None = None  # (reason, where) when the packaged files are not what Boot reads
         self._expo_key = "spring.profiles.active"
         self._expo_extra: list[str] = []
@@ -263,6 +276,10 @@ class _Run:
         self.prefix_cache: dict[int, dict[str, int]] = {}
         self.note_keys: set[str] = set()
         self.unmapped_env: set[str] = set()
+        self.shell_referenced: set[str] = set()  # variables a modelled shell command expands
+        self.shell_vars: list[str] = []  # variables whose unknown value a shell or kubelet expansion puts where it can add options
+        self.command_opaque: tuple[str, tuple[str, int] | None] | None = None  # the command line may set anything
+        self.kubelet_unknown: dict[int, tuple[str, bool]] = {}
 
     # -- inputs from the linked container
 
@@ -364,6 +381,7 @@ class _Run:
         table: dict[str, list[Hit]] = {}
         included: list[ConfigDocument] = []
         self.uncertain = {}
+        self.uncertain_spelled = set()
         profile_set = set(active) if active else {"default"}
         if self.files_unknown is not None:
             for path, _ in self._file_candidates("application"):
@@ -398,6 +416,7 @@ class _Run:
                             for e in doc.entries:
                                 reason = f"a document with condition {key} (not evaluated) sets it"
                                 self.uncertain.setdefault(canon(split_index(e.key)[0]), (reason, (doc.path, e.line)))
+                                self.uncertain_spelled.add(split_index(e.key)[0])
                         continue
                     if not verdict[0]:
                         continue
@@ -489,51 +508,57 @@ class _Run:
                     continue
                 for word in self._words(str(hit.raw), hit):
                     self._add_d(word, hit.source, hit.status, hit.via_fact, var)
-        for var in IGNORED_JVM_VARS:
-            if self.env_get(var):
-                hit = self.env_get(var)[0]
-                self.cov.append(CoverageNotice(code="FN-OPS-002", scope=self._where(hit),
-                                               message=f"{var} is not read by the JVM or by Spring Boot, so it is ignored; use JAVA_TOOL_OPTIONS."))
         after_jar = False
         skip_next = False
         seen_java = False
         options_ended = False  # a bare "--" makes every later argument a non-option argument
-        stream = self._command_stream()
-        # a shell in the command ("sh -c ...") expands $VAR and ${VAR} from the container environment before java starts
-        shell_wrapped = any(w.rsplit("/", 1)[-1] in ("sh", "bash", "ash", "dash", "zsh") for t, *_ in stream for w in self._words(t, None))
-        for token, src, status, via_id in stream:
-            if "$(" in token or (shell_wrapped and re.search(r"\$[{A-Za-z_]", token)):
-                self.cov.append(CoverageNotice(code="FN-OPS-002", scope=f"{src[0]}:{src[1]}",
-                                               message="A command or args entry uses $(VAR) expansion; the kubelet resolves it at runtime, "
-                                                   "so options in it are unknown."))
+        for word, src, status, via_id, unknown in self._command_words(self._command_stream()):
+            if skip_next:
+                skip_next = False
                 continue
-            for word in self._words(token, None):
-                if skip_next:
-                    skip_next = False
+            if unknown is not None:
+                var, before_eq, unquoted = unknown
+                option_shaped = word.startswith("--") or (word.startswith("-D") and not after_jar)
+                if before_eq or not option_shaped or unquoted:
+                    # an expansion with an unknown value where it can add options (or split into several words)
+                    self._opaque_command(f"the command expands {var}, whose value the repository does not show, where it can add options",
+                                         src, var)
+                if before_eq or not option_shaped:
                     continue
-                if not after_jar:
-                    if word.rsplit("/", 1)[-1] in ("java", "java.exe"):
-                        seen_java = True
-                        continue
-                    if seen_java and _MAIN_CLASS.match(word):  # the main class: everything after it is a program argument
-                        after_jar = True
-                        continue
-                    if word == "-jar":
-                        after_jar, skip_next = True, True
-                        continue
-                    if word in ("-cp", "-classpath", "--class-path", "-p", "--module-path"):
-                        skip_next = True
-                        continue
-                    if word.startswith("-D"):
-                        self._add_d(word, src, status, via_id, None)
-                        continue
-                if after_jar and word == "--":
-                    options_ended = True
+            if not after_jar:
+                if word.rsplit("/", 1)[-1] in ("java", "java.exe"):
+                    seen_java = True
                     continue
-                if not options_ended and word.startswith("--") and len(word) > 2:  # program arguments: Boot reads --key=value, and --key as ""
-                    k, _, v = word[2:].partition("=")
-                    if re.fullmatch(r"[A-Za-z][\w.\-\[\]]*", k):
-                        self.args_table.setdefault(canon(k), []).append(Hit(k, v, "args", "spring.command_line", "", src, status, via_id))
+                if seen_java and word in ("-m", "--module"):  # the main module: everything after it is a program argument
+                    after_jar, skip_next = True, True
+                    continue
+                if seen_java and _MAIN_CLASS.match(word):  # the main class: everything after it is a program argument
+                    after_jar = True
+                    continue
+                if word == "-jar":
+                    after_jar, skip_next = True, True
+                    continue
+                if word in _JVM_OPTS_WITH_VALUE:
+                    skip_next = True
+                    continue
+                if word.startswith("-D"):
+                    self._add_d(word, src, status, via_id, None, unknown[0] if unknown else None)
+                    continue
+            if after_jar and word == "--":
+                options_ended = True
+                continue
+            if not options_ended and word.startswith("--") and len(word) > 2:  # program arguments: Boot reads --key=value, and --key as ""
+                k, _, v = word[2:].partition("=")
+                if re.fullmatch(r"[A-Za-z][\w.\-\[\]]*", k):
+                    reason = (f"the command line sets it from {unknown[0]}, whose value the repository does not show" if unknown else None)
+                    self.args_table.setdefault(canon(k), []).append(
+                        Hit(k, None if reason else v, "args", "spring.command_line", "", src,
+                            FactStatus.UNRESOLVED if reason else status, via_id, unresolved=reason))
+        for var in IGNORED_JVM_VARS:
+            if self.env_get(var) and var not in self.shell_referenced:  # a shell command that expands it makes it live
+                hit = self.env_get(var)[0]
+                self.cov.append(CoverageNotice(code="FN-OPS-002", scope=self._where(hit),
+                                               message=f"{var} is not read by the JVM or by Spring Boot, so it is ignored; use JAVA_TOOL_OPTIONS."))
         # spring.application.json: from the command line, a system property or SPRING_APPLICATION_JSON; Boot reads the one
         # property value that wins and adds its content as one property source between the system properties and the arguments
         jc = canon("spring.application.json")
@@ -578,6 +603,12 @@ class _Run:
                 latest[t[0]] = t
             items = sorted(latest.values(), key=lambda t: t[0])
             first = items[0][1]
+            if [i for i, _ in items] != list(range(len(items))):
+                missing = next(i for i in range(len(items) + 1) if i not in latest)
+                table.setdefault(base, []).append(Hit(split_index(first.key)[0], None, first.layer, first.precedence, first.profile,
+                                                      first.source, FactStatus.UNRESOLVED, first.via_fact, first.var,
+                                                      unresolved=f"index [{missing}] is missing; Spring Boot fails to bind the list at startup"))
+                continue
             table.setdefault(base, []).append(Hit(split_index(first.key)[0], [h.raw for _, h in items], first.layer, first.precedence,
                                                   first.profile, first.source, first.status, first.via_fact, first.var))
 
@@ -591,12 +622,134 @@ class _Run:
                                            message="A command line or JVM option string could not be split into words; options in it are unknown."))
             return []
 
-    def _add_d(self, word: str, source: tuple[str, int] | None, status: FactStatus, via_fact: str | None, var: str | None) -> None:
+    def _add_d(self, word: str, source: tuple[str, int] | None, status: FactStatus, via_fact: str | None, var: str | None,
+               unknown_var: str | None = None) -> None:
         if not word.startswith("-D") or len(word) < 3:
             return
         k, _, v = word[2:].partition("=")
         if re.fullmatch(r"[A-Za-z][\w.\-\[\]]*", k):
-            self.sys_table.setdefault(canon(k), []).append(Hit(k, v, "sysprop", "spring.system_property", "", source, status, via_fact, var))
+            reason = f"the command line sets it from {unknown_var}, whose value the repository does not show" if unknown_var else None
+            self.sys_table.setdefault(canon(k), []).append(Hit(k, None if reason else v, "sysprop", "spring.system_property", "", source,
+                                                               FactStatus.UNRESOLVED if reason else status, via_fact, var, unresolved=reason))
+
+    def _command_words(self, stream: list[tuple[str, tuple[str, int], FactStatus, str | None]]
+                       ) -> list[tuple[str, tuple[str, int], FactStatus, str | None, tuple[str, bool, bool] | None]]:
+        """The words java receives, from the effective command. An exec-form entry is one word as it stands (it is never split).
+        `sh -c "<script>"` (the Dockerfile shell form, or a shell in command/args) is expanded by `shellcmd`: positional
+        arguments after the script reach java only through "$@" or $1..$9. Kubernetes `$(VAR)` references are expanded from the
+        container's env as the kubelet does. A word carries (variable, unknown before '=', unquoted) when part of it is unknown."""
+        out: list[tuple[str, tuple[str, int], FactStatus, str | None, tuple[str, bool, bool] | None]] = []
+        k8s_tokens: list[tuple[str, tuple[str, int], FactStatus, str | None]] = []
+        for token, src, status, via_id in stream:
+            if status is FactStatus.DECLARED and "$(" in token:
+                expanded, k_unknown = self._kubelet_expand(token)
+                if expanded is None:
+                    self._opaque_command("a command or args entry uses a $(...) reference the scanner cannot expand", src, None)
+                    return []
+                k8s_tokens.append((expanded, src, status, via_id))
+                if k_unknown is not None:
+                    self.kubelet_unknown[len(k8s_tokens) - 1] = k_unknown
+                continue
+            k8s_tokens.append((token, src, status, via_id))
+        tokens = k8s_tokens
+        shell_at = None
+        for i, (t, *_rest) in enumerate(tokens):
+            if t.rsplit("/", 1)[-1] in shellcmd.SHELLS:
+                shell_at = i
+                break
+            if t.rsplit("/", 1)[-1] in ("java", "java.exe"):
+                break
+        if shell_at is None:
+            for i, (t, src, status, via_id) in enumerate(tokens):
+                ku = self.kubelet_unknown.get(i)
+                if ku is not None:
+                    out.append((t, src, status, via_id, (ku[0], ku[1], False)))
+                else:
+                    out.append((t, src, status, via_id, None))
+            return out
+        flag = tokens[shell_at + 1][0] if shell_at + 1 < len(tokens) else ""
+        if not re.fullmatch(r"-[a-zA-Z]*c[a-zA-Z]*", flag) or shell_at + 2 >= len(tokens):
+            # a script file: like an entrypoint script, its content is not read (a documented limit), and java options in it are unknown
+            self.cov.append(CoverageNotice(code="FN-OPS-002", scope=f"{tokens[shell_at][1][0]}:{tokens[shell_at][1][1]}",
+                                           message="The container runs a shell script file, which the scanner does not read; "
+                                                   "options it passes to java are unknown."))
+            return []
+        if self.kubelet_unknown:
+            self._opaque_command("a $(...) reference with an unknown value is part of a shell command", tokens[shell_at][1], None)
+            return []
+        if any("=" in t and not t.startswith("-") for t, *_r in tokens[:shell_at]):
+            self._opaque_command("the command sets environment variables before the shell", tokens[0][1], None)
+            return []
+        script, s_src, s_status, s_via = tokens[shell_at + 2]
+        positional = tokens[shell_at + 3:]
+        parsed = shellcmd.expand(script, [t for t, *_r in positional], self._shell_lookup)
+        self.shell_referenced.update(parsed.referenced)
+        if parsed.opaque is not None:
+            self._opaque_command(f"the shell command cannot be modelled: {parsed.opaque}", s_src, None)
+            return []
+        for w in parsed.words:
+            src, status, via_id = (s_src, s_status, s_via) if w.origin < 0 else positional[w.origin][1:]
+            unknown = (w.unknown[0][0], w.unknown_before_eq, any(not q for _, q in w.unknown)) if w.unknown else None
+            out.append((w.text, src, _worst([status, s_status]), via_id, unknown))
+        return out
+
+    def _shell_lookup(self, var: str) -> tuple[str | None, bool]:
+        """A variable's value as the container's shell sees it: (value, known). Unset (and not replaceable from outside) is known."""
+        if self.model is None:
+            return None, False  # no container is linked: its environment is unknown
+        hs = self.env_get(var)
+        if self.model.exposure_for(var):
+            return None, False
+        if hs:
+            h = hs[0]
+            if h.status is FactStatus.UNRESOLVED or h.raw is None or h.unresolved is not None:
+                return None, False
+            return str(h.raw), True
+        if var in _RUNTIME_NAMES:
+            return None, False  # supplied by the kubelet or the image at runtime
+        return None, True
+
+    def _kubelet_expand(self, token: str) -> tuple[str | None, tuple[str, bool] | None]:
+        """Expand `$(VAR)` as the kubelet does: from the container's env (not the image ENV); an unknown variable is left as text
+        (the kubelet leaves it unchanged); `$$` is a literal `$`. Returns (text, (unknown variable, unknown before '=')) ."""
+        out: list[str] = []
+        unknown: tuple[str, bool] | None = None
+        i = 0
+        while i < len(token):
+            if token.startswith("$$", i):
+                out.append("$")
+                i += 2
+                continue
+            m = re.match(r"\$\(([A-Za-z_][A-Za-z0-9_]*)\)", token[i:])
+            if m:
+                var = m.group(1)
+                res = self.model.resolve(var) if self.model is not None else None
+                external = bool(self.model.exposure_for(var)) if self.model is not None else True
+                if res is not None and res.status is not FactStatus.UNRESOLVED and not external and res.value is not None:
+                    out.append(str(res.value))
+                elif res is None and not external:
+                    out.append(m.group(0))  # not set: the kubelet leaves the reference as it is
+                else:
+                    if unknown is None:
+                        unknown = (var, "=" not in "".join(out))
+                i += len(m.group(0))
+                continue
+            out.append(token[i])
+            i += 1
+        return "".join(out), unknown
+
+    def _opaque_command(self, reason: str, src: tuple[str, int] | None, var: str | None) -> None:
+        """The command line may set options the scanner cannot see. When an out-of-repository env source or an unresolved env entry
+        carries `var`, that source is exposure on every property; otherwise every property is unresolved."""
+        where = f"{src[0]}:{src[1]}" if src is not None else (self.csub or "repository")
+        self.cov.append(CoverageNotice(code="FN-OPS-002", scope=where, message=f"{reason[0].upper()}{reason[1:]}; options it sets are unknown."))
+        if var is not None and self.model is not None and (self.model.exposure_for(var)
+                                                            or (var in self.model.explicit and self.model.explicit[var].status is FactStatus.UNRESOLVED)):
+            if var not in self.shell_vars:
+                self.shell_vars.append(var)
+            return
+        if self.command_opaque is None:
+            self.command_opaque = (reason, src)
 
     def _where(self, hit: Hit | None) -> str:
         if hit is not None and hit.source is not None:
@@ -609,6 +762,10 @@ class _Run:
         """Every source's value for `key`, highest precedence first."""
         c = canon(key)
         out: list[Hit] = []
+        if self.command_opaque is not None:
+            reason, where = self.command_opaque
+            out.append(Hit(key, None, "args", "spring.command_line", "", where, FactStatus.UNRESOLVED,
+                           unresolved=f"the container command may set it: {reason}"))
         out += list(reversed(self.args_table.get(c, [])))
         out += list(reversed(self.json_table.get(c, [])))
         out += list(reversed(self.sys_table.get(c, [])))
@@ -618,7 +775,13 @@ class _Run:
             items: list[Hit] = []
             while len(items) < 64 and (got := self.env_get(f"{name}_{len(items)}_")[:1]):  # indexed names: NAME_0_, NAME_1_
                 items.append(got[0])
-            if items:
+            gap = next((f"{name}_{j}_" for j in range(len(items) + 1, 64) if self.env_get(f"{name}_{j}_")), None)
+            if gap is not None:
+                # Boot binds indexed elements until the first missing index and then fails at startup on the elements left over
+                g = self.env_get(gap)[0]
+                out.append(Hit(key, None, g.layer, g.precedence, g.profile, g.source, FactStatus.UNRESOLVED, g.via_fact, gap,
+                               unresolved=f"{gap} is set but an earlier index is missing; Spring Boot fails to bind the list at startup"))
+            elif items:
                 first = items[0]
                 out.append(Hit(key, [h.raw for h in items], first.layer, first.precedence, first.profile, first.source, first.status,
                                first.via_fact, f"{name}_0_", unresolved=next((h.unresolved for h in items if h.unresolved), None)))
@@ -719,6 +882,10 @@ class _Run:
                 candidates += self.env_get(alt)
         exact = name == name.lower() and "_" not in name  # an invalid canonical name is looked up by its exact spelling
         candidates += [h for h in reversed(self.files_table.get(c, [])) if h is not origin and (exact or h.key == name)]
+        why = self.uncertain.get(c) if (exact or name in self.uncertain_spelled) else None
+        if why is not None and (not candidates or candidates[0].layer == "file"):
+            # a document whose condition is not evaluated may set the placeholder's input; a higher layer would still win
+            return None, FactStatus.UNRESOLVED, why[1], None, origin.precedence, f"placeholder {name}: {why[0]}"
         if not candidates:
             if name.startswith(("random.",)) or name in _RUNTIME_NAMES or name.startswith(_RUNTIME_PREFIXES):
                 return None, FactStatus.UNRESOLVED, origin.source, None, origin.precedence, (
@@ -775,6 +942,7 @@ class _Run:
             names += list(OVERRIDE_VARS)
         elif layer == "sysprop":
             names += list(JSON_VARS)
+        names += self.shell_vars  # an expansion of these in the command line can set any option
         merged: dict[tuple[str, str | None], ExposureSource] = {}
         for n in dict.fromkeys(names):
             for src in self.model.exposure_for(n):
@@ -784,7 +952,7 @@ class _Run:
                     merged[k] = merged[k].model_copy(update={"variables": [*known, *[v for v in src.variables if v not in known]]})
                 else:
                     merged[k] = src
-            if n in OVERRIDE_VARS and n in self.model.explicit and self.model.explicit[n].status is FactStatus.UNRESOLVED:
+            if (n in OVERRIDE_VARS or n in self.shell_vars) and n in self.model.explicit and self.model.explicit[n].status is FactStatus.UNRESOLVED:
                 merged[("valueFrom", f"{self.csub}#{n}")] = ExposureSource(via="valueFrom", object=f"{self.csub}#{n}", variables=[n])
         env_srcs = list(merged.values())
         if env_srcs:
@@ -993,7 +1161,7 @@ class _Run:
         hs = self.hits(key)
         subject = f"spring:{self.subject_root}:{key}"
         why = self.uncertain.get(canon(key))
-        if why is not None and (not hs or hs[0].layer in ("file", "docker_env")) and (hs or default):
+        if why is not None and (not hs or hs[0].layer == "file") and (hs or default):  # the OS environment beats every file
             expo, srcs = self.exposure(key, "file")
             fid = self.fb.add("spring.property", subject, None, FactStatus.UNRESOLVED, source=ref(*why[1]), scope=self.scope(),
                               exposure=expo, exposure_sources=srcs, link_ids=self.link_ids, unresolved_reason=why[0])

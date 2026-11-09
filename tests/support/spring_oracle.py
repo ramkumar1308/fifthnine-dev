@@ -270,7 +270,7 @@ def _docker_env(root: Path, link: Linkage, ctx: Ctx) -> None:
         for cmd in st.cmds:
             kind = cmd.cmd.upper()
             if kind in ("ENTRYPOINT", "CMD"):
-                argv = list(cmd.value) if cmd.json else [" ".join(cmd.value)]
+                argv = list(cmd.value) if cmd.json else ["/bin/sh", "-c", " ".join(cmd.value)]  # shell form runs under a shell
                 toks = [(a, paths[0], cmd.start_line) for a in argv]
                 if kind == "ENTRYPOINT":
                     ep = toks
@@ -299,6 +299,14 @@ class Win:
     line: int | None
     layer: str
     why: str = ""
+
+
+def _stream(ctx: Any) -> list[tuple[str, str, int]]:
+    if ctx.k8s_cmd is not None:
+        return list(ctx.k8s_cmd) + list(ctx.k8s_args or [])
+    if ctx.docker_ep is not None and ctx.linked:
+        return list(ctx.docker_ep) + (list(ctx.k8s_args) if ctx.k8s_args is not None else list(ctx.docker_cmd or []))
+    return list(ctx.args)
 
 
 def _words(token: str) -> list[str]:
@@ -385,37 +393,32 @@ class View:
                     if w.startswith("-D") and "=" in w:
                         k, _, val = w[2:].partition("=")
                         self.sys[ocanon(k)] = (val, v[1], v[2])
-        ctx = self.ctx
-        if ctx.k8s_cmd is not None:
-            stream = list(ctx.k8s_cmd) + list(ctx.k8s_args or [])
-        elif ctx.docker_ep is not None and ctx.linked:
-            stream = list(ctx.docker_ep) + (list(ctx.k8s_args) if ctx.k8s_args is not None else list(ctx.docker_cmd or []))
-        else:
-            stream = list(ctx.args)
+        stream = _stream(self.ctx)
         program_args = False
         skip = False
         seen_java = False
         ended = False
-        shell = any(w.rsplit("/", 1)[-1] in ("sh", "bash", "ash", "dash", "zsh") for tok, _p, _l in stream for w in _words(tok))
         for tok, path, line in stream:
-            for w in _words(tok):
+            for w in [tok]:  # an exec-form entry is one argv word; shell-wrapped commands are skipped by check_spring
                 if skip:
                     skip = False
                 elif not program_args and w.rsplit("/", 1)[-1] in ("java", "java.exe"):
                     seen_java = True
+                elif not program_args and seen_java and w in ("-m", "--module"):
+                    program_args = skip = True
                 elif not program_args and seen_java and re.fullmatch(r"[A-Za-z_][\w$]*(\.[A-Za-z_][\w$]*)+", w):
                     program_args = True
                 elif not program_args and w == "-jar":
                     program_args = skip = True
-                elif not program_args and w in ("-cp", "-classpath", "--class-path", "-p", "--module-path"):
+                elif not program_args and w in ("-cp", "-classpath", "--class-path", "-p", "--module-path", "--upgrade-module-path",
+                                                "--add-modules", "--limit-modules", "--add-reads", "--add-exports", "--add-opens",
+                                                "--patch-module", "--enable-native-access", "--source"):
                     skip = True
                 elif not program_args and w.startswith("-D") and "=" in w:
                     k, _, val = w[2:].partition("=")
                     self.sys[ocanon(k)] = (val, path, line)
                 elif program_args and w == "--":
                     ended = True
-                elif shell and re.search(r"\$[{A-Za-z_]", w):
-                    continue  # expanded by the shell at startup
                 elif not ended and w.startswith("--") and len(w) > 2:
                     k, _, val = w[2:].partition("=")
                     prev = self.cli.get(ocanon(k))
@@ -624,6 +627,13 @@ def oracle_profiles(ctx: Ctx, option: list[str] | None) -> list[str] | None:
             es = base.entries(f"spring.profiles.group.{n}")
             if not es:
                 return []
+            if n != ocanon(n):
+                # Boot looks a group up by its exact name; keep the oracle to files, where the spelling is known
+                spelled = [e for e in base.files if re.sub(r"\[\d+\]$", "", e.key) == f"spring.profiles.group.{n}"]
+                if es[0][3] != "file" and es[0][3] != "default":
+                    raise _Unresolved(n)
+                if not spelled:
+                    return []
             text = base.expand(es[0][0]) if es[0][0] != UNRESOLVED else None
             if text is None:
                 raise _Unresolved(n)
@@ -731,6 +741,10 @@ def check_spring(root: Path, facts: list[Fact], links: list[Linkage], rep: Oracl
                 ctx.linked = True
                 _container_env(root, link.from_ref, ctx)
                 _docker_env(root, link, ctx)
+        if any(t.rsplit("/", 1)[-1] in ("sh", "bash", "ash", "dash", "zsh", "ksh") or "$(" in t for t, _p, _l in _stream(ctx)):
+            # the oracle does not model shells or kubelet $(VAR) expansion; the JVM runtime cases cover them
+            rep.skip("spring: shell or $(...) in the container command")
+            continue
         version_fact = boot.get("component:spring-boot" if mod == "." else f"component:spring-boot@{mod}")
         version = str(version_fact.value) if version_fact is not None and version_fact.value else None
         minor = ".".join(version.split(".")[:2]) if version else None

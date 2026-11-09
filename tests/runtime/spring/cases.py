@@ -24,6 +24,7 @@ class Case:
     args: list[str] | None = None
     docker_env: list[str] = field(default_factory=list)  # "NAME=value"
     entrypoint: list[str] | None = None
+    entry_shell: str | None = None  # shell-form ENTRYPOINT: the Dockerfile line and the run both use /bin/sh -c "<string>"
     kubernetes: bool = True  # give the JVM the variables a pod has (KUBERNETES_SERVICE_HOST, KUBERNETES_SERVICE_PORT)
     profile: str | None = None  # scan option, not used by the run
     covers: str = ""
@@ -329,4 +330,22 @@ server.port=8082
          env={"SPRING_PROFILES_INCLUDE": "gy"}, covers="includes from two sources are a union, the higher source first"),
     Case("args-bare-option", resources={"application.yml": APP}, args=["--server.port"], covers="UNSURE: --key without a value is the empty string"),
     Case("json-null-value", resources={"application.yml": APP}, env={"SPRING_APPLICATION_JSON": '{"server":{"port":null}}'}, covers="UNSURE: a JSON null is absent"),
+    # -- closing fixes after round 3: shell-wrapped commands, exec words, launcher options, group spelling
+    Case("shell-form-entry-drops-args", resources={"application.yml": APP}, entry_shell="java -jar /app/app.jar", args=["--server.port=9000"],
+         covers="shell-form ENTRYPOINT: Kubernetes args are $0 and $1 of the shell and never reach java"),
+    Case("sh-c-quoted-at", resources={"application.yml": APP}, entrypoint=["sh", "-c", 'exec java -jar /app/app.jar "$@"', "app"], args=["--server.port=9001"],
+         covers='"$@" passes the arguments after the script to java'),
+    Case("sh-c-java-opts", resources={"application.yml": APP}, entrypoint=["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"],
+         env={"JAVA_OPTS": "-Xmx256m -Dserver.port=9002"}, covers="JAVA_OPTS expanded by a shell is live"),
+    Case("sh-c-default-parameter", resources={"application.yml": APP}, entrypoint=["sh", "-c", "exec java -jar /app/app.jar --server.port=${PORT:-9003}"],
+         covers="${NAME:-word} with NAME unset"),
+    Case("sh-c-declared-parameter", resources={"application.yml": APP}, entrypoint=["sh", "-c", "exec java -jar /app/app.jar --server.port=${PORT:-9003}"],
+         env={"PORT": "9004"}, covers="${NAME:-word} with NAME set in the container env"),
+    Case("exec-arg-with-space", resources={"application.yml": APP}, args=['--spring.application.json={"server": {"port": 9005}}'],
+         covers="an exec-form argument containing a space is one word"),
+    Case("java-add-modules", resources={"application.yml": APP}, entrypoint=["java", "--add-modules", "java.se", "-Dserver.port=9006", "-jar", "/app/app.jar"],
+         covers="--add-modules takes the next word; it is not the main class"),
+    Case("group-exact-spelling", resources={"application.yml": "spring:\n  profiles:\n    active: prod-eu\n    group:\n      prodeu: extra\n" + APP,
+                                            "application-extra.yml": "server:\n  port: 9007\n"},
+         covers="UNSURE: a group is looked up by the exact profile name"),
 ]

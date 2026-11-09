@@ -47,7 +47,8 @@ BUILD_TIMEOUT = 600
 
 def _repo(case: Case) -> Repo:
     docker_env = "".join(f"ENV {item}\n" for item in case.docker_env)
-    entry = f"ENTRYPOINT {json.dumps(case.entrypoint)}\n" if case.entrypoint else 'ENTRYPOINT ["java", "-jar", "/app/app.jar"]\n'
+    entry = (f"ENTRYPOINT {case.entry_shell}\n" if case.entry_shell else
+             f"ENTRYPOINT {json.dumps(case.entrypoint)}\n" if case.entrypoint else 'ENTRYPOINT ["java", "-jar", "/app/app.jar"]\n')
     return Repo(boot=case.boot, resources=case.resources, env=dict(case.env), command=case.args, docker_env=docker_env, entrypoint=entry,
                 pom_extra=POM_EXTRA)
 
@@ -104,7 +105,8 @@ def run_case(case: Case, root: Path) -> tuple[CaseResult, dict[str, Any]]:
         res.checks.append(Check(case.name, "build", case.name, False, "mvn package", build.returncode, f"see {log.name}"))
         return res, info
     jars = [j for j in glob.glob(str(work / "target/app-*.jar")) if not j.endswith(".original")]
-    argv = [jars[0] if a == "/app/app.jar" else a for a in (case.entrypoint or DEFAULT_ENTRYPOINT)] + list(case.args or [])
+    entry = ["/bin/sh", "-c", case.entry_shell] if case.entry_shell else (case.entrypoint or DEFAULT_ENTRYPOINT)
+    argv = [a.replace("/app/app.jar", jars[0]) for a in entry] + list(case.args or [])
     with log.open("a") as lf:
         proc = subprocess.Popen(argv, cwd=work, env=_run_env(case, out, keys), stdout=lf, stderr=subprocess.STDOUT)  # noqa: S603
         try:

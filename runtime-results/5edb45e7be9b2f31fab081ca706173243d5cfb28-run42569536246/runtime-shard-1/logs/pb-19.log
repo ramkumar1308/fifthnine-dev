@@ -1,0 +1,32 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::               (v3.4.13)
+
+2026-11-09T05:59:25.048Z  INFO 1 --- [cart-service] [           main] bench.App                                : Starting App v0.0.1 using Java 21.0.13 with PID 1 (/app/app.jar started by root in /app)
+2026-11-09T05:59:25.060Z  INFO 1 --- [cart-service] [           main] bench.App                                : No active profile set, falling back to 1 default profile: "default"
+2026-11-09T05:59:26.029Z  INFO 1 --- [cart-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-11-09T05:59:26.039Z  INFO 1 --- [cart-service] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-09T05:59:26.039Z  INFO 1 --- [cart-service] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.50]
+2026-11-09T05:59:26.061Z  INFO 1 --- [cart-service] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-11-09T05:59:26.062Z  INFO 1 --- [cart-service] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 945 ms
+2026-11-09T05:59:26.610Z  INFO 1 --- [cart-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-11-09T05:59:26.689Z  INFO 1 --- [cart-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 9090 (http)
+2026-11-09T05:59:26.690Z  INFO 1 --- [cart-service] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-09T05:59:26.690Z  INFO 1 --- [cart-service] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.50]
+2026-11-09T05:59:26.692Z  INFO 1 --- [cart-service] [           main] o.a.c.c.C.[Tomcat-1].[localhost].[/]     : Initializing Spring embedded WebApplicationContext
+2026-11-09T05:59:26.692Z  INFO 1 --- [cart-service] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 72 ms
+2026-11-09T05:59:26.707Z  INFO 1 --- [cart-service] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoints beneath base path '/actuator'
+2026-11-09T05:59:26.732Z  INFO 1 --- [cart-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 9090 (http) with context path '/'
+2026-11-09T05:59:26.744Z  INFO 1 --- [cart-service] [           main] bench.App                                : Started App in 2.161 seconds (process running for 2.533)
+2026-11-09T05:59:31.750Z  INFO 1 --- [cart-service] [nio-9090-exec-1] o.a.c.c.C.[Tomcat-1].[localhost].[/]     : Initializing Spring DispatcherServlet 'dispatcherServletRegistration'
+2026-11-09T05:59:31.750Z  INFO 1 --- [cart-service] [nio-9090-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServletRegistration'
+2026-11-09T05:59:31.751Z  INFO 1 --- [cart-service] [nio-9090-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+2026-11-09T05:59:31.828Z  INFO 1 --- [cart-service] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-11-09T05:59:31.829Z  INFO 1 --- [cart-service] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-11-09T05:59:31.830Z  INFO 1 --- [cart-service] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms

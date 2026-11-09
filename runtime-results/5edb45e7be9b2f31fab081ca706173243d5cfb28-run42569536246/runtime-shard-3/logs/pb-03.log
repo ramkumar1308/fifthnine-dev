@@ -1,0 +1,29 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::               (v3.4.13)
+
+2026-11-09T05:54:04.312Z  INFO 1 --- [pricing-gateway] [           main] bench.App                                : Starting App v0.0.1 using Java 21.0.13 with PID 1 (/app/app.jar started by root in /app)
+2026-11-09T05:54:04.321Z  INFO 1 --- [pricing-gateway] [           main] bench.App                                : No active profile set, falling back to 1 default profile: "default"
+2026-11-09T05:54:06.582Z  INFO 1 --- [pricing-gateway] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 9000 (http)
+2026-11-09T05:54:06.598Z  INFO 1 --- [pricing-gateway] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-09T05:54:06.598Z  INFO 1 --- [pricing-gateway] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.50]
+2026-11-09T05:54:06.624Z  INFO 1 --- [pricing-gateway] [           main] o.a.c.c.C.[Tomcat].[localhost].[/api]    : Initializing Spring embedded WebApplicationContext
+2026-11-09T05:54:06.625Z  INFO 1 --- [pricing-gateway] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2154 ms
+2026-11-09T05:54:07.694Z  INFO 1 --- [pricing-gateway] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 9000 (http) with context path '/api'
+2026-11-09T05:54:07.925Z  INFO 1 --- [pricing-gateway] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-11-09T05:54:07.927Z  INFO 1 --- [pricing-gateway] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-09T05:54:07.927Z  INFO 1 --- [pricing-gateway] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.50]
+2026-11-09T05:54:07.930Z  INFO 1 --- [pricing-gateway] [           main] o.a.c.c.C.[Tomcat-1].[localhost].[/]     : Initializing Spring embedded WebApplicationContext
+2026-11-09T05:54:07.932Z  INFO 1 --- [pricing-gateway] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 233 ms
+2026-11-09T05:54:07.966Z  INFO 1 --- [pricing-gateway] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoints beneath base path '/actuator'
+2026-11-09T05:54:08.039Z  INFO 1 --- [pricing-gateway] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-11-09T05:54:08.059Z  INFO 1 --- [pricing-gateway] [           main] bench.App                                : Started App in 4.701 seconds (process running for 5.457)
+2026-11-09T05:54:12.447Z  INFO 1 --- [pricing-gateway] [nio-8080-exec-1] o.a.c.c.C.[Tomcat-1].[localhost].[/]     : Initializing Spring DispatcherServlet 'dispatcherServletRegistration'
+2026-11-09T05:54:12.448Z  INFO 1 --- [pricing-gateway] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServletRegistration'
+2026-11-09T05:54:12.449Z  INFO 1 --- [pricing-gateway] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms

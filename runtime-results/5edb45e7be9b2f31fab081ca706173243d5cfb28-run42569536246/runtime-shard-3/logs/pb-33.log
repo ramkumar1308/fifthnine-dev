@@ -1,0 +1,31 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::               (v3.2.12)
+
+2026-11-09T06:06:28.027Z  INFO 1 --- [token-issuer] [           main] bench.App                                : Starting App v0.0.1 using Java 21.0.13 with PID 1 (/app/app.jar started by root in /app)
+2026-11-09T06:06:28.035Z  INFO 1 --- [token-issuer] [           main] bench.App                                : No active profile set, falling back to 1 default profile: "default"
+2026-11-09T06:06:29.216Z  INFO 1 --- [token-issuer] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-11-09T06:06:29.231Z  INFO 1 --- [token-issuer] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-09T06:06:29.231Z  INFO 1 --- [token-issuer] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.33]
+2026-11-09T06:06:29.262Z  INFO 1 --- [token-issuer] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-11-09T06:06:29.263Z  INFO 1 --- [token-issuer] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1137 ms
+2026-11-09T06:06:29.869Z  INFO 1 --- [token-issuer] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path ''
+2026-11-09T06:06:29.939Z  INFO 1 --- [token-issuer] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8081 (http)
+2026-11-09T06:06:29.940Z  INFO 1 --- [token-issuer] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-09T06:06:29.940Z  INFO 1 --- [token-issuer] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.33]
+2026-11-09T06:06:29.942Z  INFO 1 --- [token-issuer] [           main] o.a.c.c.C.[Tomcat-1].[localhost].[/]     : Initializing Spring embedded WebApplicationContext
+2026-11-09T06:06:29.942Z  INFO 1 --- [token-issuer] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 68 ms
+2026-11-09T06:06:29.969Z  INFO 1 --- [token-issuer] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoint(s) beneath base path '/actuator'
+2026-11-09T06:06:30.005Z  INFO 1 --- [token-issuer] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8081 (http) with context path ''
+2026-11-09T06:06:30.018Z  INFO 1 --- [token-issuer] [           main] bench.App                                : Started App in 2.507 seconds (process running for 2.947)
+2026-11-09T06:06:31.954Z  INFO 1 --- [token-issuer] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-11-09T06:06:31.955Z  INFO 1 --- [token-issuer] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-11-09T06:06:31.956Z  INFO 1 --- [token-issuer] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+2026-11-09T06:07:34.801Z  INFO 1 --- [token-issuer] [nio-8081-exec-1] o.a.c.c.C.[Tomcat-1].[localhost].[/]     : Initializing Spring DispatcherServlet 'dispatcherServletRegistration'
+2026-11-09T06:07:34.801Z  INFO 1 --- [token-issuer] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServletRegistration'
+2026-11-09T06:07:34.801Z  INFO 1 --- [token-issuer] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms

@@ -1,0 +1,20 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::               (v3.4.13)
+
+2026-11-09T05:58:49.317Z  INFO 1 --- [returns-api] [           main] bench.App                                : Starting App v0.0.1 using Java 21.0.13 with PID 1 (/app/app.jar started by root in /app)
+2026-11-09T05:58:49.319Z  INFO 1 --- [returns-api] [           main] bench.App                                : No active profile set, falling back to 1 default profile: "default"
+2026-11-09T05:58:50.300Z  INFO 1 --- [returns-api] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-11-09T05:58:50.309Z  INFO 1 --- [returns-api] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-09T05:58:50.310Z  INFO 1 --- [returns-api] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.50]
+2026-11-09T05:58:50.331Z  INFO 1 --- [returns-api] [           main] o.a.c.c.C.[.[localhost].[/returns]       : Initializing Spring embedded WebApplicationContext
+2026-11-09T05:58:50.332Z  INFO 1 --- [returns-api] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 963 ms
+2026-11-09T05:58:50.841Z  INFO 1 --- [returns-api] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoints beneath base path '/actuator'
+2026-11-09T05:58:50.887Z  INFO 1 --- [returns-api] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/returns'
+2026-11-09T05:58:50.901Z  INFO 1 --- [returns-api] [           main] bench.App                                : Started App in 1.996 seconds (process running for 2.345)

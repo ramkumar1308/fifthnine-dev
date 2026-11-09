@@ -1,0 +1,31 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::               (v3.2.12)
+
+2026-11-09T05:56:23.952Z  INFO 1 --- [profile-service] [           main] bench.App                                : Starting App v0.0.1 using Java 21.0.13 with PID 1 (/app/app.jar started by root in /app)
+2026-11-09T05:56:23.954Z  INFO 1 --- [profile-service] [           main] bench.App                                : No active profile set, falling back to 1 default profile: "default"
+2026-11-09T05:56:24.955Z  INFO 1 --- [profile-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-11-09T05:56:24.965Z  INFO 1 --- [profile-service] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-09T05:56:24.965Z  INFO 1 --- [profile-service] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.33]
+2026-11-09T05:56:24.991Z  INFO 1 --- [profile-service] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-11-09T05:56:24.992Z  INFO 1 --- [profile-service] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 949 ms
+2026-11-09T05:56:25.496Z  INFO 1 --- [profile-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path ''
+2026-11-09T05:56:25.560Z  INFO 1 --- [profile-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 9090 (http)
+2026-11-09T05:56:25.561Z  INFO 1 --- [profile-service] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-09T05:56:25.562Z  INFO 1 --- [profile-service] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.33]
+2026-11-09T05:56:25.563Z  INFO 1 --- [profile-service] [           main] o.a.c.c.C.[Tomcat-1].[localhost].[/]     : Initializing Spring embedded WebApplicationContext
+2026-11-09T05:56:25.564Z  INFO 1 --- [profile-service] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 64 ms
+2026-11-09T05:56:25.579Z  INFO 1 --- [profile-service] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoint(s) beneath base path '/actuator'
+2026-11-09T05:56:25.607Z  INFO 1 --- [profile-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 9090 (http) with context path ''
+2026-11-09T05:56:25.622Z  INFO 1 --- [profile-service] [           main] bench.App                                : Started App in 2.038 seconds (process running for 2.444)
+2026-11-09T05:56:28.039Z  INFO 1 --- [profile-service] [nio-9090-exec-1] o.a.c.c.C.[Tomcat-1].[localhost].[/]     : Initializing Spring DispatcherServlet 'dispatcherServletRegistration'
+2026-11-09T05:56:28.039Z  INFO 1 --- [profile-service] [nio-9090-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServletRegistration'
+2026-11-09T05:56:28.040Z  INFO 1 --- [profile-service] [nio-9090-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+2026-11-09T05:56:29.008Z  INFO 1 --- [profile-service] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-11-09T05:56:29.008Z  INFO 1 --- [profile-service] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-11-09T05:56:29.009Z  INFO 1 --- [profile-service] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms

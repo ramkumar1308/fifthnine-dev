@@ -1,0 +1,1439 @@
+{
+  "builds": [
+    {
+      "build": "ok",
+      "build_seconds": 25.6,
+      "case": "pb-04"
+    },
+    {
+      "build": "ok",
+      "build_seconds": 15.7,
+      "case": "pb-10"
+    },
+    {
+      "build": "ok",
+      "build_seconds": 7.0,
+      "case": "pb-16"
+    },
+    {
+      "build": "ok",
+      "build_seconds": 7.0,
+      "case": "pb-22"
+    },
+    {
+      "build": "ok",
+      "build_seconds": 7.3,
+      "case": "pb-28"
+    },
+    {
+      "build": "ok",
+      "build_seconds": 7.2,
+      "case": "pb-34"
+    }
+  ],
+  "runs": [
+    {
+      "case": "pb-04",
+      "events": [
+        {
+          "count": 17,
+          "message": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "reason": "Unhealthy"
+        },
+        {
+          "count": 8,
+          "message": "Liveness probe failed: HTTP probe failed with statuscode: 404",
+          "reason": "Unhealthy"
+        },
+        {
+          "count": 1,
+          "message": "Container app failed liveness probe, will be restarted",
+          "reason": "Killing"
+        }
+      ],
+      "first_ready_seconds": null,
+      "input": null,
+      "input_files": [],
+      "namespace": "pb-04",
+      "observed_seconds": 156.6,
+      "pod": "app-8967f66-s99rv",
+      "probes": [
+        {
+          "declared_port": "http",
+          "http_status": "404",
+          "kind": "readiness",
+          "path": "/actuator/health/readiness",
+          "port": 8080
+        },
+        {
+          "declared_port": "http",
+          "http_status": "404",
+          "kind": "liveness",
+          "path": "/actuator/health/liveness",
+          "port": 8080
+        }
+      ],
+      "ready_at_end": false,
+      "ready_stable_tail": false,
+      "restart_count": 1,
+      "runtime_class": "MISALIGNED",
+      "started": true,
+      "timeline": [
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": false,
+          "t": 0.3
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 5.4
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 10.5
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 15.5
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 20.6
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 25.6
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 30.7
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 35.8
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 40.9
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 45.9
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 51.0
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 56.1
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 61.2
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 66.2
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 71.3
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 76.4
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 81.5
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 86.6
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 91.6
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 96.7
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 101.8
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 106.8
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 111.9
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 117.0
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 122.0
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 127.1
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 132.2
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 137.2
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 142.3
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 147.4
+        }
+      ],
+      "window_seconds": 150
+    },
+    {
+      "case": "pb-10",
+      "events": [],
+      "first_ready_seconds": 25.9,
+      "input": null,
+      "input_files": [],
+      "namespace": "pb-10",
+      "observed_seconds": 156.8,
+      "pod": "app-75f9bdf4bc-rr4nj",
+      "probes": [
+        {
+          "declared_port": 8081,
+          "http_status": "200",
+          "kind": "readiness",
+          "path": "/actuator/health/readiness",
+          "port": 8081
+        },
+        {
+          "declared_port": 8081,
+          "http_status": "200",
+          "kind": "liveness",
+          "path": "/actuator/health/liveness",
+          "port": 8081
+        }
+      ],
+      "ready_at_end": true,
+      "ready_stable_tail": true,
+      "restart_count": 0,
+      "runtime_class": "ALIGNED",
+      "started": true,
+      "timeline": [
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": false,
+          "t": 0.5
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 5.6
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 10.7
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 15.7
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 20.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 25.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 30.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 36.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 41.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 46.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 51.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 56.3
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 61.4
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 66.4
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 71.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 76.6
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 81.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 86.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 91.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 96.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 102.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 107.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 112.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 117.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 122.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 127.3
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 132.4
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 137.4
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 142.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 147.6
+        }
+      ],
+      "window_seconds": 150
+    },
+    {
+      "case": "pb-16",
+      "events": [
+        {
+          "count": 11,
+          "message": "Liveness probe failed: HTTP probe failed with statuscode: 404",
+          "reason": "Unhealthy"
+        },
+        {
+          "count": 1,
+          "message": "Container app failed liveness probe, will be restarted",
+          "reason": "Killing"
+        },
+        {
+          "count": 1,
+          "message": "Readiness probe failed: Get \"http://10.244.0.7:8080/actuator/health\": dial tcp 10.244.0.7:8080: connect: connection refused",
+          "reason": "Unhealthy"
+        }
+      ],
+      "first_ready_seconds": 25.7,
+      "input": null,
+      "input_files": [],
+      "namespace": "pb-16",
+      "observed_seconds": 156.5,
+      "pod": "app-5fd47f64f8-tkszb",
+      "probes": [
+        {
+          "declared_port": "http",
+          "http_status": "200",
+          "kind": "readiness",
+          "path": "/actuator/health",
+          "port": 8080
+        },
+        {
+          "declared_port": "http",
+          "http_status": "404",
+          "kind": "liveness",
+          "path": "/actuator/health/liveness",
+          "port": 8080
+        }
+      ],
+      "ready_at_end": true,
+      "ready_stable_tail": true,
+      "restart_count": 1,
+      "runtime_class": "MISALIGNED",
+      "started": true,
+      "timeline": [
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": false,
+          "t": 0.3
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 5.4
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 10.5
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 15.5
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 20.6
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 25.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 30.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 35.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 40.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 45.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 51.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 56.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 61.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 66.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 71.3
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 76.3
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 81.4
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 86.5
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 91.6
+        },
+        {
+          "ready": false,
+          "restarts": 1,
+          "started": true,
+          "t": 96.6
+        },
+        {
+          "ready": true,
+          "restarts": 1,
+          "started": true,
+          "t": 101.7
+        },
+        {
+          "ready": true,
+          "restarts": 1,
+          "started": true,
+          "t": 106.8
+        },
+        {
+          "ready": true,
+          "restarts": 1,
+          "started": true,
+          "t": 111.8
+        },
+        {
+          "ready": true,
+          "restarts": 1,
+          "started": true,
+          "t": 116.9
+        },
+        {
+          "ready": true,
+          "restarts": 1,
+          "started": true,
+          "t": 122.0
+        },
+        {
+          "ready": true,
+          "restarts": 1,
+          "started": true,
+          "t": 127.0
+        },
+        {
+          "ready": true,
+          "restarts": 1,
+          "started": true,
+          "t": 132.1
+        },
+        {
+          "ready": true,
+          "restarts": 1,
+          "started": true,
+          "t": 137.2
+        },
+        {
+          "ready": true,
+          "restarts": 1,
+          "started": true,
+          "t": 142.2
+        },
+        {
+          "ready": true,
+          "restarts": 1,
+          "started": true,
+          "t": 147.3
+        }
+      ],
+      "window_seconds": 150
+    },
+    {
+      "case": "pb-22",
+      "events": [],
+      "first_ready_seconds": 10.5,
+      "input": null,
+      "input_files": [],
+      "namespace": "pb-22",
+      "observed_seconds": 219.4,
+      "pod": "app-5d597cf5c5-425tg",
+      "probes": [
+        {
+          "declared_port": 8080,
+          "http_status": "200",
+          "kind": "startup",
+          "path": "/actuator/health/liveness",
+          "port": 8080
+        },
+        {
+          "declared_port": 8080,
+          "http_status": "200",
+          "kind": "readiness",
+          "path": "/actuator/health/readiness",
+          "port": 8080
+        },
+        {
+          "declared_port": 8080,
+          "http_status": "200",
+          "kind": "liveness",
+          "path": "/actuator/health/liveness",
+          "port": 8080
+        }
+      ],
+      "ready_at_end": true,
+      "ready_stable_tail": true,
+      "restart_count": 0,
+      "runtime_class": "ALIGNED",
+      "started": true,
+      "timeline": [
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": false,
+          "t": 0.3
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": false,
+          "t": 5.4
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 10.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 15.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 20.6
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 25.6
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 30.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 35.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 40.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 45.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 51.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 56.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 61.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 66.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 71.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 76.3
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 81.4
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 86.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 91.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 96.6
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 101.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 106.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 111.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 116.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 121.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 127.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 132.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 137.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 142.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 147.3
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 152.3
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 157.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 162.6
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 167.6
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 172.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 177.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 182.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 187.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 193.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 198.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 203.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 208.2
+        }
+      ],
+      "window_seconds": 210
+    },
+    {
+      "case": "pb-28",
+      "events": [],
+      "first_ready_seconds": 25.7,
+      "input": null,
+      "input_files": [],
+      "namespace": "pb-28",
+      "observed_seconds": 156.4,
+      "pod": "app-868b5765b5-sl5s4",
+      "probes": [
+        {
+          "declared_port": 8081,
+          "http_status": "200",
+          "kind": "readiness",
+          "path": "/actuator/health/readiness",
+          "port": 8081
+        },
+        {
+          "declared_port": 8081,
+          "http_status": "200",
+          "kind": "liveness",
+          "path": "/actuator/health/liveness",
+          "port": 8081
+        }
+      ],
+      "ready_at_end": true,
+      "ready_stable_tail": true,
+      "restart_count": 0,
+      "runtime_class": "ALIGNED",
+      "started": true,
+      "timeline": [
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": false,
+          "t": 0.2
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 5.4
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 10.5
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 15.5
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 20.6
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 25.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 30.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 35.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 40.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 45.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 51.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 56.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 61.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 66.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 71.3
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 76.3
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 81.4
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 86.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 91.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 96.6
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 101.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 106.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 111.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 116.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 121.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 127.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 132.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 137.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 142.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 147.2
+        }
+      ],
+      "window_seconds": 150
+    },
+    {
+      "case": "pb-34",
+      "events": [],
+      "first_ready_seconds": 25.6,
+      "input": null,
+      "input_files": [],
+      "namespace": "pb-34",
+      "observed_seconds": 156.3,
+      "pod": "app-5dc674d685-zzq5z",
+      "probes": [
+        {
+          "declared_port": 8081,
+          "http_status": "200",
+          "kind": "readiness",
+          "path": "/actuator/health/readiness",
+          "port": 8081
+        },
+        {
+          "declared_port": 8081,
+          "http_status": "200",
+          "kind": "liveness",
+          "path": "/actuator/health/liveness",
+          "port": 8081
+        }
+      ],
+      "ready_at_end": true,
+      "ready_stable_tail": true,
+      "restart_count": 0,
+      "runtime_class": "ALIGNED",
+      "started": true,
+      "timeline": [
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": false,
+          "t": 0.2
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 5.3
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 10.4
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 15.5
+        },
+        {
+          "ready": false,
+          "restarts": 0,
+          "started": true,
+          "t": 20.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 25.6
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 30.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 35.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 40.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 45.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 50.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 56.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 61.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 66.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 71.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 76.2
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 81.3
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 86.4
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 91.4
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 96.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 101.5
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 106.6
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 111.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 116.7
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 121.8
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 126.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 131.9
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 137.0
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 142.1
+        },
+        {
+          "ready": true,
+          "restarts": 0,
+          "started": true,
+          "t": 147.1
+        }
+      ],
+      "window_seconds": 150
+    }
+  ],
+  "shard": "4/6",
+  "versions": {
+    "docker": "29.4.2",
+    "java": "openjdk version \"21.0.13\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-21.0.13+9 (build 21.0.13+9-LTS)\nOpenJDK 64-Bit Server VM Temurin-21.0.13+9 (build 21.0.13+9-LTS, mixed mode, sharing)",
+    "kind": "kind v0.27.0 go1.23.6 linux/amd64",
+    "kubectl": "{\n  \"clientVersion\": {\n    \"major\": \"1\",\n    \"minor\": \"37\",\n    \"gitVersion\": \"v1.37.2\",\n    \"gitCommit\": \"c50e5395f1ae2d4a2c05f28fdcc38c0916cc1a32\",\n    \"gitTreeState\": \"clean\",\n    \"buildDate\": \"2026-10-28T18:54:26Z\",\n    \"goVersion\": \"go1.26.10\",\n    \"compiler\": \"gc\",\n    \"platform\": \"linux/amd64\"\n  },\n  \"kustomizeVersion\": \"v5.8.1\",\n  \"serverVersion\": {\n    \"major\": \"1\",\n    \"minor\": \"32\",\n    \"gitVersion\": \"v1.32.2\",\n    \"gitCommit\": \"67a30c0adcf52bd3f56ff0893ce19966be12991f\",\n    \"gitTreeState\": \"clean\",\n    \"buildDate\": \"2025-02-12T21:19:47Z\",\n    \"goVersion\": \"go1.23.6\",\n    \"compiler\"",
+    "mvn": "Apache Maven 3.9.15 (98b2cdbfdb5f1ac8781f537ea9acccaed7922349)\nMaven home: /usr/share/apache-maven-3.9.15\nJava version: 21.0.13, vendor: Eclipse Adoptium, runtime: /usr/lib/jvm/temurin-21-jdk-amd64\nDefault locale: en, platform encoding: UTF-8\nOS name: \"linux\", version: \"7.0.0-1019-azure\", arch: \"amd64\", family: \"unix\""
+  }
+}

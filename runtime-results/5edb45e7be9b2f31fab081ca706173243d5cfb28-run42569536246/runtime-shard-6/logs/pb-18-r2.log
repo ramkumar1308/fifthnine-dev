@@ -1,0 +1,20 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::               (v3.3.13)
+
+2026-11-09T05:57:24.418Z  INFO 1 --- [invoice-renderer] [           main] bench.App                                : Starting App v0.0.1 using Java 21.0.13 with PID 1 (/app/app.jar started by root in /app)
+2026-11-09T05:57:24.421Z  INFO 1 --- [invoice-renderer] [           main] bench.App                                : No active profile set, falling back to 1 default profile: "default"
+2026-11-09T05:57:25.711Z  INFO 1 --- [invoice-renderer] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-11-09T05:57:25.721Z  INFO 1 --- [invoice-renderer] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-09T05:57:25.722Z  INFO 1 --- [invoice-renderer] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.42]
+2026-11-09T05:57:25.751Z  INFO 1 --- [invoice-renderer] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-11-09T05:57:25.752Z  INFO 1 --- [invoice-renderer] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1256 ms
+2026-11-09T05:57:26.293Z  INFO 1 --- [invoice-renderer] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-11-09T05:57:26.342Z  INFO 1 --- [invoice-renderer] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-11-09T05:57:26.355Z  INFO 1 --- [invoice-renderer] [           main] bench.App                                : Started App in 2.433 seconds (process running for 2.882)

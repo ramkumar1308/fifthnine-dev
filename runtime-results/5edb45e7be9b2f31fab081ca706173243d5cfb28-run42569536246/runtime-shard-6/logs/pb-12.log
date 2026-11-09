@@ -1,0 +1,29 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::               (v3.5.16)
+
+2026-11-09T05:53:58.079Z  INFO 1 --- [refunds-api] [           main] bench.App                                : Starting App v0.0.1 using Java 21.0.13 with PID 1 (/app/app.jar started by root in /app)
+2026-11-09T05:53:58.082Z  INFO 1 --- [refunds-api] [           main] bench.App                                : No active profile set, falling back to 1 default profile: "default"
+2026-11-09T05:53:59.335Z  INFO 1 --- [refunds-api] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-11-09T05:53:59.351Z  INFO 1 --- [refunds-api] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-09T05:53:59.351Z  INFO 1 --- [refunds-api] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.55]
+2026-11-09T05:53:59.378Z  INFO 1 --- [refunds-api] [           main] o.a.c.c.C.[.[localhost].[/refunds]       : Initializing Spring embedded WebApplicationContext
+2026-11-09T05:53:59.379Z  INFO 1 --- [refunds-api] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1230 ms
+2026-11-09T05:53:59.973Z  INFO 1 --- [refunds-api] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/refunds'
+2026-11-09T05:54:00.078Z  INFO 1 --- [refunds-api] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8081 (http)
+2026-11-09T05:54:00.079Z  INFO 1 --- [refunds-api] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-09T05:54:00.080Z  INFO 1 --- [refunds-api] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.55]
+2026-11-09T05:54:00.091Z  INFO 1 --- [refunds-api] [           main] o.a.c.c.C.[Tomcat-1].[localhost].[/]     : Initializing Spring embedded WebApplicationContext
+2026-11-09T05:54:00.091Z  INFO 1 --- [refunds-api] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 114 ms
+2026-11-09T05:54:00.109Z  INFO 1 --- [refunds-api] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-11-09T05:54:00.145Z  INFO 1 --- [refunds-api] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8081 (http) with context path '/'
+2026-11-09T05:54:00.162Z  INFO 1 --- [refunds-api] [           main] bench.App                                : Started App in 2.643 seconds (process running for 3.102)
+2026-11-09T05:54:17.755Z  INFO 1 --- [refunds-api] [nio-8081-exec-1] o.a.c.c.C.[Tomcat-1].[localhost].[/]     : Initializing Spring DispatcherServlet 'dispatcherServletRegistration'
+2026-11-09T05:54:17.756Z  INFO 1 --- [refunds-api] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServletRegistration'
+2026-11-09T05:54:17.756Z  INFO 1 --- [refunds-api] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms

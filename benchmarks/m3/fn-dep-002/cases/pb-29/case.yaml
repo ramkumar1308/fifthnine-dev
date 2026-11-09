@@ -1,0 +1,37 @@
+id: pb-29
+boot_version: 3.2.12
+dimensions:
+  - envfrom-configmap-in-repo
+  - configmapkeyref-in-repo
+  - env-override-relaxed-binding
+  - endpoints-web-base-path
+  - management-port-different
+  - startup-probe
+expected: ALIGNED
+per_probe:
+  startup:
+    port: 8081
+    path: /ops/health/liveness
+    expected_http: 200
+  readiness:
+    port: 8081
+    path: /ops/health/readiness
+    expected_http: 200
+  liveness:
+    port: 8081
+    path: /ops/health/liveness
+    expected_http: 200
+deciding_input: null
+rationale: >
+  Both ConfigMaps are in the repo. envFrom app-settings sets MANAGEMENT_ENDPOINTS_WEB_BASEPATH=/ops, which
+  relaxed binding maps to management.endpoints.web.base-path (dots to underscores, dash removed). The env
+  entry MANAGEMENT_SERVER_PORT takes key management_port from app-ports, value 8081. With management on
+  8081 and an empty management.server.base-path, health is at /ops/health and its groups at
+  /ops/health/{liveness,readiness} on 8081. application.yml alone would put health at /actuator/health on
+  8080, so the answer needs the ConfigMap contents.
+citations:
+  - "spring-boot v3.5.16 docs features/external-config.adoc L1037-L1043 (env var naming): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc#L1037-L1043"
+  - "kubernetes v1.31.0 pkg/kubelet/kubelet_pods.go L740-L856 (envFrom and configMapKeyRef resolution): https://github.com/kubernetes/kubernetes/blob/v1.31.0/pkg/kubelet/kubelet_pods.go#L740-L856"
+  - "spring-boot v3.2.12 WebMvcEndpointManagementContextConfiguration.java L94: https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/servlet/WebMvcEndpointManagementContextConfiguration.java#L94"
+  - "spring-boot v3.2.12 ServletManagementChildContextConfiguration.java L136-L142: https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/servlet/ServletManagementChildContextConfiguration.java#L136-L142"
+runtime_inputs: []

@@ -1,0 +1,33 @@
+id: pb-09
+boot_version: 3.2.12
+dimensions:
+  - management-port-equal-server-port
+  - management-server-base-path
+  - management-port-same
+  - properties-format
+expected: MISALIGNED
+per_probe:
+  readiness:
+    port: 8080
+    path: /mgmt/actuator/health/readiness
+    expected_http: 404
+    served_at: 8080 /actuator/health/readiness
+  liveness:
+    port: 8080
+    path: /mgmt/actuator/health/liveness
+    expected_http: 404
+    served_at: 8080 /actuator/health/liveness
+deciding_input: null
+rationale: >
+  server.port and management.server.port are both 8080, so ManagementPortType is SAME and no child
+  management context is created. management.server.base-path is only applied as the servlet context
+  path of the separate management server (ServletManagementWebServerFactoryCustomizer runs only in the
+  CHILD context), so on the same port it has no effect. Health and its groups stay at
+  /actuator/health/... on 8080, and /mgmt/actuator/health/... returns 404. The same-port checks in
+  ManagementContextAutoConfiguration only reject management SSL and address, so the app starts.
+citations:
+  - "spring-boot v3.2.12 ManagementPortType.java L53-L61 (managementPort equals serverPort -> SAME): https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementPortType.java#L53-L61"
+  - "spring-boot v3.2.12 ServletManagementChildContextConfiguration.java L136-L142 (only CHILD context uses base-path): https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/servlet/ServletManagementChildContextConfiguration.java#L136-L142"
+  - "spring-boot v3.5.16 ManagementContextAutoConfiguration.java L54-L100 (SAME checks only ssl and address): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementContextAutoConfiguration.java#L54-L100"
+  - "spring-boot v3.5.16 docs actuator/monitoring.adoc L32-L33: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/actuator/monitoring.adoc#L32-L33"
+runtime_inputs: []

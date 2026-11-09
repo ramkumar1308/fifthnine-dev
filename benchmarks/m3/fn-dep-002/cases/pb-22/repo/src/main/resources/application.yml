@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: reporting-api
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    access:
+      default: none
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    info:
+      access: read-only
+    metrics:
+      access: read-only

@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: warehouse-sync
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

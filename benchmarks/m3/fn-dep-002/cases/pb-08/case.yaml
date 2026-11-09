@@ -1,0 +1,35 @@
+id: pb-08
+boot_version: 3.5.16
+dimensions:
+  - endpoints-web-base-path-root
+  - health-path-mapping
+  - probe-groups-auto-kubernetes
+  - named-probe-port
+  - startup-probe
+expected: ALIGNED
+per_probe:
+  startup:
+    port: 8080
+    path: /healthz/liveness
+    expected_http: 200
+  readiness:
+    port: 8080
+    path: /healthz/readiness
+    expected_http: 200
+  liveness:
+    port: 8080
+    path: /healthz/liveness
+    expected_http: 200
+deciding_input: null
+rationale: >
+  management.endpoints.web.base-path is "/" and path-mapping maps the health endpoint id to healthz,
+  so on the main port health is served at /healthz and its groups at /healthz/{group}. The root-path
+  guard in WebEndpointAutoConfiguration only rejects an endpoint mapped to "/" itself, and health is
+  mapped to /healthz, so startup succeeds. Probe groups are auto-enabled on Kubernetes. Named port http
+  resolves to 8080. All three probes return 200 once the app is ready.
+citations:
+  - "spring-boot v3.5.16 WebEndpointProperties.java L47-L73 (base path cleaning, path mapping): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java#L47-L73"
+  - "spring-boot v3.5.16 WebEndpointAutoConfiguration.java L116-L136 (assertHasNoRootPaths on SAME port): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointAutoConfiguration.java#L116-L136"
+  - "spring-boot v3.5.16 AvailabilityProbesHealthEndpointGroups.java L67-L80: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroups.java#L67-L80"
+  - "spring-boot v3.5.16 docs actuator/endpoints.adoc L358-L360 (base path / disables discovery page): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/actuator/endpoints.adoc#L358-L360"
+runtime_inputs: []

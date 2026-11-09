@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: audit-sink
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: false
+      show-details: never

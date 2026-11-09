@@ -1,0 +1,31 @@
+id: pb-02
+boot_version: 3.3.13
+dimensions:
+  - management-port-8080-server-port-unset
+  - management-port-same
+  - context-path-same-port
+expected: MISALIGNED
+per_probe:
+  readiness:
+    port: 8080
+    path: /actuator/health/readiness
+    expected_http: 404
+    served_at: 8080 /svc/actuator/health/readiness
+  liveness:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 404
+    served_at: 8080 /svc/actuator/health/liveness
+deciding_input: null
+rationale: >
+  server.port is unset and management.server.port is 8080. ManagementPortType.get returns SAME when
+  serverPort is null and managementPort equals 8080, so no child management context is created and
+  actuator lives in the main DispatcherServlet. On the same port the actuator base path is relative to
+  server.servlet.context-path, so health is at /svc/actuator/health. The probes request
+  /actuator/health/... on 8080, which is outside the only Tomcat context (/svc), so Tomcat answers
+  404. Setting management.server.port here does not separate actuator from the context path.
+citations:
+  - "spring-boot v3.3.13 ManagementPortType.java L53-L61 (serverPort == null && managementPort == 8080 -> SAME): https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementPortType.java#L53-L61"
+  - "spring-boot v3.5.16 docs actuator/monitoring.adoc L32-L33 (base-path relative to server.servlet.context-path unless a different management port): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/actuator/monitoring.adoc#L32-L33"
+  - "spring-boot v3.3.13 WebMvcEndpointManagementContextConfiguration.java L93 (handler mapping uses management.endpoints.web.base-path inside the DispatcherServlet): https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/servlet/WebMvcEndpointManagementContextConfiguration.java#L93"
+runtime_inputs: []

@@ -1,0 +1,28 @@
+id: pb-23
+boot_version: 3.4.13
+dimensions:
+  - exposure-exclude
+  - exposure-include-wildcard
+  - endpoint-not-exposed
+expected: MISALIGNED
+per_probe:
+  readiness:
+    port: 8080
+    path: /actuator/health/readiness
+    expected_http: 404
+  liveness:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 404
+deciding_input: null
+rationale: >
+  The web exposure filter includes "*" but excludes a list that contains health. In
+  IncludeExcludeEndpointFilter an exclude match beats an include match, so health is not exposed on the
+  web. The health endpoint has no web handler mapping, and the probe groups, which are served through the
+  health endpoint, are not reachable either. Both probes return 404 even though a scan for include: "*"
+  alone would suggest everything is exposed.
+citations:
+  - "spring-boot v3.4.13 OnAvailableEndpointCondition.java L126-L182 (exposure outcome via include/exclude filter): https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/condition/OnAvailableEndpointCondition.java#L126-L182"
+  - "spring-boot v3.4.13 IncludeExcludeEndpointFilter.java L123-L124 (isIncluded && !isExcluded): https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/expose/IncludeExcludeEndpointFilter.java#L123-L124"
+  - "spring-boot v3.5.16 docs actuator/endpoints.adoc L193-L195 (exclude takes precedence over include): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/actuator/endpoints.adoc#L193-L195"
+runtime_inputs: []

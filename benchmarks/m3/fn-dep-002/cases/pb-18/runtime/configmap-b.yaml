@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-env
+data:
+  LOGGING_LEVEL_ROOT: "INFO"
+  RENDERER_OUTPUTFORMAT: "pdf"

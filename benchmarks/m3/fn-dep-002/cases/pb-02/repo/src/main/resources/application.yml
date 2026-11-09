@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: catalog-api
+
+server:
+  servlet:
+    context-path: /svc
+  shutdown: graceful
+
+management:
+  server:
+    port: 8080
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: catalog-api

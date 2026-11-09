@@ -1,0 +1,28 @@
+id: pb-20
+boot_version: 3.5.16
+dimensions:
+  - endpoint-access-3.4-plus
+  - access-default-none
+  - access-read-only
+expected: ALIGNED
+per_probe:
+  readiness:
+    port: 8080
+    path: /actuator/health/readiness
+    expected_http: 200
+  liveness:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 200
+deciding_input: null
+rationale: >
+  In 3.5 PropertiesEndpointAccessResolver reads management.endpoints.access.default=none as the fallback,
+  but management.endpoint.health.access=read-only is checked first and wins for health. READ_ONLY is not
+  NONE, so OnAvailableEndpointCondition matches and the endpoint is exposed (it is in the include list).
+  Every health operation, including the group selector, is a read operation, so read-only access serves
+  GET /actuator/health/{liveness,readiness}. Groups are auto-enabled on Kubernetes; both probes get 200.
+citations:
+  - "spring-boot v3.5.16 PropertiesEndpointAccessResolver.java L63-L102: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/PropertiesEndpointAccessResolver.java#L63-L102"
+  - "spring-boot v3.5.16 OnAvailableEndpointCondition.java L126-L138: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/condition/OnAvailableEndpointCondition.java#L126-L138"
+  - "spring-boot v3.5.16 docs actuator/endpoints.adoc L124-L160 (access, default none, read-only): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/actuator/endpoints.adoc#L124-L160"
+runtime_inputs: []

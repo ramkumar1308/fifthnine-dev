@@ -1,0 +1,37 @@
+id: pb-01
+boot_version: 3.2.12
+dimensions:
+  - management-port-different
+  - container-port-undeclared
+  - probe-groups-auto-kubernetes
+  - startup-probe
+expected: ALIGNED
+per_probe:
+  startup:
+    port: 8081
+    path: /actuator/health/liveness
+    expected_http: 200
+  readiness:
+    port: 8081
+    path: /actuator/health/readiness
+    expected_http: 200
+  liveness:
+    port: 8081
+    path: /actuator/health/liveness
+    expected_http: 200
+deciding_input: null
+rationale: >
+  management.server.port 8081 differs from server.port 8080, so ManagementPortType is DIFFERENT and
+  actuator runs in a child context on 8081 with context path equal to management.server.base-path
+  (empty). Health is exposed (it is in the include list and is the web default anyway). The pod runs
+  on Kubernetes, so KUBERNETES_SERVICE_HOST/PORT are present, CloudPlatform.KUBERNETES is active and
+  ProbesCondition adds the liveness and readiness groups. The container only declares 8080 in
+  ports, but a numeric httpGet port does not need a matching containerPort entry; the kubelet dials
+  podIP:8081 directly. All three probes hit served group paths and return 200 once ready.
+citations:
+  - "spring-boot v3.2.12 ManagementPortType.java L53-L61: https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementPortType.java#L53-L61"
+  - "spring-boot v3.2.12 ServletManagementChildContextConfiguration.java L136-L142 (child context path = management.server.base-path): https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/servlet/ServletManagementChildContextConfiguration.java#L136-L142"
+  - "spring-boot v3.2.12 AvailabilityProbesAutoConfiguration.java L75-L92: https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesAutoConfiguration.java#L75-L92"
+  - "spring-boot v3.2.12 CloudPlatform.java L126 (KUBERNETES_SERVICE_HOST/PORT): https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot/src/main/java/org/springframework/boot/cloud/CloudPlatform.java#L120-L135"
+  - "kubernetes v1.31.0 pkg/probe/util.go L27-L46 (int port used as-is): https://github.com/kubernetes/kubernetes/blob/v1.31.0/pkg/probe/util.go#L27-L46"
+runtime_inputs: []

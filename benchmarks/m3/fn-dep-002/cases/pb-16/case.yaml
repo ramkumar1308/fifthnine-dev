@@ -1,0 +1,30 @@
+id: pb-16
+boot_version: 3.5.16
+dimensions:
+  - probes-enabled-unset-kubernetes
+  - cloud-platform-override
+  - group-not-enabled
+  - liveness-vs-readiness-paths
+expected: MISALIGNED
+per_probe:
+  readiness:
+    port: 8080
+    path: /actuator/health
+    expected_http: 200
+  liveness:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 404
+deciding_input: null
+rationale: >
+  probes.enabled is unset, so the groups depend on CloudPlatform.getActive. spring.main.cloud-platform=none
+  makes CloudPlatform.NONE active (isEnforced matches "none" before any detection runs), so the result is
+  not KUBERNETES even though the pod has KUBERNETES_SERVICE_HOST, and ProbesCondition does not match.
+  The readiness probe uses the primary /actuator/health path and returns 200. The liveness probe asks for
+  the liveness group, which does not exist, and gets 404, so the kubelet restarts the container after
+  six failures.
+citations:
+  - "spring-boot v3.5.16 CloudPlatform.java L171-L196 (spring.main.cloud-platform enforced before detection): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot/src/main/java/org/springframework/boot/cloud/CloudPlatform.java#L171-L196"
+  - "spring-boot v3.5.16 AvailabilityProbesAutoConfiguration.java L75-L96: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesAutoConfiguration.java#L75-L96"
+  - "spring-boot v3.5.16 docs how-to/deployment/cloud.adoc L112-L113: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/how-to/pages/deployment/cloud.adoc#L112-L113"
+runtime_inputs: []

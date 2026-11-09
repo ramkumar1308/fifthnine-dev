@@ -1,0 +1,36 @@
+id: pb-11
+boot_version: 3.4.13
+dimensions:
+  - context-path-same-port
+  - management-port-same
+  - startup-probe
+  - named-probe-port
+expected: MISALIGNED
+per_probe:
+  startup:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 404
+    served_at: 8080 /returns/actuator/health/liveness
+  readiness:
+    port: 8080
+    path: /actuator/health/readiness
+    expected_http: 404
+    note: not run while the startup probe fails
+  liveness:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 404
+    note: not run while the startup probe fails
+deciding_input: null
+rationale: >
+  No management port is set, so actuator shares the main server and its base path is relative to
+  server.servlet.context-path=/returns. Health groups live at /returns/actuator/health/{liveness,readiness}.
+  Every probe requests /actuator/health/..., which falls outside the only Tomcat context and returns 404.
+  The startup probe fails 30 times, the kubelet restarts the container, and readiness/liveness never
+  get a chance to run; they would also return 404.
+citations:
+  - "spring-boot v3.5.16 docs actuator/monitoring.adoc L32-L33: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/actuator/monitoring.adoc#L32-L33"
+  - "spring-boot v3.4.13 ManagementPortType.java L53-L61: https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementPortType.java#L53-L61"
+  - "kubernetes docs, startup probes disable liveness/readiness until success: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes"
+runtime_inputs: []

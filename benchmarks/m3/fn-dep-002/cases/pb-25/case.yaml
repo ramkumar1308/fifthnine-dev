@@ -1,0 +1,30 @@
+id: pb-25
+boot_version: 3.2.12
+dimensions:
+  - named-probe-port
+  - named-port-wrong-container-port
+  - management-port-different
+expected: MISALIGNED
+per_probe:
+  readiness:
+    port: 9090
+    path: /actuator/health/readiness
+    expected_http: connection_refused
+    served_at: 8081 /actuator/health/readiness
+  liveness:
+    port: 9090
+    path: /actuator/health/liveness
+    expected_http: connection_refused
+    served_at: 8081 /actuator/health/liveness
+deciding_input: null
+rationale: >
+  The probes use the named port management, which the kubelet resolves by looking up the container's
+  ports list; it maps to containerPort 9090. The application sets management.server.port to 8081, so the
+  management server listens on 8081 and nothing listens on 9090. containerPort entries are informational
+  and do not open or forward ports, so the TCP connect to podIP:9090 is refused and both probes fail.
+  The Service also forwards management traffic to 9090, which has no effect on probes.
+citations:
+  - "kubernetes v1.31.0 pkg/probe/util.go L27-L56 (named port -> containerPort): https://github.com/kubernetes/kubernetes/blob/v1.31.0/pkg/probe/util.go#L27-L56"
+  - "kubernetes v1.31.0 pkg/probe/http/request.go L40-L56: https://github.com/kubernetes/kubernetes/blob/v1.31.0/pkg/probe/http/request.go#L40-L56"
+  - "spring-boot v3.2.12 ManagementWebServerFactoryCustomizer.java L98-L104: https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementWebServerFactoryCustomizer.java#L98-L104"
+runtime_inputs: []

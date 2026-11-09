@@ -1,0 +1,10 @@
+management:
+  server:
+    port: 9090
+  endpoint:
+    health:
+      show-details: never
+
+fx:
+  refresh-interval: 30s
+  upstream-timeout: 2s

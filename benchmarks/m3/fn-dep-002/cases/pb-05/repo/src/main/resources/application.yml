@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: billing-service
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+billing:
+  provider:
+    url: ${BILLING_PROVIDER_URL:http://localhost:9999}
+    api-key: ${BILLING_API_KEY:}

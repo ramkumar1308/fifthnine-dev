@@ -1,0 +1,35 @@
+id: pb-17
+boot_version: 3.2.12
+dimensions:
+  - add-additional-paths
+  - management-port-different
+  - named-probe-port
+  - startup-probe
+expected: ALIGNED
+per_probe:
+  startup:
+    port: 9090
+    path: /actuator/health/liveness
+    expected_http: 200
+  readiness:
+    port: 8080
+    path: /readyz
+    expected_http: 200
+  liveness:
+    port: 8080
+    path: /livez
+    expected_http: 200
+deciding_input: null
+rationale: >
+  Actuator runs on a separate management server on 9090, where the startup probe reads the liveness
+  group at /actuator/health/liveness. add-additional-paths=true makes the probe groups carry additional
+  paths /livez and /readyz in the SERVER namespace, and HealthEndpointWebExtensionConfiguration registers
+  an AdditionalHealthEndpointPathsWebMvcHandlerMapping for them in the main DispatcherServlet on 8080
+  (health is exposed on the web, which that configuration requires). Named ports http and management
+  resolve to 8080 and 9090. All three probes return 200.
+citations:
+  - "spring-boot v3.2.12 AvailabilityProbesHealthEndpointGroupsPostProcessor.java L37-L40: https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroupsPostProcessor.java#L37-L40"
+  - "spring-boot v3.2.12 AvailabilityProbesHealthEndpointGroups.java L61-L74 (/livez, /readyz in SERVER namespace): https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroups.java#L61-L74"
+  - "spring-boot v3.2.12 HealthEndpointWebExtensionConfiguration.java L64-L99: https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/health/HealthEndpointWebExtensionConfiguration.java#L64-L99"
+  - "spring-boot v3.2.12 docs actuator/endpoints.adoc L946 (/livez and /readyz on the main server port): https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-docs/src/docs/asciidoc/actuator/endpoints.adoc#L946"
+runtime_inputs: []

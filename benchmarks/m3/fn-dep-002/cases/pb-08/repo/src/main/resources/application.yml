@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: geo-lookup
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      base-path: /
+      path-mapping:
+        health: healthz
+      exposure:
+        include: health

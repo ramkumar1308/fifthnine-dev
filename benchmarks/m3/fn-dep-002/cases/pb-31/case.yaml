@@ -1,0 +1,33 @@
+id: pb-31
+boot_version: 3.4.13
+dimensions:
+  - command-line-args-deployment
+  - kubernetes-var-expansion
+  - named-probe-port
+  - startup-probe
+expected: ALIGNED
+per_probe:
+  startup:
+    port: 8085
+    path: /actuator/health/liveness
+    expected_http: 200
+  readiness:
+    port: 8085
+    path: /actuator/health/readiness
+    expected_http: 200
+  liveness:
+    port: 8085
+    path: /actuator/health/liveness
+    expected_http: 200
+deciding_input: null
+rationale: >
+  The Dockerfile uses exec-form ENTRYPOINT, so the Deployment args are appended to java -jar /app/app.jar.
+  The kubelet expands $(HTTP_LISTEN_PORT) in args from the container env, giving --server.port=8085.
+  Command line arguments have the highest precedence in Spring Boot, so the main server, which also hosts
+  actuator, listens on 8085. Named port http resolves to 8085, and the default group paths are served there.
+  Reading application.yml alone suggests 8080.
+citations:
+  - "kubernetes v1.31.0 staging/src/k8s.io/api/core/v1/types.go L2711-L2725 ($(VAR_NAME) expansion in command/args): https://github.com/kubernetes/kubernetes/blob/v1.31.0/staging/src/k8s.io/api/core/v1/types.go#L2711-L2725"
+  - "spring-boot v3.5.16 docs features/external-config.adoc L13-L27 (command line arguments rank highest): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc#L13-L27"
+  - "kubernetes v1.31.0 pkg/probe/util.go L27-L56: https://github.com/kubernetes/kubernetes/blob/v1.31.0/pkg/probe/util.go#L27-L56"
+runtime_inputs: []

@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: orders-api
+
+server:
+  port: 8080
+  servlet:
+    context-path: /orders
+  shutdown: graceful
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

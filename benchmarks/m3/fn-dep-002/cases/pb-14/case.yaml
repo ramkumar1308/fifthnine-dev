@@ -1,0 +1,29 @@
+id: pb-14
+boot_version: 3.3.13
+dimensions:
+  - probes-enabled-false
+  - group-not-enabled
+  - availability-state-indicators-without-groups
+expected: MISALIGNED
+per_probe:
+  readiness:
+    port: 8080
+    path: /actuator/health/readiness
+    expected_http: 404
+  liveness:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 404
+deciding_input: null
+rationale: >
+  management.endpoint.health.probes.enabled=false disables AvailabilityProbesAutoConfiguration, which is
+  the only place the liveness and readiness health groups are added (via its groups post-processor).
+  management.health.livenessstate/readinessstate.enabled=true still registers the livenessState and
+  readinessState indicators through AvailabilityHealthContributorAutoConfiguration, so they show up as
+  components of /actuator/health, but no group named liveness or readiness exists. The health endpoint
+  returns 404 for an unknown group path, so both probes fail.
+citations:
+  - "spring-boot v3.3.13 AvailabilityProbesAutoConfiguration.java L75-L92: https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesAutoConfiguration.java#L75-L92"
+  - "spring-boot v3.3.13 AvailabilityHealthContributorAutoConfiguration.java L40-L53 (indicators only, no groups): https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityHealthContributorAutoConfiguration.java#L40-L53"
+  - "spring-boot v3.3.13 AvailabilityProbesHealthEndpointGroups.java L61-L74 (groups created only here): https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroups.java#L61-L74"
+runtime_inputs: []

@@ -1,0 +1,38 @@
+id: pb-03
+boot_version: 3.4.13
+dimensions:
+  - placeholder-default
+  - env-override-deployment
+  - management-port-equals-default-8080
+  - management-port-different
+  - context-path-separate-management-port
+expected: ALIGNED
+per_probe:
+  startup:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 200
+  readiness:
+    port: 8080
+    path: /actuator/health/readiness
+    expected_http: 200
+  liveness:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 200
+deciding_input: null
+rationale: >
+  server.port is ${PORT:8080} and the Deployment sets PORT=9000, so server.port resolves to 9000.
+  management.server.port is 8080. ManagementPortType.get reads server.port through the Environment,
+  which resolves the placeholder, so serverPort=9000 and managementPort=8080 differ and the type is
+  DIFFERENT. The management child context listens on 8080 with context path equal to
+  management.server.base-path (empty); server.servlet.context-path=/api applies only to the main
+  server on 9000. Probe groups are auto-enabled on Kubernetes. A reader who assumes server.port is
+  8080 would conclude SAME and expect /api/actuator/..., which is wrong here.
+citations:
+  - "spring-boot v3.4.13 ManagementPortType.java L53-L61: https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementPortType.java#L53-L61"
+  - "spring-boot v3.4.13 ServletManagementChildContextConfiguration.java L151-L157: https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/servlet/ServletManagementChildContextConfiguration.java#L151-L157"
+  - "spring-boot v3.4.13 ManagementWebServerFactoryCustomizer.java L98-L104 (child port = management.server.port): https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementWebServerFactoryCustomizer.java#L98-L104"
+  - "spring-boot v3.5.16 docs actuator/monitoring.adoc L32-L33: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/actuator/monitoring.adoc#L32-L33"
+  - "spring-boot v3.5.16 docs features/external-config.adoc L21 (OS environment variables override config data): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc#L13-L27"
+runtime_inputs: []

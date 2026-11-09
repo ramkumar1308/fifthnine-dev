@@ -1,0 +1,28 @@
+id: pb-24
+boot_version: 3.5.16
+dimensions:
+  - endpoint-enabled-legacy-on-3.4-plus
+  - enabled-by-default-false
+  - endpoint-not-accessible
+expected: MISALIGNED
+per_probe:
+  readiness:
+    port: 8080
+    path: /actuator/health/readiness
+    expected_http: 404
+  liveness:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 404
+deciding_input: null
+rationale: >
+  The file uses the pre-3.4 enablement keys. In 3.5.16 PropertiesEndpointAccessResolver still honours
+  them: management.endpoints.enabled-by-default=false becomes a default access of NONE, and only info and
+  metrics opt back in through management.endpoint.<id>.enabled=true. Health has neither an access nor an
+  enabled key, so it resolves to NONE, OnAvailableEndpointCondition does not match, and the health
+  endpoint is never created. Being in the exposure include list does not help an endpoint with access
+  none. Both group probes get 404.
+citations:
+  - "spring-boot v3.5.16 PropertiesEndpointAccessResolver.java L63-L102 (enabled-by-default and <id>.enabled still read): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/PropertiesEndpointAccessResolver.java#L63-L102"
+  - "spring-boot v3.5.16 OnAvailableEndpointCondition.java L111-L138 (access NONE -> no match before exposure): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/condition/OnAvailableEndpointCondition.java#L111-L138"
+runtime_inputs: []

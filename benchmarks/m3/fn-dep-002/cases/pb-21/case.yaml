@@ -1,0 +1,30 @@
+id: pb-21
+boot_version: 3.2.12
+dimensions:
+  - add-additional-paths
+  - exposure-include
+  - endpoint-not-exposed
+  - properties-format
+expected: MISALIGNED
+per_probe:
+  readiness:
+    port: 8080
+    path: /readyz
+    expected_http: 404
+  liveness:
+    port: 8080
+    path: /livez
+    expected_http: 404
+deciding_input: null
+rationale: >
+  management.endpoints.web.exposure.include=info,metrics replaces the web default ("health"), so health
+  is no longer exposed over HTTP. add-additional-paths=true still makes the probe groups carry /livez and
+  /readyz, but the beans that map those paths live in HealthEndpointWebExtensionConfiguration, which is
+  conditional on the health endpoint being exposed on WEB (or Cloud Foundry, which is not active), and
+  the inner MVC configuration requires WEB exposure. Neither matches, no handler exists for /livez or
+  /readyz, and both probes get 404.
+citations:
+  - "spring-boot v3.2.12 HealthEndpointWebExtensionConfiguration.java L64-L99: https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/health/HealthEndpointWebExtensionConfiguration.java#L64-L99"
+  - "spring-boot v3.2.12 OnAvailableEndpointCondition.java L108-L173 (exposure filters): https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/condition/OnAvailableEndpointCondition.java#L108-L173"
+  - "spring-boot v3.2.12 EndpointExposure.java L35: https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/expose/EndpointExposure.java#L35"
+runtime_inputs: []

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: doc-renderer-config
+data:
+  application.yml: |
+    management:
+      server:
+        port: 9091
+    renderer:
+      max-pages: 500
+      fonts-dir: /usr/share/fonts

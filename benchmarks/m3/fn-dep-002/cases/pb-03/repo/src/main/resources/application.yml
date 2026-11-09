@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: pricing-gateway
+
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /api
+  shutdown: graceful
+
+management:
+  server:
+    port: 8080
+  endpoints:
+    web:
+      exposure:
+        include: health,info

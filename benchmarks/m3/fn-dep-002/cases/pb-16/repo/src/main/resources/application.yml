@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: media-transcoder
+  main:
+    cloud-platform: none
+
+server:
+  port: 8080
+  shutdown: graceful
+  forward-headers-strategy: none
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

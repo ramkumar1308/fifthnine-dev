@@ -1,0 +1,30 @@
+id: pb-35
+boot_version: 3.4.13
+dimensions:
+  - configmap-volume-in-repo
+  - external-config-file
+  - management-port-different
+  - named-probe-port
+expected: ALIGNED
+per_probe:
+  readiness:
+    port: 9091
+    path: /actuator/health/readiness
+    expected_http: 200
+  liveness:
+    port: 9091
+    path: /actuator/health/liveness
+    expected_http: 200
+deciding_input: null
+rationale: >
+  The packaged application.yml sets management.server.port 8081, but the Deployment mounts ConfigMap
+  doc-renderer-config (in the repo) at /app/config. With WORKDIR /app, Spring Boot loads
+  ./config/application.yml from the file system, and external files override the packaged one, so
+  management.server.port becomes 9091. The named probe port management resolves to 9091 and the group
+  paths are served there. A tool that reads only src/main/resources would predict 8081 and call it
+  misaligned.
+citations:
+  - "spring-boot v3.5.16 docs features/external-config.adoc L113-L125: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc#L113-L125"
+  - "spring-boot v3.5.16 docs features/external-config.adoc L29-L35: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc#L29-L35"
+  - "spring-boot v3.4.13 ManagementWebServerFactoryCustomizer.java L98-L104: https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementWebServerFactoryCustomizer.java#L98-L104"
+runtime_inputs: []

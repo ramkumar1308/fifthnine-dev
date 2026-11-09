@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: cart-service
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  server:
+    port: 9090
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+        add-additional-paths: true

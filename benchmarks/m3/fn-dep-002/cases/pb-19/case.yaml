@@ -1,0 +1,37 @@
+id: pb-19
+boot_version: 3.4.13
+dimensions:
+  - add-additional-paths
+  - management-port-different
+  - named-probe-port
+  - startup-probe-ok-liveness-misaligned
+  - probes-enabled-true
+expected: MISALIGNED
+per_probe:
+  startup:
+    port: 9090
+    path: /actuator/health/liveness
+    expected_http: 200
+  readiness:
+    port: 8080
+    path: /readyz
+    expected_http: 200
+  liveness:
+    port: 9090
+    path: /livez
+    expected_http: 404
+    served_at: 8080 /livez
+deciding_input: null
+rationale: >
+  The startup probe reads the liveness group on the management port 9090 and passes. add-additional-paths
+  creates /livez and /readyz in the SERVER namespace only, so they are mapped on the main port 8080; the
+  management child context only maps additional paths declared with the management: prefix, and there
+  are none. The readiness probe on http:/readyz is fine. The liveness probe uses port management (9090)
+  with /livez, which the management server does not map, so it returns 404 and the container is restarted
+  after three failures once startup has passed.
+citations:
+  - "spring-boot v3.4.13 AvailabilityProbesHealthEndpointGroups.java L67-L80 (WebServerNamespace.SERVER): https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroups.java#L67-L80"
+  - "spring-boot v3.4.13 WebMvcEndpointManagementContextConfiguration.java L108-L121 (management port maps only MANAGEMENT-namespace additional paths): https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/servlet/WebMvcEndpointManagementContextConfiguration.java#L108-L121"
+  - "spring-boot v3.4.13 HealthEndpointWebExtensionConfiguration.java L64-L95 (SERVER-namespace paths on main DispatcherServlet): https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/health/HealthEndpointWebExtensionConfiguration.java#L64-L95"
+  - "spring-boot v3.5.16 docs actuator/endpoints.adoc L986-L989: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/actuator/endpoints.adoc#L986-L989"
+runtime_inputs: []

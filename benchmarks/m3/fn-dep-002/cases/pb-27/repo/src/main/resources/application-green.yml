@@ -1,0 +1,6 @@
+management:
+  server:
+    port: 8082
+
+recommendation:
+  model-version: v8

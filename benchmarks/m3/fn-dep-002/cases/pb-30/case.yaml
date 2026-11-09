@@ -1,0 +1,32 @@
+id: pb-30
+boot_version: 3.3.13
+dimensions:
+  - command-line-args-deployment
+  - dockerfile-shell-form-entrypoint
+  - named-probe-port
+expected: MISALIGNED
+per_probe:
+  readiness:
+    port: 8081
+    path: /actuator/health/readiness
+    expected_http: connection_refused
+    served_at: 8080 /actuator/health/readiness
+  liveness:
+    port: 8081
+    path: /actuator/health/liveness
+    expected_http: connection_refused
+    served_at: 8080 /actuator/health/liveness
+deciding_input: null
+rationale: >
+  The Deployment sets only args, so Kubernetes keeps the image ENTRYPOINT and passes the args as the
+  image CMD. The Dockerfile uses the shell form of ENTRYPOINT, which Docker turns into
+  /bin/sh -c "java $JAVA_OPTS -jar /app/app.jar"; with that form, CMD and any extra arguments become
+  positional parameters of sh ($0) and never reach java. Spring Boot therefore never sees
+  --server.port=8081 and listens on 8080 from application.yml. The named probe port http resolves to
+  8081, where nothing listens, so both probes get connection refused.
+citations:
+  - "kubernetes v1.31.0 staging/src/k8s.io/api/core/v1/types.go L2711-L2725 (command/args vs ENTRYPOINT/CMD): https://github.com/kubernetes/kubernetes/blob/v1.31.0/staging/src/k8s.io/api/core/v1/types.go#L2711-L2725"
+  - "kubernetes docs, define command and arguments: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/"
+  - "Docker docs, Dockerfile ENTRYPOINT shell form ignores CMD and run arguments: https://docs.docker.com/reference/dockerfile/#entrypoint"
+  - "spring-boot v3.5.16 docs features/external-config.adoc L27 (command line arguments): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc#L27"
+runtime_inputs: []

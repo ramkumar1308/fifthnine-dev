@@ -1,0 +1,35 @@
+id: pb-26
+boot_version: 3.3.13
+dimensions:
+  - named-probe-port
+  - management-port-different
+  - probes-enabled-true
+  - custom-probe-group-members
+  - startup-probe
+expected: ALIGNED
+per_probe:
+  startup:
+    port: 8081
+    path: /actuator/health/liveness
+    expected_http: 200
+  readiness:
+    port: 8081
+    path: /actuator/health/readiness
+    expected_http: 200
+  liveness:
+    port: 8081
+    path: /actuator/health/liveness
+    expected_http: 200
+deciding_input: null
+rationale: >
+  Named port management resolves to containerPort 8081, and management.server.port is 8081, so the
+  probes reach the management server. Probes are explicitly enabled. The readiness group is redefined
+  with include readinessState,diskSpace; AvailabilityProbesHealthEndpointGroups keeps a user-defined
+  group of that name, and both members exist (readinessState from the probes auto-configuration,
+  diskSpace by default), so group membership validation passes at startup. Both members report UP on a
+  healthy pod and all probes get 200.
+citations:
+  - "kubernetes v1.31.0 pkg/probe/util.go L27-L56: https://github.com/kubernetes/kubernetes/blob/v1.31.0/pkg/probe/util.go#L27-L56"
+  - "spring-boot v3.3.13 AvailabilityProbesHealthEndpointGroups.java L61-L90 (existing group of the same name is reused): https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesHealthEndpointGroups.java#L61-L90"
+  - "spring-boot v3.3.13 HealthEndpointConfiguration.java L93-L99 and L225-L265 (validate-group-membership, default true): https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/health/HealthEndpointConfiguration.java#L93-L99"
+runtime_inputs: []

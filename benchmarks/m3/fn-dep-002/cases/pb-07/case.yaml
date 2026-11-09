@@ -1,0 +1,31 @@
+id: pb-07
+boot_version: 3.4.13
+dimensions:
+  - profile-specific-file
+  - spring-profiles-active-deployment
+  - endpoints-web-base-path
+  - named-probe-port
+expected: MISALIGNED
+per_probe:
+  readiness:
+    port: 8080
+    path: /actuator/health/readiness
+    expected_http: 404
+    served_at: 8080 /internal/health/readiness
+  liveness:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 404
+    served_at: 8080 /internal/health/liveness
+deciding_input: null
+rationale: >
+  The Deployment sets SPRING_PROFILES_ACTIVE=k8s, so application-k8s.yml is loaded and overrides
+  application.yml. That file sets management.endpoints.web.base-path to /internal, so with no separate
+  management port the health endpoint and its groups are at /internal/health/... on 8080. The base
+  application.yml alone would give /actuator/health/..., which is what the probes request. With the
+  profile active, /actuator/health/{readiness,liveness} has no handler and returns 404.
+citations:
+  - "spring-boot v3.5.16 docs features/external-config.adoc L29-L35 (profile-specific files override application files): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc#L29-L35"
+  - "spring-boot v3.4.13 WebEndpointProperties.java L47 (default base path /actuator): https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointProperties.java#L47"
+  - "spring-boot v3.4.13 WebMvcEndpointManagementContextConfiguration.java L94: https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/servlet/WebMvcEndpointManagementContextConfiguration.java#L94"
+runtime_inputs: []

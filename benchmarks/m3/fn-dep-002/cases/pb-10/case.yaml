@@ -1,0 +1,28 @@
+id: pb-10
+boot_version: 3.3.13
+dimensions:
+  - context-path-separate-management-port
+  - management-port-different
+  - probes-enabled-true
+expected: ALIGNED
+per_probe:
+  readiness:
+    port: 8081
+    path: /actuator/health/readiness
+    expected_http: 200
+  liveness:
+    port: 8081
+    path: /actuator/health/liveness
+    expected_http: 200
+deciding_input: null
+rationale: >
+  The main server uses context path /orders on 8080, and management runs on a separate port 8081.
+  The child management server's context path is set from management.server.base-path (empty here),
+  overriding anything copied from server.servlet.context-path, so actuator is at /actuator on 8081.
+  Probes are explicitly enabled. Both probes request /actuator/health/{readiness,liveness} on 8081
+  and get 200 once the app is ready.
+citations:
+  - "spring-boot v3.3.13 ServletManagementChildContextConfiguration.java L136-L142: https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/servlet/ServletManagementChildContextConfiguration.java#L136-L142"
+  - "spring-boot v3.5.16 docs actuator/monitoring.adoc L32-L33: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/actuator/monitoring.adoc#L32-L33"
+  - "spring-boot v3.3.13 AvailabilityProbesAutoConfiguration.java L75-L92: https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesAutoConfiguration.java#L75-L92"
+runtime_inputs: []

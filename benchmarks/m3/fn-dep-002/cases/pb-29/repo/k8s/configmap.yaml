@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-settings
+data:
+  MANAGEMENT_ENDPOINTS_WEB_BASEPATH: /ops
+  LOGGING_LEVEL_ROOT: INFO
+  SPRING_LIFECYCLE_TIMEOUTPERSHUTDOWNPHASE: 20s
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-ports
+data:
+  management_port: "8081"
+  http_port: "8080"

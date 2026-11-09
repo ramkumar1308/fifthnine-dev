@@ -1,0 +1,28 @@
+id: pb-04
+boot_version: 3.5.16
+dimensions:
+  - management-port-negative
+  - named-probe-port
+expected: MISALIGNED
+per_probe:
+  readiness:
+    port: 8080
+    path: /actuator/health/readiness
+    expected_http: 404
+  liveness:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 404
+deciding_input: null
+rationale: >
+  management.server.port is -1, so ManagementPortType.get returns DISABLED. ManagementContextAutoConfiguration
+  only creates a management context for SAME or DIFFERENT, so no actuator web endpoints are registered on
+  any HTTP port. The named probe port http resolves to containerPort 8080, where the main app is listening,
+  but /actuator/health/... has no handler there and Spring MVC returns 404. The Boot docs state that -1
+  is the way to stop exposing endpoints over HTTP.
+citations:
+  - "spring-boot v3.5.16 ManagementPortType.java L53-L61 (negative port -> DISABLED): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementPortType.java#L53-L61"
+  - "spring-boot v3.5.16 ManagementContextAutoConfiguration.java L54-L112 (contexts only for SAME and DIFFERENT): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementContextAutoConfiguration.java#L54-L112"
+  - "spring-boot v3.5.16 docs actuator/monitoring.adoc L136-L142: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/actuator/monitoring.adoc#L136-L142"
+  - "kubernetes v1.31.0 pkg/probe/util.go L27-L56 (named port lookup): https://github.com/kubernetes/kubernetes/blob/v1.31.0/pkg/probe/util.go#L27-L56"
+runtime_inputs: []

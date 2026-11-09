@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: telemetry-ingest
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    enabled-by-default: false
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    info:
+      enabled: true
+    metrics:
+      enabled: true

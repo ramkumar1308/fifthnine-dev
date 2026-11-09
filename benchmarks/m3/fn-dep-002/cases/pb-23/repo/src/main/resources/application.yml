@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: session-store
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+        exclude: "env,beans,heapdump,threaddump,health,shutdown"

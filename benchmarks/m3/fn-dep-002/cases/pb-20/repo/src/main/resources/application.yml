@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: feature-flags
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    access:
+      default: none
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      access: read-only
+    info:
+      access: read-only

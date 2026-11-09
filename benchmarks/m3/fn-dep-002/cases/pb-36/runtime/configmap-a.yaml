@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lead-scoring-overrides
+data:
+  LOGGING_LEVEL_ROOT: "WARN"
+  SCORING_BATCHSIZE: "1000"

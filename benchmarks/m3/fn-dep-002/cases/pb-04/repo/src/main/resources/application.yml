@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: notification-worker
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  server:
+    port: -1
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    root: INFO

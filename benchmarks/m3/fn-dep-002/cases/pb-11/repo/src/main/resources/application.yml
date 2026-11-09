@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: returns-api
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: 8080
+  servlet:
+    context-path: /returns
+  shutdown: graceful
+  compression:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

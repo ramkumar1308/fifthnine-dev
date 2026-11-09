@@ -1,0 +1,52 @@
+id: pb-32
+boot_version: 3.5.16
+dimensions:
+  - configmap-volume-missing
+  - external-config-file
+  - management-port-different
+  - named-probe-port
+  - startup-probe
+expected: NOT_DETERMINABLE
+per_probe:
+  startup:
+    port: 8081
+    path: /actuator/health/liveness
+    expected_http: depends_on_runtime_input
+  readiness:
+    port: 8081
+    path: /actuator/health/readiness
+    expected_http: depends_on_runtime_input
+  liveness:
+    port: 8081
+    path: /actuator/health/liveness
+    expected_http: depends_on_runtime_input
+deciding_input: >
+  ConfigMap contract-store-config, mounted as a volume at /app/config (not optional, not in the repo).
+  Its application.yml lands at ./config/application.yml relative to WORKDIR /app, which Spring Boot loads
+  automatically and which overrides the packaged application.yml.
+rationale: >
+  The packaged application.yml puts the management server on 8081 with the default /actuator base path,
+  which matches the probes. The Deployment mounts ConfigMap contract-store-config at /app/config, and the
+  image's working directory is /app, so any application.yml in that ConfigMap is read from file:./config/
+  and overrides the packaged file. That ConfigMap is not in the repository, and a pod whose configMap
+  volume is missing stays in ContainerCreating. Whether the probes still line up depends on what that
+  file sets.
+citations:
+  - "spring-boot v3.5.16 docs features/external-config.adoc L113-L125 (current directory and config/ subdirectory, later overrides earlier): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc#L113-L125"
+  - "spring-boot v3.5.16 docs features/external-config.adoc L29-L35 (outside-jar files override packaged ones): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc#L29-L35"
+  - "kubernetes docs, ConfigMap volumes must exist unless optional: https://kubernetes.io/docs/concepts/configuration/configmap/#using-configmaps-as-files-from-a-pod"
+runtime_inputs:
+  - files: [runtime/configmap-a.yaml]
+    description: External application.yml sets logging and an app property only.
+    expected: ALIGNED
+    per_probe:
+      startup: {port: 8081, path: /actuator/health/liveness, expected_http: 200}
+      readiness: {port: 8081, path: /actuator/health/readiness, expected_http: 200}
+      liveness: {port: 8081, path: /actuator/health/liveness, expected_http: 200}
+  - files: [runtime/configmap-b.yaml]
+    description: External application.yml moves management.endpoints.web.base-path to /ops.
+    expected: MISALIGNED
+    per_probe:
+      startup: {port: 8081, path: /actuator/health/liveness, expected_http: 404, served_at: 8081 /ops/health/liveness}
+      readiness: {port: 8081, path: /actuator/health/readiness, expected_http: 404, note: not run while startup fails}
+      liveness: {port: 8081, path: /actuator/health/liveness, expected_http: 404, note: not run while startup fails}

@@ -1,0 +1,34 @@
+id: pb-15
+boot_version: 3.4.13
+dimensions:
+  - probes-enabled-unset-kubernetes
+  - enable-service-links-false
+  - default-exposure
+  - startup-probe
+expected: ALIGNED
+per_probe:
+  startup:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 200
+  readiness:
+    port: 8080
+    path: /actuator/health/readiness
+    expected_http: 200
+  liveness:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 200
+deciding_input: null
+rationale: >
+  probes.enabled is unset, so ProbesCondition falls back to cloud platform detection. CloudPlatform
+  KUBERNETES checks for KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT in the OS environment. The pod
+  sets enableServiceLinks: false, but the kubelet still injects the env vars of the default/kubernetes
+  master service regardless of that flag, so detection succeeds and the liveness and readiness groups
+  exist. Health is exposed by default on the web. All probes hit /actuator/health/{group} on 8080 and get 200.
+citations:
+  - "kubernetes v1.31.0 pkg/kubelet/kubelet_pods.go L645-L682 (master service env added even if enableServiceLinks is false): https://github.com/kubernetes/kubernetes/blob/v1.31.0/pkg/kubelet/kubelet_pods.go#L645-L682"
+  - "spring-boot v3.4.13 CloudPlatform.java L120-L135: https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot/src/main/java/org/springframework/boot/cloud/CloudPlatform.java#L120-L135"
+  - "spring-boot v3.4.13 AvailabilityProbesAutoConfiguration.java L75-L92: https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesAutoConfiguration.java#L75-L92"
+  - "spring-boot v3.4.13 EndpointExposure.java L35: https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/expose/EndpointExposure.java#L35"
+runtime_inputs: []

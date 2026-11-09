@@ -1,0 +1,32 @@
+id: pb-12
+boot_version: 3.5.16
+dimensions:
+  - context-path-separate-management-port
+  - context-path-applied-wrongly
+  - management-port-different
+  - named-probe-port
+expected: MISALIGNED
+per_probe:
+  readiness:
+    port: 8081
+    path: /refunds/actuator/health/readiness
+    expected_http: 404
+    served_at: 8081 /actuator/health/readiness
+  liveness:
+    port: 8081
+    path: /refunds/actuator/health/liveness
+    expected_http: 404
+    served_at: 8081 /actuator/health/liveness
+deciding_input: null
+rationale: >
+  management.server.port 8081 differs from server.port 8080, so actuator runs on its own server whose
+  context path comes from management.server.base-path (empty). server.servlet.context-path=/refunds is
+  not applied to the management server; in 3.5 the management customizer no longer copies parent
+  server customizers at all and sets the context path explicitly. Named port management resolves to
+  8081, which is correct, but the probes prepend /refunds and get 404 from the management server.
+citations:
+  - "spring-boot v3.5.16 ServletManagementChildContextConfiguration.java L137-L147: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/servlet/ServletManagementChildContextConfiguration.java#L137-L147"
+  - "spring-boot v3.5.16 ManagementWebServerFactoryCustomizer.java L64-L118: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementWebServerFactoryCustomizer.java#L64-L118"
+  - "spring-boot v3.5.16 docs actuator/monitoring.adoc L32-L33: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/actuator/monitoring.adoc#L32-L33"
+  - "kubernetes v1.31.0 pkg/probe/util.go L49-L56: https://github.com/kubernetes/kubernetes/blob/v1.31.0/pkg/probe/util.go#L49-L56"
+runtime_inputs: []

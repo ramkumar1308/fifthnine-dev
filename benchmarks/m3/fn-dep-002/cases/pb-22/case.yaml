@@ -1,0 +1,33 @@
+id: pb-22
+boot_version: 3.3.13
+dimensions:
+  - endpoint-access-pre-3.4
+  - access-property-ignored
+  - startup-probe
+expected: ALIGNED
+per_probe:
+  startup:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 200
+  readiness:
+    port: 8080
+    path: /actuator/health/readiness
+    expected_http: 200
+  liveness:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 200
+deciding_input: null
+rationale: >
+  The access model (management.endpoints.access.default, management.endpoint.<id>.access) arrived in
+  Spring Boot 3.4. In 3.3.13 OnAvailableEndpointCondition only reads management.endpoint.<id>.enabled
+  and management.endpoints.enabled-by-default, and there is no PropertiesEndpointAccessResolver, so the
+  access keys are unknown and ignored. Health keeps its default enablement, is exposed through the include
+  list, and its probe groups are auto-enabled on Kubernetes. On 3.4+ the same file would leave health with
+  access none and the probes would get 404; on 3.3 they get 200.
+citations:
+  - "spring-boot v3.3.13 OnAvailableEndpointCondition.java L128-L144 (enabled / enabled-by-default only): https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/condition/OnAvailableEndpointCondition.java#L128-L144"
+  - "spring-boot v3.4.13 PropertiesEndpointAccessResolver.java L42-L102 (first appears in 3.4; absent at v3.3.13): https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/PropertiesEndpointAccessResolver.java#L42-L102"
+  - "spring-boot v3.3.13 AvailabilityProbesAutoConfiguration.java L75-L92: https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesAutoConfiguration.java#L75-L92"
+runtime_inputs: []

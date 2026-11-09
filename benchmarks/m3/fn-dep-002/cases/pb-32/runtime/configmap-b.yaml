@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: contract-store-config
+data:
+  application.yml: |
+    logging:
+      level:
+        root: INFO
+    management:
+      endpoints:
+        web:
+          base-path: /ops

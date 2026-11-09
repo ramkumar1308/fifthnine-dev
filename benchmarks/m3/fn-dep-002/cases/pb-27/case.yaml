@@ -1,0 +1,52 @@
+id: pb-27
+boot_version: 3.4.13
+dimensions:
+  - configmapkeyref-missing
+  - spring-profiles-active-deployment
+  - profile-specific-file
+  - named-probe-port
+  - management-port-different
+  - startup-probe
+expected: NOT_DETERMINABLE
+per_probe:
+  startup:
+    port: 8081
+    path: /actuator/health/liveness
+    expected_http: depends_on_runtime_input
+  readiness:
+    port: 8081
+    path: /actuator/health/readiness
+    expected_http: depends_on_runtime_input
+  liveness:
+    port: 8081
+    path: /actuator/health/liveness
+    expected_http: depends_on_runtime_input
+deciding_input: >
+  ConfigMap release-channel, key profile (env SPRING_PROFILES_ACTIVE via valueFrom.configMapKeyRef, not
+  optional, not in the repo). The value picks application-blue.yml (management port 8081) or
+  application-green.yml (management port 8082), or no profile file at all.
+rationale: >
+  The probes use named port management, which resolves to 8081. The base application.yml sets no
+  management port, application-blue.yml sets 8081 and application-green.yml sets 8082. Which profile is
+  active comes only from SPRING_PROFILES_ACTIVE, and that is read from ConfigMap release-channel, which is
+  not in the repository. If the ConfigMap or key is missing the kubelet will not start the container.
+  The repo therefore cannot tell whether anything listens on 8081.
+citations:
+  - "kubernetes v1.31.0 pkg/kubelet/kubelet_pods.go L828-L856 (configMapKeyRef missing -> error unless optional): https://github.com/kubernetes/kubernetes/blob/v1.31.0/pkg/kubelet/kubelet_pods.go#L828-L856"
+  - "spring-boot v3.5.16 docs features/external-config.adoc L29-L35: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc#L29-L35"
+  - "spring-boot v3.4.13 ManagementPortType.java L53-L61: https://github.com/spring-projects/spring-boot/blob/v3.4.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementPortType.java#L53-L61"
+runtime_inputs:
+  - files: [runtime/configmap-a.yaml]
+    description: profile=blue activates application-blue.yml, management server on 8081.
+    expected: ALIGNED
+    per_probe:
+      startup: {port: 8081, path: /actuator/health/liveness, expected_http: 200}
+      readiness: {port: 8081, path: /actuator/health/readiness, expected_http: 200}
+      liveness: {port: 8081, path: /actuator/health/liveness, expected_http: 200}
+  - files: [runtime/configmap-b.yaml]
+    description: profile=green activates application-green.yml, management server on 8082.
+    expected: MISALIGNED
+    per_probe:
+      startup: {port: 8081, path: /actuator/health/liveness, expected_http: connection_refused}
+      readiness: {port: 8081, path: /actuator/health/readiness, expected_http: connection_refused, note: not run while startup fails}
+      liveness: {port: 8081, path: /actuator/health/liveness, expected_http: connection_refused, note: not run while startup fails}

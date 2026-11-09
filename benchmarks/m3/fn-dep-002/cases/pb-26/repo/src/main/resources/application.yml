@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: quote-engine
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,diskSpace

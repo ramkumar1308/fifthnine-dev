@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: rate-limiter
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoint:
+    health:
+      show-details: never

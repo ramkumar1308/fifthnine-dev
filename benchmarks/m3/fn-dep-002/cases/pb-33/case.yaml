@@ -1,0 +1,35 @@
+id: pb-33
+boot_version: 3.2.12
+dimensions:
+  - startup-probe-misaligned-others-ok
+  - management-port-different
+  - named-probe-port
+expected: MISALIGNED
+per_probe:
+  startup:
+    port: 8080
+    path: /actuator/health/liveness
+    expected_http: 404
+    served_at: 8081 /actuator/health/liveness
+  readiness:
+    port: 8081
+    path: /actuator/health/readiness
+    expected_http: 200
+    note: never runs because the startup probe never succeeds
+  liveness:
+    port: 8081
+    path: /actuator/health/liveness
+    expected_http: 200
+    note: never runs because the startup probe never succeeds
+deciding_input: null
+rationale: >
+  Actuator is on a separate management server at 8081. Readiness and liveness use named port management
+  (8081) and would return 200. The startup probe uses named port http, which resolves to 8080, the main
+  application server, where /actuator/health/liveness has no handler and returns 404. Kubernetes runs no
+  readiness or liveness checks until the startup probe succeeds, so after 30 failures the container is
+  killed and restarted, and the pod never becomes Ready.
+citations:
+  - "kubernetes docs, startup probes hold off other probes and restart on failure: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes"
+  - "kubernetes v1.31.0 pkg/probe/util.go L27-L56: https://github.com/kubernetes/kubernetes/blob/v1.31.0/pkg/probe/util.go#L27-L56"
+  - "spring-boot v3.2.12 ManagementPortType.java L53-L61: https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementPortType.java#L53-L61"
+runtime_inputs: []

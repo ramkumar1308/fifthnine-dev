@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: lead-scoring
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+scoring:
+  model-path: classpath:/model/default.json
+  batch-size: 500

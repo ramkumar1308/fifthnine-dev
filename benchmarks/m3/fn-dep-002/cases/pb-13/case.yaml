@@ -1,0 +1,26 @@
+id: pb-13
+boot_version: 3.2.12
+dimensions:
+  - probes-enabled-false
+  - root-health-path
+expected: ALIGNED
+per_probe:
+  readiness:
+    port: 8080
+    path: /actuator/health
+    expected_http: 200
+  liveness:
+    port: 8080
+    path: /actuator/health
+    expected_http: 200
+deciding_input: null
+rationale: >
+  management.endpoint.health.probes.enabled=false makes ProbesCondition return no match, so the liveness
+  and readiness groups are not created. The probes do not use those groups; they hit the primary health
+  endpoint /actuator/health, which is exposed on the web by default and in the explicit include list.
+  With only diskSpace and ping contributing, it reports UP and returns 200. A check that flags
+  probes.enabled=false on Kubernetes without looking at the probe paths would be wrong here.
+citations:
+  - "spring-boot v3.2.12 AvailabilityProbesAutoConfiguration.java L75-L105 (explicit property decides): https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/availability/AvailabilityProbesAutoConfiguration.java#L75-L105"
+  - "spring-boot v3.2.12 EndpointExposure.java L35 (web default includes health): https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/expose/EndpointExposure.java#L35"
+runtime_inputs: []

@@ -1,0 +1,29 @@
+id: pb-34
+boot_version: 3.3.13
+dimensions:
+  - multi-document-yaml
+  - on-cloud-platform-activation
+  - management-port-different
+  - probe-groups-auto-kubernetes
+expected: ALIGNED
+per_probe:
+  readiness:
+    port: 8081
+    path: /actuator/health/readiness
+    expected_http: 200
+  liveness:
+    port: 8081
+    path: /actuator/health/liveness
+    expected_http: 200
+deciding_input: null
+rationale: >
+  application.yml has a second document guarded by spring.config.activate.on-cloud-platform: kubernetes.
+  In the pod, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT are present, CloudPlatform.KUBERNETES is
+  detected, and that document applies, setting management.server.port 8081. Actuator moves to a separate
+  server on 8081, and the same detection enables the probe groups. Both probes hit 8081 group paths and
+  return 200. Reading only the first document suggests actuator on 8080.
+citations:
+  - "spring-boot v3.5.16 docs features/external-config.adoc L566-L620 (multi-document files, on-cloud-platform): https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc#L566-L620"
+  - "spring-boot v3.3.13 CloudPlatform.java L120-L135: https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot/src/main/java/org/springframework/boot/cloud/CloudPlatform.java#L120-L135"
+  - "spring-boot v3.3.13 ManagementPortType.java L53-L61: https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementPortType.java#L53-L61"
+runtime_inputs: []

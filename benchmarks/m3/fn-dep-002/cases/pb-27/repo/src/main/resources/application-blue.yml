@@ -1,0 +1,6 @@
+management:
+  server:
+    port: 8081
+
+recommendation:
+  model-version: v7

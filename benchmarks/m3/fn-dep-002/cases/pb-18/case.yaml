@@ -1,0 +1,43 @@
+id: pb-18
+boot_version: 3.3.13
+dimensions:
+  - envfrom-configmap-missing
+  - env-override-relaxed-binding
+  - management-port-different
+expected: NOT_DETERMINABLE
+per_probe:
+  readiness:
+    port: 8081
+    path: /actuator/health/readiness
+    expected_http: depends_on_runtime_input
+  liveness:
+    port: 8081
+    path: /actuator/health/liveness
+    expected_http: depends_on_runtime_input
+deciding_input: >
+  ConfigMap app-env (envFrom.configMapRef, not optional, not in the repo). Nothing in the repo sets
+  management.server.port, so whether anything listens on 8081 depends on that ConfigMap supplying
+  MANAGEMENT_SERVER_PORT=8081. Without it the container does not start at all.
+rationale: >
+  The probes target 8081, but application.yml configures only server.port 8080 and no management port,
+  so from the repo alone actuator would share 8080 and nothing would listen on 8081. The Deployment
+  imports all keys of ConfigMap app-env as environment variables, and MANAGEMENT_SERVER_PORT in the OS
+  environment overrides application.yml through relaxed binding. That ConfigMap is not in the repository,
+  so the answer turns on its contents.
+citations:
+  - "kubernetes v1.31.0 pkg/kubelet/kubelet_pods.go L740-L760 (envFrom ConfigMap, optional handling): https://github.com/kubernetes/kubernetes/blob/v1.31.0/pkg/kubelet/kubelet_pods.go#L740-L760"
+  - "spring-boot v3.5.16 docs features/external-config.adoc L1037-L1043: https://github.com/spring-projects/spring-boot/blob/v3.5.16/spring-boot-project/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc#L1037-L1043"
+  - "spring-boot v3.3.13 ManagementPortType.java L53-L61: https://github.com/spring-projects/spring-boot/blob/v3.3.13/spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/web/server/ManagementPortType.java#L53-L61"
+runtime_inputs:
+  - files: [runtime/configmap-a.yaml]
+    description: ConfigMap sets MANAGEMENT_SERVER_PORT=8081.
+    expected: ALIGNED
+    per_probe:
+      readiness: {port: 8081, path: /actuator/health/readiness, expected_http: 200}
+      liveness: {port: 8081, path: /actuator/health/liveness, expected_http: 200}
+  - files: [runtime/configmap-b.yaml]
+    description: ConfigMap has only logging and app keys; actuator stays on 8080.
+    expected: MISALIGNED
+    per_probe:
+      readiness: {port: 8081, path: /actuator/health/readiness, expected_http: connection_refused}
+      liveness: {port: 8081, path: /actuator/health/liveness, expected_http: connection_refused}

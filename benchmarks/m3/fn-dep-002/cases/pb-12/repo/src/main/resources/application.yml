@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: refunds-api
+
+server:
+  port: 8080
+  servlet:
+    context-path: /refunds
+  shutdown: graceful
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: never

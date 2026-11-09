@@ -1,2 +1,2 @@
-benchmarks/m3/fn-dep-002/harness/smoke
-smoke run 3
+benchmarks/m3/fn-dep-002/cases
+v1 run 1

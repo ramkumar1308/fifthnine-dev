@@ -10,6 +10,10 @@ mkdir -p ~/.claude/skills && cp -r skill/fifthnine ~/.claude/skills/
 
 Then open your service's repository in Claude Code and type `run fifthnine`.
 
+A Ready verdict means the repository shows these practices. It does not guarantee 99.999% uptime.
+
+Tested in Claude Code.
+
 ## Reference scorecard
 
 [`examples/reference-service/`](examples/reference-service/) is a minimal service written to pass every check. This is run 1 of two on standard 1.0; both runs gave the same 16 results ([full record](examples/reference-service/SCORECARD.md)).

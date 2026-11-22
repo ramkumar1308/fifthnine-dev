@@ -222,7 +222,7 @@ Every Pass and every Fail must cite a file and line. A result with no citation i
 
 ### Missing settings
 
-Some checks look for a setting that may be absent. Their "Where it belongs" field names the files that should hold it, by platform. On a platform the field does not list, use the file that holds that platform's equivalent setting.
+Some checks look for a setting that may be absent. Their "Where it belongs" field names the files that should hold it, by platform. On a platform the field does not list, use the file that holds that platform's equivalent setting. This rule applies only to checks with a "Where it belongs" field.
 
 - If one of those files exists in the repo and the setting is missing, the result is Fail, citing that file.
 - If none of those files exists in the repo, the result is No evidence.

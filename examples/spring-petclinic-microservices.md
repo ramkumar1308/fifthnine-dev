@@ -3,12 +3,131 @@
 - Repository: https://github.com/spring-petclinic/spring-petclinic-microservices
 - Commit: e8b747a
 - Service scored: customers-service (the repository holds 8 services)
-- Standard: 1.0 (current), with draft 2 and draft 1 kept below
+- Standard: 1.0 (current), with drafts 3, 2 and 1 kept below
 - Runs: two per version, each in a fresh agent context, on 22 November 2026
 
 ## Version 1.0
 
+Run after the "Missing settings" rule was limited to checks with a "Where it belongs" field.
+
 ### Run 1
+
+```
+FifthNine scorecard          standard 1.0
+Repo: spring-petclinic/spring-petclinic-microservices (customers-service)   Commit: e8b747a
+Platform: other (Docker Compose containers)   Languages: Java, Shell
+
+Score: 3 of 16 checks passed (19)
+Verdict: Not ready (critical checks FN-1.1 and FN-3.2 failed; score below 70)
+
+1 Embracing risk             0 of 2
+2 Service level objectives   0 of 2
+3 Eliminating toil           0 of 2
+4 Monitoring                 0 of 2
+5 Automation                 2 of 2
+6 Release engineering        0 of 2
+7 Simplicity                 0 of 2
+8 Security                   1 of 2
+
+Results
+FN-1.1  Fail         docker-compose.yml:37
+FN-1.2  No evidence  outside repo: config server repo spring-petclinic/spring-petclinic-microservices-config (imported at spring-petclinic-customers-service/src/main/resources/application.yml:13)
+FN-2.1  No evidence  none
+FN-2.2  Fail         docker/prometheus/prometheus.yml:2
+FN-3.1  Fail         docker-compose.yml:35
+FN-3.2  Fail         docker-compose.yml:35
+FN-4.1  No evidence  outside repo: config server repo spring-petclinic/spring-petclinic-microservices-config (imported at spring-petclinic-customers-service/src/main/resources/application.yml:13)
+FN-4.2  Fail         spring-petclinic-customers-service/src/main/resources/logback-spring.xml:3
+FN-5.1  Pass         docker-compose.yml:35
+FN-5.2  Pass         .github/workflows/maven-build.yml:29
+FN-6.1  Fail         docker-compose.yml:36
+FN-6.2  Fail         docker-compose.yml:38
+FN-7.1  No evidence  none
+FN-7.2  Fail         spring-petclinic-customers-service/pom.xml:88
+FN-8.1  Pass         docker-compose.yml:35
+FN-8.2  Fail         docker/Dockerfile:8
+
+Fix first
+1. FN-1.1  The service runs as one container with a fixed container_name, so it has no replicas and cannot be scaled
+           docker-compose.yml:37
+2. FN-3.2  The customers-service entry has no healthcheck and no restart policy
+           docker-compose.yml:35
+3. FN-2.2  The Prometheus config has no rule_files and no burn-rate alerts
+           docker/prometheus/prometheus.yml:2
+4. FN-3.1  The customers-service entry sets no scaling minimum or maximum
+           docker-compose.yml:35
+5. FN-4.2  Logging uses Spring Boot's plain-text base.xml, not JSON, and the repo has no alert rules
+           spring-petclinic-customers-service/src/main/resources/logback-spring.xml:3
+
+No evidence: FN-1.2 (DB, Eureka and Zipkin client timeouts and retries would come from the external config repo); FN-2.1 (no SLO file or written availability and latency target); FN-4.1 (the micrometer-registry-prometheus dependency and the scrape job at prometheus.yml:19 are present, but the actuator exposure of /actuator/prometheus is not set in this repo; it comes from the config server); FN-7.1 (the service's server.port is not set in this repo, so EXPOSE/8081 cannot be matched to a listening port)
+```
+
+### Run 2
+
+```
+FifthNine scorecard          standard 1.0
+Repo: spring-petclinic/spring-petclinic-microservices (customers-service)   Commit: e8b747a
+Platform: other (Docker Compose containers)   Languages: Java, shell
+
+Score: 3 of 16 checks passed (19)
+Verdict: Not ready (critical checks FN-1.1 and FN-3.2 failed; score below 70)
+
+1 Embracing risk             0 of 2
+2 Service level objectives   0 of 2
+3 Eliminating toil           0 of 2
+4 Monitoring                 0 of 2
+5 Automation                 2 of 2
+6 Release engineering        0 of 2
+7 Simplicity                 0 of 2
+8 Security                   1 of 2
+
+Results
+FN-1.1  Fail         docker-compose.yml:37
+FN-1.2  No evidence  outside repo: https://github.com/spring-petclinic/spring-petclinic-microservices-config
+FN-2.1  No evidence  none
+FN-2.2  Fail         docker/prometheus/prometheus.yml:2
+FN-3.1  Fail         docker-compose.yml:38
+FN-3.2  Fail         docker-compose.yml:35
+FN-4.1  No evidence  outside repo: https://github.com/spring-petclinic/spring-petclinic-microservices-config
+FN-4.2  Fail         docker/prometheus/prometheus.yml:2
+FN-5.1  Pass         docker-compose.yml:35
+FN-5.2  Pass         .github/workflows/maven-build.yml:29
+FN-6.1  Fail         docker-compose.yml:36
+FN-6.2  Fail         docker-compose.yml:38
+FN-7.1  No evidence  outside repo: https://github.com/spring-petclinic/spring-petclinic-microservices-config
+FN-7.2  Fail         spring-petclinic-customers-service/pom.xml:75
+FN-8.1  Pass         spring-petclinic-customers-service/src/main/resources/application.yml:5
+FN-8.2  Fail         docker/Dockerfile:8
+
+Fix first
+1. FN-1.1  Fixed container_name allows only one instance, with no replicas or update policy
+           docker-compose.yml:37
+2. FN-3.2  customers-service has no healthcheck and no restart policy
+           docker-compose.yml:35
+3. FN-2.2  Prometheus config has no rule_files, so there are no burn-rate alerts
+           docker/prometheus/prometheus.yml:2
+4. FN-3.1  The deploy block sets only memory limits, with no replica minimum or maximum
+           docker-compose.yml:38
+5. FN-4.2  There are no alert rule files and the Prometheus config loads none
+           docker/prometheus/prometheus.yml:2
+
+No evidence: FN-1.2 (DB, Eureka and Zipkin client timeouts would come from the config server: application.yml:5 and :13 import it); FN-2.1 (no SLO file or written availability or latency target in the repo); FN-4.1 (Micrometer, @Timed and a scrape job exist, but the management endpoint exposure is not in this repo and is loaded from the config server); FN-7.1 (compose and EXPOSE use port 8081, but server.port comes from the config server)
+```
+
+### Hand check
+
+Every cited line was opened and read. All of them exist and say what the run claims.
+
+- **Pass mark met.** Both runs agree on all 16 results and both score 19.
+- **The draft 3 disagreement is settled.** FN-8.1 is Pass in both runs. FN-8.1 has no "Where it belongs" field, so the outside-repo rule no longer reaches it.
+- **FN-7.1 is No evidence in both runs.** Run 2 still names the config repo as an outside-repo location, although FN-7.1 has no "Where it belongs" field. Run 1 prints `none`. The result is the same; only the location text differs.
+- **Same result, different citation.** FN-4.2: run 1 cites the plain-text log config (`logback-spring.xml:3`), run 2 the missing alert rules (`prometheus.yml:2`, which has no `rule_files`). FN-7.2: run 1 cites `spring-boot-starter-restclient` (`pom.xml:88`), run 2 cites `jolokia-core` (`pom.xml:75`). No code under `spring-petclinic-customers-service/src` imports jolokia.
+
+## Draft 3
+
+Standard 1.0 before the "Missing settings" rule was limited to checks with a "Where it belongs" field.
+
+### Run 1 (draft 3)
 
 ```
 FifthNine scorecard          standard 1.0
@@ -60,7 +179,7 @@ Fix first
 No evidence: FN-1.2 (DB, Eureka and Zipkin client timeouts come from the external config server, application.yml:5/13), FN-2.1 (no SLO file or written target in repo), FN-4.1 (Micrometer, @Timed and a scrape job exist, but the management/actuator exposure that would publish the endpoint is loaded from the config server), FN-7.1 (server.port 8081 is not set in this repo; it comes from the config server)
 ```
 
-### Run 2
+### Run 2 (draft 3)
 
 ```
 FifthNine scorecard          standard 1.0
@@ -112,7 +231,7 @@ Fix first
 No evidence: FN-1.2 (DB, Eureka and Zipkin client timeouts come from the external config repo), FN-2.1 (no SLO file or target document in the repo), FN-4.1 (Micrometer Prometheus registry at pom.xml:80 and scrape job at prometheus.yml:19, but the endpoint exposure is set in the external config repo), FN-7.1 (the app's listen port is set in the external config repo, so the 8081 mapping cannot be checked), FN-8.1 (no secrets found in this repo's files for the service; the datasource credentials live in the external config repo)
 ```
 
-### Hand check
+### Hand check (draft 3)
 
 Every cited line was opened and read. All of them exist and say what the run claims.
 

@@ -3,12 +3,12 @@
 - Repository: https://github.com/spring-petclinic/spring-petclinic-microservices
 - Commit: e8b747a
 - Service scored: customers-service (the repository holds 8 services)
-- Standard: 1.1 (current) and 1.0 (first round, kept below)
+- Standard: draft 2 (current) and draft 1 (first round, kept below)
 - Runs: two per standard version, each in a fresh agent context, on 22 November 2026
 
-## Standard 1.1
+## Draft 2
 
-### Run 1 (1.1)
+### Run 1 (draft 2)
 
 ```
 FifthNine scorecard          standard 1.1
@@ -60,7 +60,7 @@ Fix first
 No evidence: FN-1.2 (datasource, Eureka, Zipkin and config-client settings live in the external config repo, so no timeouts or retry caps can be seen here); FN-2.1 (no SLO file or written availability and latency target); FN-4.1 (Micrometer Prometheus, @Timed and a scrape job at prometheus.yml:19 are present, but no config in this repo exposes the actuator/prometheus endpoint); FN-7.1 (the port the service listens on in the docker profile is set in the external config repo, so the 8081 port mapping cannot be checked)
 ```
 
-### Run 2 (1.1)
+### Run 2 (draft 2)
 
 ```
 FifthNine scorecard          standard 1.1
@@ -112,7 +112,7 @@ Fix first
 No evidence: FN-2.1 (no SLO file or written availability/latency target in the repo); FN-7.1 (the port the app listens on in the docker profile is set in the external config repo, so the mapping of 8081 to a listening port cannot be checked)
 ```
 
-### Hand check (1.1)
+### Hand check (draft 2)
 
 Every new citation was opened and read. All of them exist.
 
@@ -121,12 +121,12 @@ Every new citation was opened and read. All of them exist.
 - **FN-4.1:** run 1 is No evidence, run 2 is Fail.
 - **Cause of both:** the missing-configuration rule. The service's `application.yml` exists, but it only imports the real config from a separate repository (`application.yml:5`, `:13`). Run 2 treated the local file as "the file where the setting belongs". Run 1 treated the external config repo as that place, and it is not in this repository.
 - **Both verdicts are Not ready either way.**
-- **FN-5.1 changed from Fail (1.0) to Pass in both runs.** The new wording excludes optional steps, and the README presents MySQL as an option. Both runs called this a generous reading, because Compose is the only infrastructure code.
-- **The 1.0 arithmetic error is gone.** Both scores add up.
+- **FN-5.1 changed from Fail (draft 1) to Pass in both runs.** The new wording excludes optional steps, and the README presents MySQL as an option. Both runs called this a generous reading, because Compose is the only infrastructure code.
+- **The draft 1 arithmetic error is gone.** Both scores add up.
 
-## Standard 1.0 (first round)
+## Draft 1
 
-### Run 1 (1.0)
+### Run 1 (draft 1)
 
 ```
 FifthNine scorecard          standard 1.0
@@ -159,7 +159,7 @@ Fix first
 No evidence: FN-1.2 (DB, config-server, Eureka and Zipkin client timeouts and retries would be set in the external config repo, not in this repo); FN-2.1 (no SLO file or written availability or latency target anywhere in the repo); FN-4.1 (Micrometer, @Timed and the scrape job are present, but endpoint exposure is set outside the repo and no saturation metric is shown); FN-7.1 (the service's listen port comes from the external config repo, and README.md:23 says "random port", so the 8081 mapping can't be confirmed)
 ```
 
-### Run 2 (1.0)
+### Run 2 (draft 1)
 
 ```
 FifthNine scorecard          standard 1.0
@@ -192,7 +192,7 @@ Fix first
 No evidence: FN-1.2 (no timeouts or retry limits for the DB, config-server, Eureka or Zipkin clients in the repo; datasource and client settings come from the external config repo), FN-2.1 (no SLO file or written availability and latency target anywhere in the repo), FN-7.1 (container port 8081 cannot be matched to a listener in the repo; server.port for the docker profile is set in the external config repo)
 ```
 
-### Hand check (1.0)
+### Hand check (draft 1)
 
 Every cited file and line was opened and read.
 

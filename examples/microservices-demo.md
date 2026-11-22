@@ -3,12 +3,12 @@
 - Repository: https://github.com/GoogleCloudPlatform/microservices-demo
 - Commit: c7cb6d5
 - Service scored: checkoutservice (the repository holds 12 services)
-- Standard: 1.1 (current) and 1.0 (first round, kept below)
+- Standard: draft 2 (current) and draft 1 (first round, kept below)
 - Runs: two per standard version, each in a fresh agent context, on 22 November 2026
 
-## Standard 1.1
+## Draft 2
 
-### Run 1 (1.1)
+### Run 1 (draft 2)
 
 ```
 FifthNine scorecard          standard 1.1
@@ -60,7 +60,7 @@ Fix first
 No evidence: FN-2.1 no SLO file or document with targets; FN-2.2 no burn-rate alert rules; FN-3.1 no HorizontalPodAutoscaler or ScaledObject file for the workload; FN-4.2 JSON logging is set up (main.go:55), but the repo has no alert rule files
 ```
 
-### Run 2 (1.1)
+### Run 2 (draft 2)
 
 ```
 FifthNine scorecard          standard 1.1
@@ -112,18 +112,18 @@ Fix first
 No evidence: FN-2.1 no SLO file or written availability/latency target; FN-2.2 no burn-rate alert rules; FN-4.2 logs are JSON (main.go:55) but there are no alert rule files in the repo
 ```
 
-### Hand check (1.1)
+### Hand check (draft 2)
 
 Every new citation was opened and read. All of them exist and say what the run claims.
 
 - **Pass mark missed.** The runs agree on every critical check but disagree on two checks.
 - **FN-3.1:** run 1 is No evidence, run 2 is Fail. Run 2 applied the missing-configuration rule to the Deployment manifest. Run 1 held that an autoscaler belongs in its own file, which does not exist. The rule does not say which file a missing setting belongs in.
 - **FN-5.1:** run 1 is Fail, run 2 is Pass. `terraform/README.md:21` asks the reader to create a Google Cloud project and enable billing. Run 1 counted that as a required manual setup step. Run 2 counted it as an account prerequisite.
-- **FN-5.2 now agrees.** Both runs fail it. This is the 1.0 disagreement, settled by the new wording.
+- **FN-5.2 now agrees.** Both runs fail it. This is the draft 1 disagreement, settled by the new wording.
 
-## Standard 1.0 (first round)
+## Draft 1
 
-### Run 1 (1.0)
+### Run 1 (draft 1)
 
 ```
 FifthNine scorecard          standard 1.0
@@ -156,7 +156,7 @@ Fix first
 No evidence: FN-2.1 (no SLO file or written availability/latency target), FN-2.2 (no burn-rate alert rules), FN-3.1 (no HPA or KEDA ScaledObject for checkoutservice), FN-4.2 (JSON logs at main.go:55 but no alert rule files in repo), FN-6.2 (no explicit rollout strategy and no documented or automated rollback)
 ```
 
-### Run 2 (1.0)
+### Run 2 (draft 1)
 
 ```
 FifthNine scorecard          standard 1.0
@@ -189,7 +189,7 @@ Fix first
 No evidence: FN-2.1 (no SLO file or written availability/latency target found), FN-2.2 (no burn-rate alert rules found), FN-3.1 (no HorizontalPodAutoscaler or ScaledObject for checkoutservice), FN-4.2 (JSON logging at main.go:55, but no alert rule files in repo), FN-6.2 (no explicit rollout strategy and no documented or automated rollback)
 ```
 
-### Hand check (1.0)
+### Hand check (draft 1)
 
 Every cited file and line was opened and read.
 

@@ -1,10 +1,10 @@
-# The FifthNine standard, version 1.1
+# The FifthNine standard, version 1.0
 
 FifthNine is a production-readiness standard for services that aim for 99.999% availability. It has eight factors and 16 checks. Each check can be verified from files in a repository.
 
 ## How to read a check
 
-Every check has an ID, one sentence that states it, and four fields. "Why" gives the reason. "Prevents" names the outage it guards against. "Evidence" says what to look for in the repo. "Fix" gives the usual remedy. A check marked critical blocks a "Ready" verdict when it fails.
+Every check has an ID, one sentence that states it, and four fields. "Why" gives the reason. "Prevents" names the outage it guards against. "Evidence" says what to look for in the repo. "Fix" gives the usual remedy. Checks that look for a setting that may be missing have a fifth field, "Where it belongs", which names the files that should hold the setting on each platform (see "Missing settings" below). A check marked critical blocks a "Ready" verdict when it fails.
 
 Each check states an intent that holds for any language and any platform. The evidence lines give container and Kubernetes examples because those are the most common. On another platform the same intent is checked against that platform's own files. A check is marked not applicable only when its intent cannot apply, such as the outbound-call check for a service that calls nothing.
 
@@ -33,6 +33,7 @@ At least two instances run in separate failure zones, and planned maintenance ca
 - Why: a single instance turns every node failure and every node upgrade into an outage.
 - Prevents: full downtime during node drains, zone failures and cluster upgrades.
 - Evidence: a replica count of two or more, or an autoscaler minimum of two or more. Topology spread constraints or pod anti-affinity across zones. A PodDisruptionBudget that selects the workload.
+- Where it belongs: Kubernetes: the Deployment or StatefulSet manifest (replicas, topology spread, affinity), a HorizontalPodAutoscaler manifest (minimum), and a PodDisruptionBudget manifest. Docker Compose: the service's entry in the compose file. Virtual machines: the instance group or autoscaling group definition.
 - Fix: set replicas to at least two, add a topology spread constraint on the zone label, and add a PodDisruptionBudget with minAvailable of one or more.
 
 ### FN-1.2 Timeouts and retry limits (critical)
@@ -42,6 +43,7 @@ Every outbound call has a timeout and a retry limit.
 - Why: a call with no timeout can wait forever, and unlimited retries multiply load on a dependency that is already struggling.
 - Prevents: thread and connection exhaustion caused by one slow dependency. Retry storms that turn a partial failure into a full one.
 - Evidence: explicit timeouts on HTTP, gRPC, database and queue clients. Retries with a maximum attempt count and backoff. A client built on library defaults fails the check when the default is no timeout.
+- Where it belongs: any platform: the code that creates each client, or the config file that client reads its timeouts and retries from, such as a Spring `application.yml` or a .NET `appsettings.json`.
 - Fix: set connect and read timeouts on every client. Cap retries, three attempts being a common ceiling, with exponential backoff and jitter.
 
 ## Factor 2: service level objectives
@@ -64,6 +66,7 @@ Alerts fire on error budget burn against that target.
 - Why: alerts tied to the budget page people when users are harmed and stay quiet otherwise.
 - Prevents: outages that customers report before the team sees them. Alert fatigue from alerts on causes that do not affect users.
 - Evidence: alert rules that compute burn rate against the SLO, usually with a fast window and a slow window.
+- Where it belongs: any platform: an alert rule file, such as a PrometheusRule manifest or a Prometheus rule file, or the `rule_files` list of a Prometheus config.
 - Fix: add multi-window burn-rate alerts for each SLO.
 
 ## Factor 3: eliminating toil
@@ -77,6 +80,7 @@ Autoscaling is configured with a minimum and a maximum.
 - Why: manual scaling is repetitive work and arrives too late for a traffic spike.
 - Prevents: overload during peaks.
 - Evidence: a HorizontalPodAutoscaler or KEDA ScaledObject that targets the workload, with minReplicas, maxReplicas and a scaling metric set.
+- Where it belongs: Kubernetes: a HorizontalPodAutoscaler or KEDA ScaledObject manifest, or the Deployment's own replica settings. Docker Compose: the service's entry in the compose file. Virtual machines: the autoscaling group or instance group definition. Serverless: the function's concurrency settings.
 - Fix: add an autoscaler with a minimum of two and a maximum sized from load tests. Set resource requests so CPU-based scaling can work.
 
 ### FN-3.2 Probes that point to real endpoints (critical)
@@ -86,6 +90,7 @@ Health checks exist for liveness and readiness, and they point to real endpoints
 - Why: probes let the platform restart hung instances and hold traffic back from instances that are not ready.
 - Prevents: restart loops caused by a probe path the application does not serve. Traffic sent to instances that are still starting.
 - Evidence: liveness and readiness probes on every container that serves traffic. The probe path and port match an endpoint and port the application exposes in its code or config.
+- Where it belongs: Kubernetes: the container spec in the Deployment or StatefulSet manifest. Docker Compose: the service's `healthcheck` and `restart` settings in the compose file. Virtual machines: the load balancer health check definition and the service unit file.
 - Fix: add both probes and point them at the application's health endpoints. Add a startup probe for slow-starting applications.
 
 ## Factor 4: monitoring
@@ -99,6 +104,7 @@ Metrics cover latency, traffic, errors and saturation.
 - Why: these four show whether users are being served and how much headroom is left.
 - Prevents: blind spots during an incident. Saturation that goes unseen until requests fail.
 - Evidence: a metrics library and endpoint in the application, for example a Prometheus client, Micrometer or OpenTelemetry. Metrics for request duration, request count and error count, plus a saturation measure such as pool usage or queue depth. A scrape config or ServiceMonitor. The metrics endpoint must be exposed by config in this repo. A metrics library alone is No evidence. Saturation means a resource measure such as pool, queue, CPU or memory, not request counts.
+- Where it belongs: any platform: the metrics code in the application, the config that exposes the metrics endpoint (such as Spring's `management` settings in `application.yml`), and the scrape config or ServiceMonitor.
 - Fix: instrument request handlers with duration, count and error metrics. Export pool and resource usage. Expose a metrics endpoint.
 
 ### FN-4.2 Structured logs and alert rules in the repo
@@ -108,6 +114,7 @@ Logs are structured and alert rules live in the repo.
 - Why: structured logs can be searched during an incident. Alert rules kept in the repo are reviewed and versioned with the code.
 - Prevents: slow diagnosis. Alerts that drift from the code or disappear with a dashboard.
 - Evidence: JSON or key-value log configuration. Alert rule files in the repo, for example PrometheusRule manifests.
+- Where it belongs: any platform: for the log format, the logging config file (such as `logback.xml`, `log4j2.xml` or `logging.yaml`) or the code that sets up the logger. For alert rules, the files listed under FN-2.2.
 - Fix: configure JSON logging with a request or trace ID on every line. Move alert rules into the repo.
 
 ## Factor 5: automation
@@ -120,7 +127,7 @@ Infrastructure is defined as code, with no manual setup steps.
 
 - Why: an environment built by hand cannot be rebuilt quickly or identically after a failure.
 - Prevents: long recovery after losing an environment. Config drift between staging and production.
-- Evidence: Terraform, Pulumi, CloudFormation, Helm charts or Kustomize overlays that cover what the service needs. No README steps that tell a person to click through a console or run commands by hand to set up production. Only required steps count. A step the docs mark as optional, or as an alternative to the coded path, is not a manual setup step.
+- Evidence: Terraform, Pulumi, CloudFormation, Helm charts or Kustomize overlays that cover what the service needs. No README steps that tell a person to click through a console or run commands by hand to set up production. Only required steps count. A step the docs mark as optional, or as an alternative to the coded path, is not a manual setup step. Cloud account, billing and permission prerequisites are not manual setup steps for FN-5.1.
 - Fix: move each manual setup step into code and delete it from the docs.
 
 ### FN-5.2 Build and test on every change
@@ -152,6 +159,7 @@ Rollout is gradual and a rollback path is defined.
 - Why: releasing to every instance at once exposes every user to a bad change.
 - Prevents: a full outage from one bad release. Long recovery because nobody knows how to go back.
 - Evidence: a RollingUpdate strategy with maxUnavailable below the replica count, or a canary or blue-green tool such as Argo Rollouts or Flagger. A rollback that is documented or automated: revision history kept, and a rollback step in the pipeline or a runbook. When the repo has more than one production deployment path, judge the weakest one. A link to a tool's docs is not a rollback path.
+- Where it belongs: Kubernetes: the strategy and revisionHistoryLimit of the Deployment manifest, or the Rollout manifest of a canary tool. For the rollback step, the pipeline file or a runbook. Docker Compose: the service's `deploy.update_config` and `deploy.rollback_config` in the compose file. Virtual machines: the instance group's update policy. Serverless: the alias or traffic-shifting config.
 - Fix: set a rolling update with maxUnavailable of zero or one, gated on readiness. Document the rollback command or automate rollback on failed health checks.
 
 ## Factor 7: simplicity
@@ -196,6 +204,7 @@ The service runs under a non-root identity with least privilege.
 - Why: a compromised process running as root in a privileged container can reach the node and other workloads.
 - Prevents: one compromised service taking down others.
 - Evidence: runAsNonRoot set to true, or a non-zero user in the Dockerfile or securityContext. allowPrivilegeEscalation set to false. Capabilities dropped. No privileged containers.
+- Where it belongs: Kubernetes: the pod and container securityContext in the workload manifest, and the Dockerfile `USER`. Docker Compose: the service's `user` setting in the compose file, and the Dockerfile `USER`. Virtual machines: the service unit file (`User=`). Serverless: the function's role definition.
 - Fix: add a non-root USER to the Dockerfile and a securityContext that drops all capabilities and disallows privilege escalation.
 
 ## Results and scoring
@@ -211,7 +220,14 @@ All applicable checks carry equal weight and the score is scaled to 100. Round h
 
 Every Pass and every Fail must cite a file and line. A result with no citation is recorded as No evidence.
 
-If the file where the setting belongs exists and the setting is missing, the result is Fail, citing that file. If no such file exists, the result is No evidence.
+### Missing settings
+
+Some checks look for a setting that may be absent. Their "Where it belongs" field names the files that should hold it, by platform. On a platform the field does not list, use the file that holds that platform's equivalent setting.
+
+- If one of those files exists in the repo and the setting is missing, the result is Fail, citing that file.
+- If none of those files exists in the repo, the result is No evidence.
+- If the setting belongs in a location outside this repo, such as an external config repository or a cloud console, the result is No evidence, and the scorecard line names that location. A setting belongs outside the repo when the repo's own config for the service loads it from that location, for example a Spring config server import, even if a local file could also hold it.
+- With Helm, the files are the values file the production release uses and the templates it renders. With Kustomize, they are the bases and patches that the production overlay builds.
 
 ## Custom checks
 

@@ -3,12 +3,12 @@
 - Repository: https://github.com/stefanprodan/podinfo
 - Commit: f72ffd4
 - Service scored: podinfo (single service; the frontend, backend and database workloads run the same binary)
-- Standard: 1.1 (current) and 1.0 (first round, kept below)
+- Standard: draft 2 (current) and draft 1 (first round, kept below)
 - Runs: two per standard version, each in a fresh agent context, on 22 November 2026
 
-## Standard 1.1
+## Draft 2
 
-### Run 1 (1.1)
+### Run 1 (draft 2)
 
 ```
 FifthNine scorecard          standard 1.1
@@ -60,7 +60,7 @@ Fix first
 No evidence: FN-2.1 (no SLO file or written availability or latency target); FN-2.2 (no burn-rate alert rules); FN-4.2 (JSON logging is set at cmd/podinfo/main.go:255, but the repo has no alert rule files)
 ```
 
-### Run 2 (1.1)
+### Run 2 (draft 2)
 
 ```
 FifthNine scorecard          standard 1.1
@@ -112,18 +112,18 @@ Fix first
 No evidence: FN-2.1 (no SLO file or written availability and latency target), FN-2.2 (no burn-rate alert rules), FN-4.2 (JSON logging is configured at cmd/podinfo/main.go:255, but there are no alert rule files in the repo)
 ```
 
-### Hand check (1.1)
+### Hand check (draft 2)
 
 Every new citation was opened and read. All of them exist and say what the run claims. The FN-8.1 secret value was not copied.
 
 - **Pass mark met.** Both runs agree on all 16 results.
-- **The 1.0 disagreements are settled.** FN-6.2 and FN-7.1 now agree. The "weakest path" and "values files" wording took effect.
+- **The draft 1 disagreements are settled.** FN-6.2 and FN-7.1 now agree. The "weakest path" and "values files" wording took effect.
 - **FN-6.1 changed from Fail to Pass.** Test hooks and example folders are now excluded, and the production image is pinned to `6.17.0` (`charts/podinfo/values-prod.yaml:11`).
 - **FN-6.1 is still borderline.** The Dockerfile bases `golang:1.27-alpine` and `alpine:3.24` are minor-version tags that pick up patch releases. Run 1 raised this itself. The standard does not say whether a minor-version tag counts as "a specific version".
 
-## Standard 1.0 (first round)
+## Draft 1
 
-### Run 1 (1.0)
+### Run 1 (draft 1)
 
 ```
 FifthNine scorecard          standard 1.0
@@ -156,7 +156,7 @@ Fix first
 No evidence: FN-2.1 no SLO file or written availability/latency target; FN-2.2 no burn-rate alert rules; FN-4.2 JSON logs present but no alert rule files in repo
 ```
 
-### Run 2 (1.0)
+### Run 2 (draft 1)
 
 ```
 FifthNine scorecard          standard 1.0
@@ -189,7 +189,7 @@ Fix first
 No evidence: FN-2.1 (no SLO file or written availability and latency target in the repo); FN-2.2 (no burn-rate alert rules in the repo); FN-4.2 (logs are JSON at cmd/podinfo/main.go:255, but the repo has no alert rule files); FN-6.2 (rolling update with maxUnavailable 0 and revision history exist, but the production overlay has no documented or automated rollback; README.md:266 only links to Flux remediation)
 ```
 
-### Hand check (1.0)
+### Hand check (draft 1)
 
 Every cited file and line was opened and read. The FN-8.1 secret value was not copied.
 

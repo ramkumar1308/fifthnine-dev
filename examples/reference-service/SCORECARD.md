@@ -2,7 +2,7 @@
 
 - Folder: `examples/reference-service`, scored as its own repository root
 - Commit: 5edc393
-- Standard: 1.1
+- Standard: draft 2
 - Runs: two, each in a fresh agent context, on 22 November 2026. The runs agree on all 16 results.
 
 ## Run 1

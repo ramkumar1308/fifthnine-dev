@@ -4,7 +4,7 @@ A minimal service, written for this repository, that meets all 16 checks of the 
 
 The service has one endpoint, `GET /quote`. It fetches a price from an upstream pricing service and returns it.
 
-This folder is laid out as its own repository: copy it out to use it. Its pipeline (`.github/workflows/ci.yml`) runs only when the folder is the root of a repository.
+Its pipeline is [`.github/workflows/reference-service.yml`](../../.github/workflows/reference-service.yml) at the root of this repository. It runs the unit tests and builds the image on every pull request and push to main that changes this folder.
 
 ## Layout
 

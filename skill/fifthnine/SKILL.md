@@ -10,7 +10,7 @@ Assess the repository in the current folder against the FifthNine standard, from
 1. Read FIFTHNINE.md in this skill's folder. Use every check in it, including custom checks a team has added.
 2. Survey the repository. Note the languages, how the service is built, how it is deployed and where its config lives. Name the platform in one line: Kubernetes, virtual machines, serverless, mainframe or other.
 3. For each check, look for evidence of its intent on this platform. The evidence lines in the standard are examples. On another platform, use that platform's equivalent.
-4. Record one result per check: Pass, Fail, No evidence or Not applicable.
+4. Record one result per check: Pass, Fail, No evidence or Not applicable. When a setting is missing, follow the check's "Where it belongs" field and the "Missing settings" rules in the standard.
 5. Before printing, re-open every cited file and confirm the line exists and supports the result. A Pass needs a citation as strong as a Fail. If the evidence is not there, the result is No evidence.
 6. Compute the score and the verdict using the rules in the standard. Before printing, check that the section counts add up to the score.
 7. Print the scorecard in the format below, and nothing else.
@@ -21,6 +21,7 @@ Assess the repository in the current folder against the FifthNine standard, from
 - Every Pass and every Fail cites a file and line. With no citation, the result is No evidence.
 - Never guess. If the evidence is unclear, the result is No evidence.
 - Never print the value of a secret. Cite its file and line only.
+- When a setting belongs outside this repo, the result is No evidence and the result line reads `outside repo: <location>`, naming the location.
 - Use Not applicable only when the intent of a check cannot apply to this service.
 - List at most five fixes. Critical checks come first, then the order of the standard.
 - Each fix is one line that says what is wrong, followed by the file and line.
@@ -48,8 +49,8 @@ Verdict: <Ready | At risk | Not ready> (<reason if not Ready>)
 8 Security                   <passed> of <applicable>
 
 Results
-FN-1.1  <result>  <file>:<line or none>
-FN-1.2  <result>  <file>:<line or none>
+FN-1.1  <result>  <file>:<line>, none, or outside repo: <location>
+FN-1.2  <result>  <file>:<line>, none, or outside repo: <location>
 ... one line for each of the 16 checks, in order
 
 Fix first

@@ -1,0 +1,61 @@
+apiVersion: openslo/v1
+kind: SLO
+metadata:
+  name: quote-availability
+spec:
+  description: 99.9% of /quote requests succeed over a rolling 30 days.
+  service: reference-service
+  budgetingMethod: Occurrences
+  timeWindow:
+    - duration: 30d
+      isRolling: true
+  indicator:
+    metadata:
+      name: quote-success-ratio
+    spec:
+      ratioMetric:
+        counter: true
+        good:
+          metricSource:
+            type: Prometheus
+            spec:
+              query: sum(rate(http_requests_total{route="/quote",code!~"5.."}[5m]))
+        total:
+          metricSource:
+            type: Prometheus
+            spec:
+              query: sum(rate(http_requests_total{route="/quote"}[5m]))
+  objectives:
+    - displayName: availability
+      target: 0.999
+---
+apiVersion: openslo/v1
+kind: SLO
+metadata:
+  name: quote-latency
+spec:
+  description: 99% of /quote requests complete within 300 ms over a rolling 30 days.
+  service: reference-service
+  budgetingMethod: Occurrences
+  timeWindow:
+    - duration: 30d
+      isRolling: true
+  indicator:
+    metadata:
+      name: quote-fast-ratio
+    spec:
+      ratioMetric:
+        counter: true
+        good:
+          metricSource:
+            type: Prometheus
+            spec:
+              query: sum(rate(http_request_duration_seconds_bucket{route="/quote",le="0.3"}[5m]))
+        total:
+          metricSource:
+            type: Prometheus
+            spec:
+              query: sum(rate(http_request_duration_seconds_count{route="/quote"}[5m]))
+  objectives:
+    - displayName: latency under 300 ms
+      target: 0.99

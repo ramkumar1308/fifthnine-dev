@@ -1,0 +1,70 @@
+# Recording rules and alerts for the SLOs in slo/slos.yaml.
+# Availability: 99.9% of /quote requests succeed over 30 days (error budget 0.001).
+# Latency: 99% of /quote requests complete within 300 ms over 30 days (budget 0.01).
+# Burn-rate alerts use the multi-window method: a long window and a short window must both exceed the rate.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: reference-service
+  labels:
+    app.kubernetes.io/name: reference-service
+spec:
+  groups:
+    - name: reference-service-slo-recording
+      rules:
+        - record: slo:quote_errors:ratio_rate5m
+          expr: sum(rate(http_requests_total{route="/quote",code=~"5.."}[5m])) / sum(rate(http_requests_total{route="/quote"}[5m]))
+        - record: slo:quote_errors:ratio_rate30m
+          expr: sum(rate(http_requests_total{route="/quote",code=~"5.."}[30m])) / sum(rate(http_requests_total{route="/quote"}[30m]))
+        - record: slo:quote_errors:ratio_rate1h
+          expr: sum(rate(http_requests_total{route="/quote",code=~"5.."}[1h])) / sum(rate(http_requests_total{route="/quote"}[1h]))
+        - record: slo:quote_errors:ratio_rate6h
+          expr: sum(rate(http_requests_total{route="/quote",code=~"5.."}[6h])) / sum(rate(http_requests_total{route="/quote"}[6h]))
+        - record: slo:quote_slow:ratio_rate5m
+          expr: 1 - (sum(rate(http_request_duration_seconds_bucket{route="/quote",le="0.3"}[5m])) / sum(rate(http_request_duration_seconds_count{route="/quote"}[5m])))
+        - record: slo:quote_slow:ratio_rate30m
+          expr: 1 - (sum(rate(http_request_duration_seconds_bucket{route="/quote",le="0.3"}[30m])) / sum(rate(http_request_duration_seconds_count{route="/quote"}[30m])))
+        - record: slo:quote_slow:ratio_rate1h
+          expr: 1 - (sum(rate(http_request_duration_seconds_bucket{route="/quote",le="0.3"}[1h])) / sum(rate(http_request_duration_seconds_count{route="/quote"}[1h])))
+        - record: slo:quote_slow:ratio_rate6h
+          expr: 1 - (sum(rate(http_request_duration_seconds_bucket{route="/quote",le="0.3"}[6h])) / sum(rate(http_request_duration_seconds_count{route="/quote"}[6h])))
+    - name: reference-service-slo-alerts
+      rules:
+        - alert: QuoteAvailabilityFastBurn
+          expr: slo:quote_errors:ratio_rate1h > (14.4 * 0.001) and slo:quote_errors:ratio_rate5m > (14.4 * 0.001)
+          labels:
+            severity: page
+          annotations:
+            summary: "/quote is burning its 30-day availability budget 14x too fast"
+            runbook: RUNBOOK.md#quoteavailabilityfastburn
+        - alert: QuoteAvailabilitySlowBurn
+          expr: slo:quote_errors:ratio_rate6h > (6 * 0.001) and slo:quote_errors:ratio_rate30m > (6 * 0.001)
+          labels:
+            severity: page
+          annotations:
+            summary: "/quote is burning its 30-day availability budget 6x too fast"
+            runbook: RUNBOOK.md#quoteavailabilityslowburn
+        - alert: QuoteLatencyFastBurn
+          expr: slo:quote_slow:ratio_rate1h > (14.4 * 0.01) and slo:quote_slow:ratio_rate5m > (14.4 * 0.01)
+          labels:
+            severity: page
+          annotations:
+            summary: "/quote is burning its 30-day latency budget 14x too fast"
+            runbook: RUNBOOK.md#quotelatencyfastburn
+        - alert: QuoteLatencySlowBurn
+          expr: slo:quote_slow:ratio_rate6h > (6 * 0.01) and slo:quote_slow:ratio_rate30m > (6 * 0.01)
+          labels:
+            severity: page
+          annotations:
+            summary: "/quote is burning its 30-day latency budget 6x too fast"
+            runbook: RUNBOOK.md#quotelatencyslowburn
+    - name: reference-service-saturation
+      rules:
+        - alert: QuoteNearConcurrencyLimit
+          expr: max(http_requests_in_flight / http_requests_in_flight_limit) > 0.8
+          for: 10m
+          labels:
+            severity: ticket
+          annotations:
+            summary: "An instance is above 80% of its in-flight request limit"
+            runbook: RUNBOOK.md#quotenearconcurrencylimit

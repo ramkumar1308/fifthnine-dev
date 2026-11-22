@@ -166,3 +166,40 @@ CTO application: `cohort` field on every corpus entry, six maintained Spring Boo
 | M2-1-D4 | Independent case author and independent experienced SRE adjudicator required; if one person holds both roles, disclose it and keep adjudication blind to contender identity; no answer keys exposed to AI runners | REQUIREMENT (CEO) |
 | M2-1-D5 | AI optional and disabled by default; offline deterministic scanning always works; hosted AI needs customer authorization; bounded file access, prompt-injection defences, secret handling and an auditable record of transmitted data defined before any product implementation | REQUIREMENT (CEO) |
 | M2-1-D6 | Scope locked: no MCP, hosted service, autonomous remediation, cross-repository verification platform or FifthNine Verify. A successful HX2 does not authorize AI development; a separate implementation proposal needs CEO approval | REQUIREMENT (CEO) |
+
+---
+
+## 2026-10-22: M2-1 merged; M2-2 authorized
+
+| ID | Decision | Status |
+|---|---|---|
+| M2-2-D1 | PR #6 merged (main 4dcc093). The 1,778 disclosed oracle skips are kept as coverage limitations and are not described as independently verified | APPROVED (CEO) |
+| M2-2-D2 | Kubernetes defaults count reconciled in PR #7 | AWAITING APPROVAL |
+| M2-2-D3 | M2-2 proceeds per its approved plan. HX2 protocol is prepared separately and not executed. No AI code, no scope expansion | APPROVED (CEO) |
+| M2-2-D4 | Objective: accurate Spring Boot application configuration extraction, including the production-effective values future SRE reliability checks need | DIRECTION (CEO) |
+
+CTO application: Spring defaults for Boot 3.2 to 3.5 only; Boot outside that range gets unresolved derived facts. An independent test oracle re-implements the layering rules and is not claimed to replace a runtime check, which stays open as M2-D3.
+
+---
+
+## 2026-10-23: PR #7 merged; PR #8 held for focused validation
+
+| ID | Decision | Status |
+|---|---|---|
+| M2-2-D5 | PR #7 approved and merged by the CEO | APPROVED (CEO) |
+| M2-2-D6 | PR #8 held pending focused validation: `spring.profiles.default` semantics, M2-D3 runtime verification in a network-enabled CI job, independent re-review of the changes and unexamined precedence paths, wider upstream citation checks, report update. Scope stays narrow; no new framework support, no AI | HOLD (CEO) |
+
+CTO application: runtime verification runs in the `spring-runtime` workflow only; the CLI stays offline. Mismatches on facts that carry a file override exposure flag are counted as not compared, and listed in the report. Reviewer open items that were not fixed are disclosed in `M2-2.md`, not dropped. HX2 stays unexecuted.
+
+## 2026-11-09: continue FifthNine Scan; prove a semantic reliability finding
+
+| ID | Decision | Status |
+|---|---|---|
+| M3-PRE-D1 | Continue FifthNine Scan; no pivot, no scope expansion. No release service, performance-evidence ingestion or AI agent | DIRECTION (CEO) |
+| M3-PRE-D2 | Close M2-2: correct the silent-wrong-value items left open at the last gate, test, review, and return PR #8 for merge authorization | DIRECTION (CEO) |
+| M3-PRE-D3 | Continue M2-3 to M2-5 in the authorized order, preserving contracts and evidence rules | DIRECTION (CEO) |
+| M3-PRE-D4 | Prepare a preregistered FN-DEP-002 benchmark (30 to 40 Spring Boot and Kubernetes variants, Boot 3.2 to 3.5, independent expected outcomes, runtime ground truth where practical, AI coding-agent and readiness-as-code comparisons) before the rule is implemented; FN-DEP-002 stays behind the M3 implementation gate. Suggested targets: at least 95 percent accuracy on assessable cases, no confident false-safe conclusions, explicit unknowns for unsupported cases. The benchmark is not changed after results are seen | DIRECTION (CEO) |
+
+CTO application: the benchmark lives on branch `benchmark/fn-dep-002` (`benchmarks/m3/fn-dep-002/`), preregistered at c1c6213 and
+frozen at fc2fde6; ERRATA E1 and addendum A1 record the two changes made after outputs were seen, both before any FN-DEP-002 code
+exists. M2-2's closing fixes and review rounds 4 and 5 are in `M2-2.md`. M2-3 is on `feature/m2-3-python-config`, stacked on PR #8.

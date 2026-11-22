@@ -41,6 +41,8 @@ dev = [
     "mypy>=1.10",
     # Test-only oracle: Docker's BuildKit Dockerfile parser, used to cross-check M2 Dockerfile facts. Never a runtime dependency.
     "dockerfile>=3.4",
+    # Test-only oracle: independent .properties reader, used to cross-check M2-2 Spring configuration facts.
+    "javaproperties>=0.8",
 ]
 
 [project.scripts]

@@ -3,8 +3,123 @@
 - Repository: https://github.com/GoogleCloudPlatform/microservices-demo
 - Commit: c7cb6d5
 - Service scored: checkoutservice (the repository holds 12 services)
-- Standard: draft 2 (current) and draft 1 (first round, kept below)
-- Runs: two per standard version, each in a fresh agent context, on 22 November 2026
+- Standard: 1.0 (current), with draft 2 and draft 1 kept below
+- Runs: two per version, each in a fresh agent context, on 22 November 2026
+
+## Version 1.0
+
+### Run 1
+
+```
+FifthNine scorecard          standard 1.0
+Repo: GoogleCloudPlatform/microservices-demo (checkoutservice)   Commit: c7cb6d5
+Platform: Kubernetes         Languages: Go
+
+Score: 5 of 16 checks passed (31)
+Verdict: Not ready (score below 70; critical checks FN-1.1 and FN-1.2 failed)
+
+1 Embracing risk             0 of 2
+2 Service level objectives   0 of 2
+3 Eliminating toil           1 of 2
+4 Monitoring                 0 of 2
+5 Automation                 1 of 2
+6 Release engineering        0 of 2
+7 Simplicity                 1 of 2
+8 Security                   2 of 2
+
+Results
+FN-1.1  Fail         kubernetes-manifests/checkoutservice.yaml:21
+FN-1.2  Fail         src/checkoutservice/main.go:214
+FN-2.1  No evidence  none
+FN-2.2  No evidence  none
+FN-3.1  Fail         kubernetes-manifests/checkoutservice.yaml:21
+FN-3.2  Pass         kubernetes-manifests/checkoutservice.yaml:48
+FN-4.1  Fail         src/checkoutservice/main.go:150
+FN-4.2  No evidence  none
+FN-5.1  Pass         terraform/main.tf:40
+FN-5.2  Fail         .github/workflows/ci-pr.yaml:54
+FN-6.1  Fail         src/checkoutservice/Dockerfile:33
+FN-6.2  Fail         kubernetes-manifests/checkoutservice.yaml:21
+FN-7.1  Pass         kubernetes-manifests/checkoutservice.yaml:47
+FN-7.2  Fail         src/checkoutservice/main.go:54
+FN-8.1  Pass         kubernetes-manifests/checkoutservice.yaml:54
+FN-8.2  Pass         kubernetes-manifests/checkoutservice.yaml:34
+
+Fix first
+1. FN-1.1  No replicas set (defaults to 1), no topology spread and no PodDisruptionBudget
+           kubernetes-manifests/checkoutservice.yaml:21
+2. FN-1.2  gRPC clients have no call deadline or retry cap; the 3s timeout context is thrown away
+           src/checkoutservice/main.go:214
+3. FN-3.1  No HorizontalPodAutoscaler for checkoutservice, and no replica settings on the Deployment
+           kubernetes-manifests/checkoutservice.yaml:21
+4. FN-4.1  No metrics are exported; initStats is an empty TODO
+           src/checkoutservice/main.go:150
+5. FN-5.2  CI does not run checkoutservice's own unit tests (money_test.go is never run)
+           .github/workflows/ci-pr.yaml:54
+
+No evidence: FN-2.1 (no SLO file or written availability and latency target), FN-2.2 (no alert rule files in the repo), FN-4.2 (logs are JSON at src/checkoutservice/main.go:55, but there are no alert rule files)
+```
+
+### Run 2
+
+```
+FifthNine scorecard          standard 1.0
+Repo: GoogleCloudPlatform/microservices-demo (checkoutservice)   Commit: c7cb6d5
+Platform: Kubernetes         Languages: Go
+
+Score: 5 of 16 checks passed (31)
+Verdict: Not ready (critical checks FN-1.1 and FN-1.2 failed; score below 70)
+
+1 Embracing risk             0 of 2
+2 Service level objectives   0 of 2
+3 Eliminating toil           1 of 2
+4 Monitoring                 0 of 2
+5 Automation                 1 of 2
+6 Release engineering        0 of 2
+7 Simplicity                 1 of 2
+8 Security                   2 of 2
+
+Results
+FN-1.1  Fail         release/kubernetes-manifests.yaml:175
+FN-1.2  Fail         src/checkoutservice/main.go:360
+FN-2.1  No evidence  none
+FN-2.2  No evidence  none
+FN-3.1  Fail         release/kubernetes-manifests.yaml:175
+FN-3.2  Pass         release/kubernetes-manifests.yaml:202, src/checkoutservice/main.go:144
+FN-4.1  Fail         src/checkoutservice/main.go:151
+FN-4.2  No evidence  none
+FN-5.1  Pass         terraform/main.tf:40
+FN-5.2  Fail         .github/workflows/ci-pr.yaml:54
+FN-6.1  Fail         src/checkoutservice/Dockerfile:33
+FN-6.2  Fail         release/kubernetes-manifests.yaml:175
+FN-7.1  Pass         release/kubernetes-manifests.yaml:201
+FN-7.2  Fail         src/checkoutservice/main.go:54
+FN-8.1  Pass         .github/workflows/make-release.yaml:68
+FN-8.2  Pass         release/kubernetes-manifests.yaml:188
+
+Fix first
+1. FN-1.1  Deployment sets no replicas (defaults to 1); no topology spread, no PodDisruptionBudget
+           release/kubernetes-manifests.yaml:175
+2. FN-1.2  Outbound gRPC calls have no deadline or retry cap (Convert uses context.TODO())
+           src/checkoutservice/main.go:360
+3. FN-3.1  No HorizontalPodAutoscaler or replica minimum/maximum for checkoutservice
+           release/kubernetes-manifests.yaml:175
+4. FN-4.1  No metrics are exported; stats setup is a TODO stub and there is no metrics endpoint
+           src/checkoutservice/main.go:151
+5. FN-5.2  The PR pipeline runs no checkoutservice tests (money_test.go is never run)
+           .github/workflows/ci-pr.yaml:54
+
+No evidence: FN-2.1 (no SLO file or written availability/latency target), FN-2.2 (no alert rule files of any kind in the repo), FN-4.2 (logs are JSON at main.go:55, but the repo has no alert rule files)
+```
+
+### Hand check
+
+Every cited line was opened and read. All of them exist and say what the run claims.
+
+- **Pass mark met.** Both runs agree on all 16 results and both score 31.
+- **The draft 2 disagreements are settled.** FN-3.1 is Fail in both runs: the standard now names the Deployment's own replica settings as a place the setting belongs. FN-5.1 is Pass in both runs: Google Cloud project and billing setup is a prerequisite, not a manual setup step, and Terraform creates the cluster (`terraform/main.tf:40`).
+- **Same findings, different files.** Run 2 cited `release/kubernetes-manifests.yaml`, the file the README quickstart applies. Run 1 cited `kubernetes-manifests/checkoutservice.yaml`. Both define the same Deployment without replicas, strategy, autoscaler or disruption budget.
+- **FN-1.2.** Run 1 cites the client setup, where the 3-second timeout context is created and discarded (`main.go:212-214`). Run 2 cites the currency call that uses `context.TODO()` (`main.go:360`). Both runs name both causes.
 
 ## Draft 2
 
